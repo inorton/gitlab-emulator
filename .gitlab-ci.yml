@@ -1,0 +1,14 @@
+stages:
+- build
+
+.template_1: &template_1_def
+  image: ubuntu:18.04
+
+
+job-build-one:
+  <<: *template_1_def
+  stage: build
+  script:
+  - pwd
+  - ls -l
+
