@@ -70,6 +70,11 @@ def read(yamlfile):
 
     check_unsupported(loaded)
 
+    # set CI_ values
+    loaded["variables"]["CI_PIPELINE_ID"] = "0"
+    loaded["variables"]["CI_COMMIT_REF_SLUG"] = "offline-build"
+    loaded["variables"]["CI_COMMIT_SHA"] = "42" * 20
+
     return loaded
 
 
