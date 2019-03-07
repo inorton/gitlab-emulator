@@ -37,6 +37,7 @@ class Job(object):
         self.tags = []
         self.stage = None
         self.variables = {}
+        self.dependencies = []
 
     def load(self, name, config):
         """
@@ -54,6 +55,7 @@ class Job(object):
         self.after_script = job.get("after_script", all_after)
         self.variables = job.get("variables", {})
         self.tags = job.get("tags", [])
+        self.dependencies = job.get("dependencies", [])
 
         # TODO add gitlab env vars to variables
 

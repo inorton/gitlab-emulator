@@ -4,17 +4,58 @@ Run a job from a .gitlab-ci.yml file
 """
 
 import sys
-
+import argparse
 from gitlabemu import configloader, job
 
-yamlfile = sys.argv[1]
-jobname = sys.argv[2]
-config = configloader.read(yamlfile)
+CONFIG_DEFAULT = ".gitlab-ci.yml"
 
-jobitem = configloader.get_job(config, jobname)
+parser = argparse.ArgumentParser()
+parser.add_argument("--list", dest="LIST", default=False,
+                    action="store_true",
+                    help="List runnable jobs")
+parser.add_argument("--full", dest="FULL", default=False,
+                    action="store_true",
+                    help="Run any jobs that are dependencies")
+parser.add_argument("--config", dest="CONFIG", default=CONFIG_DEFAULT,
+                    type=str,
+                    help="Use an alternative gitlab yaml file")
+parser.add_argument("JOB", type=str, default=None,
+                    nargs="?",
+                    help="Run this named job")
 
-jobobj = job.load(config, jobname)
 
-jobobj.run()
+def execute_job(config, jobname, seen=set(), recurse=False):
+    """
+    Run a job, optionally run required dependencies
+    :param config: the config dictionary
+    :param jobname: the job to start
+    :param seen: completed jobs are added to this set
+    :param recurse: if True, execute in dependency order
+    :return:
+    """
+    if jobname not in seen:
+        jobobj = job.load(config, jobname)
+        if recurse:
+            for need in jobobj.dependencies:
+                execute_job(config, need, seen=seen, recurse=True)
+        jobobj.run()
+        seen.add(jobname)
 
 
+def run():
+    options = parser.parse_args()
+
+    yamlfile = options.CONFIG
+    jobname = options.JOB
+    config = configloader.read(yamlfile)
+
+    if options.LIST:
+        jobs = configloader.get_jobs(config)
+        for jobname in sorted(jobs):
+            print(jobname)
+    else:
+        execute_job(config, jobname, recurse=options.FULL)
+
+
+if __name__ == "__main__":
+    run()
