@@ -96,3 +96,15 @@ def get_jobs(config):
         if isinstance(child, (dict,)):
             jobs.append(name)
     return jobs
+
+
+def get_job(config, name):
+    """
+    Get the job
+    :param config:
+    :param name:
+    :return:
+    """
+    assert name in get_jobs(config)
+
+    return config.get(name)
