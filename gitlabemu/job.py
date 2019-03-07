@@ -113,6 +113,8 @@ class DockerJob(Job):
 
         self.container = "gitlab-emu-" + str(uuid.uuid4())
 
+        subprocess.check_call(["docker", "pull", self.image])
+
         cmdline = ["docker",
                    "run", "--rm", "--name", self.container,
                    "-w", os.getcwd(), "-v",
