@@ -148,7 +148,11 @@ def make_script(lines):
     :param lines:
     :return:
     """
-    content = os.linesep.join(lines)
+    extra = []
+    if platform.system() == "Linux":
+        extra = ["set -e"]
+
+    content = os.linesep.join(extra + lines)
     return content
 
 
