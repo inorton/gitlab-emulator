@@ -3,9 +3,8 @@
 Run a job from a .gitlab-ci.yml file
 """
 
-import sys
 import argparse
-from gitlabemu import configloader, job
+from gitlabemu import configloader
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -34,7 +33,7 @@ def execute_job(config, jobname, seen=set(), recurse=False):
     :return:
     """
     if jobname not in seen:
-        jobobj = job.load(config, jobname)
+        jobobj = configloader.load_job(config, jobname)
         if recurse:
             for need in jobobj.dependencies:
                 execute_job(config, need, seen=seen, recurse=True)
@@ -50,8 +49,7 @@ def run():
     config = configloader.read(yamlfile)
 
     if options.LIST:
-        jobs = configloader.get_jobs(config)
-        for jobname in sorted(jobs):
+        for jobname in sorted(configloader.get_jobs(config)):
             print(jobname)
     else:
         execute_job(config, jobname, recurse=options.FULL)

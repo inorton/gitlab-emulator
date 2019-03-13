@@ -8,9 +8,7 @@ import platform
 import subprocess
 import shutil
 import tempfile
-import uuid
 
-from . import configloader
 from .errors import GitlabEmulatorError
 
 
@@ -85,63 +83,6 @@ class Job(object):
             sys.exit(1)
 
 
-class DockerJob(Job):
-    """
-    Run a job inside a docker container
-    """
-    def __init__(self):
-        super(DockerJob, self).__init__()
-        self.image = None
-        self.container = None
-        self.entrypoint = None
-
-    def load(self, name, config):
-        super(DockerJob, self).load(name, config)
-        all_images = config.get("image", None)
-        self.image = config[name].get("image", all_images)
-
-    def run(self):
-        if platform.system() == "Windows":
-            raise NotImplementedError()
-        if isinstance(self.image, dict):
-            image = self.image["name"]
-            self.entrypoint = self.image.get("entrypoint", self.entrypoint)
-            self.image = image
-        # squirt the script into the container stdin like gitlab does
-        lines = self.before_script + self.script + self.after_script
-        script = make_script(lines)
-
-        self.container = "gitlab-emu-" + str(uuid.uuid4())
-
-        subprocess.check_call(["docker", "pull", self.image])
-
-        cmdline = ["docker",
-                   "run", "--rm", "--name", self.container,
-                   "-w", os.getcwd(), "-v",
-                   os.getcwd() + ":" + os.getcwd(), "-i"]
-
-        for envname in self.variables:
-            cmdline.extend(["-e", "{}={}".format(envname,
-                                                 self.variables[envname])])
-
-        if self.entrypoint is not None:
-            cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
-
-        cmdline.append(self.image)
-
-        opened = subprocess.Popen(cmdline,
-                                  stdin=subprocess.PIPE,
-                                  stdout=sys.stdout,
-                                  stderr=sys.stderr)
-
-        opened.communicate(input=script)
-
-        result = opened.returncode
-        if result:
-            print("Docker job {} failed".format(self.name))
-            sys.exit(1)
-
-
 def make_script(lines):
     """
     Join lines together to make a script
@@ -156,20 +97,3 @@ def make_script(lines):
     return content
 
 
-def load(config, name):
-    """
-    Load a job from the configuration
-    :param config:
-    :param name:
-    :return:
-    """
-    jobs = configloader.get_jobs(config)
-    if name not in jobs:
-        raise NoSuchJob(name)
-
-    if config.get("image") or config[name].get("image"):
-        job = DockerJob()
-    else:
-        job = Job()
-    job.load(name, config)
-    return job

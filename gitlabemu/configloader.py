@@ -4,6 +4,8 @@ Load a .gitlab-ci.yml file
 
 import yaml
 from .errors import GitlabEmulatorError
+from .jobs import NoSuchJob, Job
+from .docker import DockerJob
 
 
 RESERVED_TOP_KEYS = ["stages",
@@ -44,11 +46,6 @@ def check_unsupported(config):
     """
     if "include" in config:
         raise FeatureNotSupportedError("include")
-
-    if "services" in config:
-        # might be able to support this with linking containers
-        # https://docs.gitlab.com/ce/ci/docker/using_docker_images.html#how-services-are-linked-to-the-job
-        raise FeatureNotSupportedError("services")
 
     for childname in config:
         # if this is a dict, it is probably a job
@@ -113,3 +110,42 @@ def get_job(config, name):
     assert name in get_jobs(config)
 
     return config.get(name)
+
+
+def get_services(config, jobname):
+    """
+    Get the service containers that should be started for a particular job
+    :param config:
+    :param jobname:
+    :return:
+    """
+    job = get_job(config, jobname)
+
+    services = []
+
+    if "image" in config or "image" in job:
+        # yes we are using docker, so we can offer services for this job
+        services = config.get("services", [])
+        services = job.get("services", services)
+    return services
+
+
+def load_job(config, name):
+    """
+    Load a job from the configuration
+    :param config:
+    :param name:
+    :return:
+    """
+    jobs = get_jobs(config)
+    if name not in jobs:
+        raise NoSuchJob(name)
+
+    if config.get("image") or config[name].get("image"):
+        job = DockerJob()
+        job.services = get_services(config, name)
+    else:
+        job = Job()
+    job.load(name, config)
+
+    return job
