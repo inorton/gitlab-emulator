@@ -12,3 +12,21 @@ job-build-one:
   - pwd
   - ls -l
 
+windows-job-runner:
+  stage: build
+  tags:
+    - cunity-windows-docker-1803
+  script:
+    - c:\Python27\python locallab.py .windows-job
+
+.windows-job:
+  image:
+    name: cunity/windows-1803-cmake:latest
+    entrypoint:
+      - "powershell.exe"
+  stage: build
+  script:
+    - dir
+    - pwd
+
+
