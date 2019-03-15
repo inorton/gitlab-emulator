@@ -129,12 +129,30 @@ def get_services(config, jobname):
     job = get_job(config, jobname)
 
     services = []
+    service_defs = []
 
     if "image" in config or "image" in job:
         # yes we are using docker, so we can offer services for this job
         services = config.get("services", [])
         services = job.get("services", services)
-    return services
+
+    for service in services:
+        item = {}
+        # if this is a dict use the extended version
+        # else make extended versions out of the single strings
+        if isinstance(service, str):
+            item["name"] = service
+
+        # if this is a dict, it needs to at least have name but could have
+        # alias and others
+        if isinstance(service, dict):
+            assert "name" in service
+            item = service
+
+        if item:
+            service_defs.append(item)
+
+    return service_defs
 
 
 def load_job(config, name):

@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name="gitlab-emulator",
-    version="0.0.2",
+    version="0.0.3",
     description="Run a subsect of .gitlab-ci.yml jobs locally",
     author="Ian Norton",
     author_email="inorton@gmail.com",

@@ -2,8 +2,9 @@
 
 Should understand:
 
- * docker builds on linux
+ * docker builds on linux and windows
  * shell builds on linux and windows
+ * services and service aliases
 
 ## List Possible Jobs
 
