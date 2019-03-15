@@ -22,6 +22,8 @@ linux-job-runner:
   image: docker:stable-git
   before_script:
     - apk add python2
+    - apk add py2-pip
+    - pip install pyyaml
   script:
     - python2.7 locallab.py job-build-one
 
