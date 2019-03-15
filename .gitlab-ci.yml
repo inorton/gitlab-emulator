@@ -13,13 +13,17 @@ job-build-one:
   - ls -l
 
 linux-job-runner:
+  variables:
+   DOCKER_HOST: tcp://docker:2375/
+   DOCKER_DRIVER: overlay2
+  services:
+    - docker:dind
   stage: build
-  image: ubuntu:18.04
+  image: docker:stable-git
   before_script:
-    - apt-get update
-    - apt-get install -y python
+    - apk add python2
   script:
-    - python locallab.py job-build-one
+    - python2.7 locallab.py job-build-one
 
 windows-job-runner:
   stage: build
