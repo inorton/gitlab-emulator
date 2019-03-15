@@ -12,6 +12,15 @@ job-build-one:
   - pwd
   - ls -l
 
+linux-job-runner:
+  stage: build
+  image: ubuntu:18.04
+  before_script:
+    - apt-get update
+    - apt-get install -y python
+  script:
+    - python locallab.py job-build-one
+
 windows-job-runner:
   stage: build
   tags:
