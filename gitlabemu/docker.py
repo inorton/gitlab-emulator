@@ -76,7 +76,7 @@ class DockerJob(Job):
 
     def run(self):
         if platform.system() == "Windows":
-            raise NotImplementedError()
+            print("warning windows docker is experimental")
         if isinstance(self.image, dict):
             image = self.image["name"]
             self.entrypoint = self.image.get("entrypoint", self.entrypoint)

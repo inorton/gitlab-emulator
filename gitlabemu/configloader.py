@@ -1,7 +1,7 @@
 """
 Load a .gitlab-ci.yml file
 """
-
+import os
 import yaml
 from .errors import GitlabEmulatorError
 from .jobs import NoSuchJob, Job
@@ -67,10 +67,17 @@ def read(yamlfile):
 
     check_unsupported(loaded)
 
+    if "variables" not in loaded:
+        loaded["variables"] = {}
+
     # set CI_ values
     loaded["variables"]["CI_PIPELINE_ID"] = "0"
     loaded["variables"]["CI_COMMIT_REF_SLUG"] = "offline-build"
     loaded["variables"]["CI_COMMIT_SHA"] = "42" * 20
+
+    for name in os.environ:
+        if name.startswith("CI_"):
+            loaded["variables"][name] = os.environ[name]
 
     return loaded
 

@@ -12,3 +12,36 @@ job-build-one:
   - pwd
   - ls -l
 
+linux-job-runner:
+  variables:
+   DOCKER_HOST: tcp://docker:2375/
+   DOCKER_DRIVER: overlay2
+  services:
+    - docker:dind
+  stage: build
+  image: docker:stable-git
+  before_script:
+    - apk add python2
+    - apk add py2-pip
+    - pip install pyyaml
+  script:
+    - python2.7 locallab.py job-build-one
+
+windows-job-runner:
+  stage: build
+  tags:
+    - cunity-windows-docker-1803
+  script:
+    - c:\Python27\python locallab.py .windows-job
+
+.windows-job:
+  image:
+    name: cunity/windows-1803-cmake:latest
+    entrypoint:
+      - "powershell.exe"
+  stage: build
+  script:
+    - dir
+    - pwd
+
+
