@@ -30,25 +30,31 @@ def docker_services(job):
                                    ])
             # this could be a list of images
             for service in services:
-                if ":" in service:
-                    name = service.split(":", 1)[0]
-                else:
-                    name = service  # bad?
-                    service = name + ":latest"  # ????
-                subprocess.check_call(["docker", "pull", service])
+                assert ":" in service["name"]
+                image = service["name"]
+                name = service["name"].split(":", 1)[0]
+                aliases = [name]
+                if "alias" in service:
+                    aliases.append(service["alias"])
+                try:
+                    subprocess.check_call(["docker", "pull", image])
+                except subprocess.CalledProcessError:
+                    print("warning: could not pull {}".format(image))
                 container = subprocess.check_output(
                     ["docker", "run",
                      "--privileged",
                      "-d", "--rm",
-                     service]).strip()
+                     image]).strip()
                 containers.append(container)
-                print("added {} to {} alias {}".format(container, network,
-                                                       name))
-                subprocess.check_call(
-                    ["docker", "network", "connect",
-                     "--alias", name,
-                     network,
-                     container])
+
+                network_cmd = ["docker", "network", "connect"]
+                for alias in aliases:
+                    print("adding alias {}".format(alias))
+                    network_cmd.extend(["--alias", alias])
+                network_cmd.append(network)
+                network_cmd.append(container)
+                subprocess.check_call(network_cmd)
+
         yield network
     finally:
         for container in containers:
