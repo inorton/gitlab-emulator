@@ -2,8 +2,8 @@ from distutils.core import setup
 
 setup(
     name="gitlab-emulator",
-    version="0.0.3",
-    description="Run a subsect of .gitlab-ci.yml jobs locally",
+    version="0.0.4",
+    description="Run a subset of .gitlab-ci.yml jobs locally",
     author="Ian Norton",
     author_email="inorton@gmail.com",
     url="https://gitlab.com/cunity/gitlab-emulator",
@@ -12,5 +12,5 @@ setup(
     install_requires=["pyyaml"],
     platforms=["any"],
     license="License :: OSI Approved :: MIT License",
-    long_description="Run a subsect of .gitlab-ci.yml jobs locally using docker"
+    long_description="Run a subset of .gitlab-ci.yml jobs locally using docker"
 )
