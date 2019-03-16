@@ -63,7 +63,7 @@ def read(yamlfile):
     :return:
     """
     with open(yamlfile, "r") as yamlobj:
-        loaded = yaml.load(yamlobj)
+        loaded = yaml.load(yamlobj, Loader=yaml.FullLoader)
 
     check_unsupported(loaded)
 
