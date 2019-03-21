@@ -3,6 +3,7 @@ Load a .gitlab-ci.yml file
 """
 import os
 import yaml
+import subprocess
 from .errors import GitlabEmulatorError
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
@@ -71,9 +72,13 @@ def read(yamlfile):
         loaded["variables"] = {}
 
     # set CI_ values
-    loaded["variables"]["CI_PIPELINE_ID"] = "0"
-    loaded["variables"]["CI_COMMIT_REF_SLUG"] = "offline-build"
-    loaded["variables"]["CI_COMMIT_SHA"] = "42" * 20
+    loaded["variables"]["CI_PIPELINE_ID"] = os.getenv(
+        "CI_PIPELINE_ID", "0")
+    loaded["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
+        "CI_COMMIT_REF_SLUG", "offline-build")
+    loaded["variables"]["CI_COMMIT_SHA"] = os.getenv(
+        "CI_COMMIT_SHA", subprocess.check_output(
+            ["git", "rev-parse", "HEAD"]).strip())
 
     for name in os.environ:
         if name.startswith("CI_"):
