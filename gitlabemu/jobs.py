@@ -51,7 +51,11 @@ class Job(object):
         self.script = job.get("script", [])
         all_after = config.get("after_script", [])
         self.after_script = job.get("after_script", all_after)
-        self.variables = job.get("variables", {})
+
+        self.variables = config.get("variables", {})
+        job_vars = job.get("variables", {})
+        for name in job_vars:
+            self.variables[name] = job_vars[name]
         self.tags = job.get("tags", [])
         self.dependencies = job.get("dependencies", [])
 
