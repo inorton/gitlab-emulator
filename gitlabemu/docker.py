@@ -5,6 +5,7 @@ import subprocess
 import sys
 import uuid
 from contextlib import contextmanager
+
 from .jobs import Job, make_script
 
 
@@ -78,7 +79,7 @@ class DockerJob(Job):
         super(DockerJob, self).load(name, config)
         all_images = config.get("image", None)
         self.image = config[name].get("image", all_images)
-        self.services = config[name].get("services", self.services)
+        self.services = get_services(config, name)
 
     def run(self):
         if platform.system() == "Windows":
@@ -125,3 +126,40 @@ class DockerJob(Job):
         if result:
             print("Docker job {} failed".format(self.name))
             sys.exit(1)
+
+
+def get_services(config, jobname):
+    """
+    Get the service containers that should be started for a particular job
+    :param config:
+    :param jobname:
+    :return:
+    """
+    job = config.get(jobname)
+
+    services = []
+    service_defs = []
+
+    if "image" in config or "image" in job:
+        # yes we are using docker, so we can offer services for this job
+        all_services = config.get("services", [])
+        job_services = job.get("services", [])
+        services = all_services + job_services
+
+    for service in services:
+        item = {}
+        # if this is a dict use the extended version
+        # else make extended versions out of the single strings
+        if isinstance(service, str):
+            item["name"] = service
+
+        # if this is a dict, it needs to at least have name but could have
+        # alias and others
+        if isinstance(service, dict):
+            assert "name" in service
+            item = service
+
+        if item:
+            service_defs.append(item)
+
+    return service_defs

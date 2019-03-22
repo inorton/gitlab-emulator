@@ -4,6 +4,7 @@ Load a .gitlab-ci.yml file
 import os
 import yaml
 import subprocess
+
 from .errors import GitlabEmulatorError
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
@@ -124,42 +125,6 @@ def get_job(config, name):
     return config.get(name)
 
 
-def get_services(config, jobname):
-    """
-    Get the service containers that should be started for a particular job
-    :param config:
-    :param jobname:
-    :return:
-    """
-    job = get_job(config, jobname)
-
-    services = []
-    service_defs = []
-
-    if "image" in config or "image" in job:
-        # yes we are using docker, so we can offer services for this job
-        services = config.get("services", [])
-        services = job.get("services", services)
-
-    for service in services:
-        item = {}
-        # if this is a dict use the extended version
-        # else make extended versions out of the single strings
-        if isinstance(service, str):
-            item["name"] = service
-
-        # if this is a dict, it needs to at least have name but could have
-        # alias and others
-        if isinstance(service, dict):
-            assert "name" in service
-            item = service
-
-        if item:
-            service_defs.append(item)
-
-    return service_defs
-
-
 def load_job(config, name):
     """
     Load a job from the configuration
@@ -173,7 +138,6 @@ def load_job(config, name):
 
     if config.get("image") or config[name].get("image"):
         job = DockerJob()
-        job.services = get_services(config, name)
     else:
         job = Job()
     job.load(name, config)
