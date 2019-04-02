@@ -99,6 +99,7 @@ class DockerJob(Job):
         with docker_services(self) as network:
             cmdline = ["docker",
                        "run",
+                       "--privileged",
                        "--rm", "--name", self.container,
                        "-w", os.getcwd(), "-v",
                        os.getcwd() + ":" + os.getcwd(), "-i"]
