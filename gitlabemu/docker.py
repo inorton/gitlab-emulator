@@ -41,11 +41,11 @@ def docker_services(job):
                     subprocess.check_call(["docker", "pull", image])
                 except subprocess.CalledProcessError:
                     print("warning: could not pull {}".format(image))
-                container = subprocess.check_output(
-                    ["docker", "run",
-                     "--privileged",
-                     "-d", "--rm",
-                     image]).strip()
+                docker_cmdline = ["docker", "run", "-d", "--rm"]
+                if platform.system() == "Linux":
+                    docker_cmdline.append("--privileged")
+                docker_cmdline.append(image) 
+                container = subprocess.check_output(docker_cmdline).strip()
                 containers.append(container)
 
                 network_cmd = ["docker", "network", "connect"]
@@ -82,8 +82,20 @@ class DockerJob(Job):
         self.services = get_services(config, name)
 
     def run(self):
+        cmdline = [
+            "docker", 
+            "run",
+            "-i",
+            "--rm",
+            "-w", os.getcwd(),
+            "-v", os.getcwd() + ":" + os.getcwd()]
+
         if platform.system() == "Windows":
             print("warning windows docker is experimental")
+        
+        if platform.system() == "Linux":
+            cmdline.append("--privileged")            
+
         if isinstance(self.image, dict):
             image = self.image["name"]
             self.entrypoint = self.image.get("entrypoint", self.entrypoint)
@@ -97,12 +109,7 @@ class DockerJob(Job):
         subprocess.check_call(["docker", "pull", self.image])
 
         with docker_services(self) as network:
-            cmdline = ["docker",
-                       "run",
-                       "--privileged",
-                       "--rm", "--name", self.container,
-                       "-w", os.getcwd(), "-v",
-                       os.getcwd() + ":" + os.getcwd(), "-i"]
+            cmdline.extend(["--name", self.container])
 
             if network:
                 cmdline.extend(["--network", network])
@@ -124,9 +131,7 @@ class DockerJob(Job):
                                        "overrides")
 
                 cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
-
             cmdline.append(self.image)
-
             opened = subprocess.Popen(cmdline,
                                       stdin=subprocess.PIPE,
                                       stdout=sys.stdout,
