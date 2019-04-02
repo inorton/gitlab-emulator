@@ -112,6 +112,17 @@ class DockerJob(Job):
                                                      self.variables[envname])])
 
             if self.entrypoint is not None:
+                # docker run does not support multiple args for entrypoint
+                if self.entrypoint == ["/bin/sh", "-c"]:
+                    self.entrypoint = [""]
+                if self.entrypoint == [""]:
+                    self.entrypoint = ["/bin/sh"]
+
+                if len(self.entrypoint) > 1:
+                    raise RuntimeError("gitlab-emulator cannot yet support "
+                                       "multiple args for docker entrypoint "
+                                       "overrides")
+
                 cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
 
             cmdline.append(self.image)
