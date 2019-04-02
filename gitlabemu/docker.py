@@ -85,6 +85,7 @@ class DockerJob(Job):
         cmdline = [
             "docker", 
             "run",
+            "-i",
             "--rm",
             "-w", os.getcwd(),
             "-v", os.getcwd() + ":" + os.getcwd()]
