@@ -41,11 +41,11 @@ def docker_services(job):
                     subprocess.check_call(["docker", "pull", image])
                 except subprocess.CalledProcessError:
                     print("warning: could not pull {}".format(image))
-                container = subprocess.check_output(
-                    ["docker", "run",
-                     "--privileged",
-                     "-d", "--rm",
-                     image]).strip()
+                docker_cmdline = ["docker", "run", "-d", "--rm"]
+                if platform.system() != "Windows":
+                    docker_cmdline.append("--privileged")
+                docker_cmdline.append(image) 
+                container = subprocess.check_output(docker_cmdline).strip()
                 containers.append(container)
 
                 network_cmd = ["docker", "network", "connect"]
