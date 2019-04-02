@@ -131,9 +131,7 @@ class DockerJob(Job):
                                        "overrides")
 
                 cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
-
             cmdline.append(self.image)
-            print("starting ..'{}'".format(cmdline), file=sys.stderr)
             opened = subprocess.Popen(cmdline,
                                       stdin=subprocess.PIPE,
                                       stdout=sys.stdout,
