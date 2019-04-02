@@ -42,7 +42,7 @@ def docker_services(job):
                 except subprocess.CalledProcessError:
                     print("warning: could not pull {}".format(image))
                 docker_cmdline = ["docker", "run", "-d", "--rm"]
-                if not platform.system() == "Linux":
+                if platform.system() == "Linux":
                     docker_cmdline.append("--privileged")
                 docker_cmdline.append(image) 
                 container = subprocess.check_output(docker_cmdline).strip()
