@@ -1,11 +1,10 @@
-from __future__ import print_function
 import os
 import platform
 import subprocess
 import sys
 import uuid
 from contextlib import contextmanager
-
+from logmsg import warning, info, fatal
 from .jobs import Job, make_script
 
 
@@ -24,6 +23,7 @@ def docker_services(job):
         if services:
             # create a network, start each service attached
             network = "gitlabemu-services-{}".format(str(uuid.uuid4())[0:4])
+            info("create docker service network")
             subprocess.check_call(["docker", "network", "create",
                                    "-d", "bridge",
                                    "--subnet", "192.168.94.0/24",
@@ -40,17 +40,19 @@ def docker_services(job):
                 try:
                     subprocess.check_call(["docker", "pull", image])
                 except subprocess.CalledProcessError:
-                    print("warning: could not pull {}".format(image))
+                    warning("could not pull {}".format(image))
                 docker_cmdline = ["docker", "run", "-d", "--rm"]
                 if platform.system() == "Linux":
                     docker_cmdline.append("--privileged")
-                docker_cmdline.append(image) 
+                docker_cmdline.append(image)
+                info("creating docker service {}".format(name))
                 container = subprocess.check_output(docker_cmdline).strip()
+                info("service {} is container {}".format(name, container))
                 containers.append(container)
 
                 network_cmd = ["docker", "network", "connect"]
                 for alias in aliases:
-                    print("adding alias {}".format(alias))
+                    info("adding docker service alias {}".format(alias))
                     network_cmd.extend(["--alias", alias])
                 network_cmd.append(network)
                 network_cmd.append(container)
@@ -59,8 +61,10 @@ def docker_services(job):
         yield network
     finally:
         for container in containers:
+            info("clean up docker service {}".format(container))
             subprocess.call(["docker", "kill", container])
         if network:
+            info("clean up docker network {}".format(network))
             subprocess.call(["docker", "network", "rm", network])
 
 
@@ -91,7 +95,7 @@ class DockerJob(Job):
             "-v", os.getcwd() + ":" + os.getcwd()]
 
         if platform.system() == "Windows":
-            print("warning windows docker is experimental")
+            warning("warning windows docker is experimental")
         
         if platform.system() == "Linux":
             cmdline.append("--privileged")            
@@ -106,7 +110,11 @@ class DockerJob(Job):
 
         self.container = "gitlab-emu-" + str(uuid.uuid4())
 
-        subprocess.check_call(["docker", "pull", self.image])
+        info("pulling docker image {}".format(self.image))
+        try:
+            subprocess.check_call(["docker", "pull", self.image])
+        except subprocess.CalledProcessError:
+            warning("could not pull docker image {}".format(self.image))
 
         with docker_services(self) as network:
             cmdline.extend(["--name", self.container])
@@ -132,6 +140,7 @@ class DockerJob(Job):
 
                 cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
             cmdline.append(self.image)
+            info("starting docker container for {}".format(self.name))
             opened = subprocess.Popen(cmdline,
                                       stdin=subprocess.PIPE,
                                       stdout=sys.stdout,
@@ -141,8 +150,7 @@ class DockerJob(Job):
 
         result = opened.returncode
         if result:
-            print("Docker job {} failed".format(self.name))
-            sys.exit(1)
+            fatal("Docker job {} failed".format(self.name))
 
 
 def get_services(config, jobname):

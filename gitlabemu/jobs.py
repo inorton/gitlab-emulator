@@ -1,14 +1,13 @@
 """
 Represent a gitlab job
 """
-from __future__ import print_function
 import os
 import sys
 import platform
 import subprocess
 import shutil
 import tempfile
-
+from logmsg import info, fatal
 from .errors import GitlabEmulatorError
 
 
@@ -70,6 +69,7 @@ class Job(object):
         for name in self.variables:
             envs[name] = self.variables[name]
         try:
+            info("running shell job {}".format(self.name))
             lines = self.before_script + self.script + self.after_script
             script = make_script(lines)
             try:
@@ -83,8 +83,7 @@ class Job(object):
                 shutil.rmtree(tmpdir)
 
         except subprocess.CalledProcessError:
-            print("Failed running job {}".format(self.name))
-            sys.exit(1)
+            fatal("Failed running job {}".format(self.name))            
 
 
 def make_script(lines):
