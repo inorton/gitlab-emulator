@@ -78,7 +78,12 @@ class Job(object):
                 with open(filename, "w") as scriptfile:
                     scriptfile.write(script)
                 os.chmod(filename, 0700)
-                subprocess.check_call([filename])
+                cmdline = [filename]
+                if "#!" not in lines[0]:
+                    shell = os.getenv("SHELL", "/bin/sh")                
+                    cmdline = [shell, filename]
+                    
+                subprocess.check_call(cmdline)
             finally:
                 shutil.rmtree(tmpdir)
 

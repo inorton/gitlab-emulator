@@ -5,12 +5,19 @@ stages:
   image: ubuntu:18.04
 
 
-job-build-one:
+job-build-docker:
   <<: *template_1_def
   stage: build
   script:
   - pwd
   - ls -l
+
+.job-build-shell:
+  stage: build
+  script:
+  - pwd
+  - ls -l
+
 
 linux-job-runner:
   variables:
@@ -25,7 +32,8 @@ linux-job-runner:
     - apk add py2-pip
     - pip install pyyaml
   script:
-    - python2.7 locallab.py job-build-one
+    - python2.7 locallab.py job-build-docker
+    - python2.7 locallab.py .job-build-shell
 
 windows-job-runner:
   stage: build
