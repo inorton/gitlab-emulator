@@ -77,7 +77,7 @@ class Job(object):
                 filename = os.path.join(tmpdir, "gitlab-emu-tmp")
                 with open(filename, "w") as scriptfile:
                     scriptfile.write(script)
-                os.chmod(filename, 0700)
+                os.chmod(filename, 0o700)
                 cmdline = [filename]
                 if "#!" not in lines[0]:
                     shell = os.getenv("SHELL", "/bin/sh")                
