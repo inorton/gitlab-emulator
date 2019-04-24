@@ -36,9 +36,9 @@ class Job(object):
         self.variables = {}
         self.dependencies = []
         if platform.system() == "Windows":
-            self.shell = os.getenv("COMSPEC", "C:\\WINDOWS\\system32\\cmd.exe")
+            self.shell = [os.getenv("COMSPEC", "C:\\WINDOWS\\system32\\cmd.exe")]
         else:
-            self.shell = os.getenv("SHELL", "/bin/sh")
+            self.shell = [os.getenv("SHELL", "/bin/sh")]
 
     def load(self, name, config):
         """
@@ -98,6 +98,10 @@ def make_script(lines):
         extra = ["set -e"]
 
     content = os.linesep.join(extra + lines)
+
+    if platform.system() == "Windows":
+        content += os.linesep
+
     return content
 
 
