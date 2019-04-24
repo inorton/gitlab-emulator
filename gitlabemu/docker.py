@@ -146,7 +146,7 @@ class DockerJob(Job):
                                       stdout=sys.stdout,
                                       stderr=sys.stderr)
 
-            opened.communicate(input=script)
+            opened.communicate(input=script.encode())
 
         result = opened.returncode
         if result:
