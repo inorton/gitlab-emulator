@@ -35,6 +35,10 @@ class Job(object):
         self.stage = None
         self.variables = {}
         self.dependencies = []
+        if platform.system() == "Windows":
+            self.shell = [os.getenv("COMSPEC", "C:\\WINDOWS\\system32\\cmd.exe")]
+        else:
+            self.shell = [os.getenv("SHELL", "/bin/sh")]
 
     def load(self, name, config):
         """
@@ -68,27 +72,19 @@ class Job(object):
         envs = dict(os.environ)
         for name in self.variables:
             envs[name] = self.variables[name]
-        try:
-            info("running shell job {}".format(self.name))
-            lines = self.before_script + self.script + self.after_script
-            script = make_script(lines)
-            try:
-                tmpdir = tempfile.mkdtemp(dir=os.getcwd())
-                filename = os.path.join(tmpdir, "gitlab-emu-tmp")
-                with open(filename, "w") as scriptfile:
-                    scriptfile.write(script)
-                os.chmod(filename, 0o700)
-                cmdline = [filename]
-                if "#!" not in lines[0]:
-                    shell = os.getenv("SHELL", "/bin/sh")                
-                    cmdline = [shell, filename]
-                    
-                subprocess.check_call(cmdline)
-            finally:
-                shutil.rmtree(tmpdir)
 
-        except subprocess.CalledProcessError:
-            fatal("Failed running job {}".format(self.name))            
+        info("running shell job {}".format(self.name))
+        lines = self.before_script + self.script + self.after_script
+        script = make_script(lines)
+        opened = subprocess.Popen(self.shell,
+                                  stdin=subprocess.PIPE,
+                                  stdout=sys.stdout,
+                                  stderr=sys.stderr)
+        opened.communicate(input=script.encode())
+
+        result = opened.returncode
+        if result:
+            fatal("Shell job {} failed".format(self.name))
 
 
 def make_script(lines):
@@ -102,6 +98,10 @@ def make_script(lines):
         extra = ["set -e"]
 
     content = os.linesep.join(extra + lines)
+
+    if platform.system() == "Windows":
+        content += os.linesep
+
     return content
 
 

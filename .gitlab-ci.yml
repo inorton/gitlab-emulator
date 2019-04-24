@@ -35,14 +35,14 @@ linux-job-runner:
     - python2.7 locallab.py job-build-docker
     - python2.7 locallab.py .job-build-shell
 
-windows-job-runner:
+windows-docker-job-runner:
   stage: build
   tags:
     - cunity-windows-docker-1803
   script:
-    - c:\Python27\python locallab.py .windows-job
+    - c:\Python27\python locallab.py .windows-docker-job
 
-.windows-job:
+.windows-docker-job:
   image:
     name: cunity/windows-1803-cmake:latest
     entrypoint:
@@ -51,5 +51,15 @@ windows-job-runner:
   script:
     - dir
     - pwd
+
+windows-shell-job:
+  stage: build
+  tags:
+    - cunity-windows-docker-1803
+  script:
+    - echo %PATH%
+    - echo %NUMBER_OF_PROCESSORS%
+    - echo %OS%
+    - echo %CD%
 
 
