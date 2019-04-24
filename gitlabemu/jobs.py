@@ -7,7 +7,7 @@ import platform
 import subprocess
 import shutil
 import tempfile
-from logmsg import info, fatal
+from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 
 
