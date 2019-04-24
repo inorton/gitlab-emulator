@@ -4,7 +4,7 @@ import subprocess
 import sys
 import uuid
 from contextlib import contextmanager
-from logmsg import warning, info, fatal
+from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 
 
