@@ -69,6 +69,8 @@ def read(yamlfile):
 
     check_unsupported(loaded)
 
+    loaded["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))
+
     if "variables" not in loaded:
         loaded["variables"] = {}
 
@@ -78,8 +80,7 @@ def read(yamlfile):
     loaded["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
         "CI_COMMIT_REF_SLUG", "offline-build")
     loaded["variables"]["CI_COMMIT_SHA"] = os.getenv(
-        "CI_COMMIT_SHA", subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=os.path.dirname(yamlfile)).strip())
+        "CI_COMMIT_SHA", "unknown")
 
     for name in os.environ:
         if name.startswith("CI_"):

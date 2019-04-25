@@ -40,7 +40,7 @@ class Job(object):
             self.shell = [os.getenv("COMSPEC", "C:\\WINDOWS\\system32\\cmd.exe")]
         else:
             self.shell = [os.getenv("SHELL", "/bin/sh")]
-
+        self.workspace = None
         self.stderr = sys.stderr
         self.stdout = sys.stdout
 
@@ -51,6 +51,7 @@ class Job(object):
         :param config:
         :return:
         """
+        self.workspace = config["_workspace"]
         self.name = name
         job = config[name]
         all_before = config.get("before_script", [])
@@ -100,7 +101,7 @@ class Job(object):
                 opened.wait()
                 return
 
-    def run(self, cwd=os.getcwd()):
+    def run(self):
         """
         Run the job on the local machine
         :return:
@@ -113,7 +114,7 @@ class Job(object):
         lines = self.before_script + self.script + self.after_script
         script = make_script(lines)
         opened = subprocess.Popen(self.shell,
-                                  cwd=os.getcwd(),
+                                  cwd=self.workspace,
                                   stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT)
