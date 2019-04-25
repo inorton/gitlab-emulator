@@ -85,6 +85,16 @@ class DockerJob(Job):
         self.image = config[name].get("image", all_images)
         self.services = get_services(config, name)
 
+    def abort(self):
+        """
+        Abort the build by killing our container
+        :return:
+        """
+        info("abort docker job {}".format(self.name))
+        if self.container:
+            info("kill container {}".format(self.name))
+            subprocess.call(["docker", "kill", self.container])
+
     def run(self):
         cmdline = [
             "docker", 
@@ -145,7 +155,7 @@ class DockerJob(Job):
                                       stdin=subprocess.PIPE,
                                       stdout=self.stdout,
                                       stderr=self.stderr)
-
+            self.build_process = opened
             opened.communicate(input=script.encode())
 
         result = opened.returncode

@@ -28,6 +28,7 @@ class Job(object):
     """
     def __init__(self):
         self.name = None
+        self.build_process = None
         self.before_script = []
         self.script = []
         self.after_script = []
@@ -64,8 +65,17 @@ class Job(object):
             self.variables[name] = job_vars[name]
         self.tags = job.get("tags", [])
         self.dependencies = job.get("dependencies", [])
-
         # TODO add gitlab env vars to variables
+
+    def abort(self):
+        """
+        Abort the build and attempt cleanup
+        :return:
+        """
+        info("aborting job {}".format(self.name))
+        if self.build_process:
+            info("killing child build process..")
+            self.build_process.kill()
 
     def run(self):
         """
@@ -83,8 +93,8 @@ class Job(object):
                                   stdin=subprocess.PIPE,
                                   stdout=self.stdout,
                                   stderr=self.stderr)
+        self.build_process = opened
         opened.communicate(input=script.encode())
-
         result = opened.returncode
         if result:
             fatal("Shell job {} failed".format(self.name))
