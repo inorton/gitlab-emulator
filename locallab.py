@@ -3,6 +3,7 @@
 Run a job from a .gitlab-ci.yml file
 """
 
+import os
 import argparse
 from gitlabemu import configloader
 
@@ -37,7 +38,7 @@ def execute_job(config, jobname, seen=set(), recurse=False):
         if recurse:
             for need in jobobj.dependencies:
                 execute_job(config, need, seen=seen, recurse=True)
-        jobobj.run()
+        jobobj.run(cwd=config["_workspace"])
         seen.add(jobname)
 
 
@@ -47,6 +48,8 @@ def run():
     yamlfile = options.CONFIG
     jobname = options.JOB
     config = configloader.read(yamlfile)
+
+    config["_workspace"] = os.path.dirname(os.path.abspath(yamlfile))
 
     if options.LIST:
         for jobname in sorted(configloader.get_jobs(config)):
