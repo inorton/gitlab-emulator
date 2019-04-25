@@ -143,8 +143,8 @@ class DockerJob(Job):
             info("starting docker container for {}".format(self.name))
             opened = subprocess.Popen(cmdline,
                                       stdin=subprocess.PIPE,
-                                      stdout=sys.stdout,
-                                      stderr=sys.stderr)
+                                      stdout=self.stdout,
+                                      stderr=self.stderr)
 
             opened.communicate(input=script.encode())
 

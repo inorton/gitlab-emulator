@@ -40,6 +40,9 @@ class Job(object):
         else:
             self.shell = [os.getenv("SHELL", "/bin/sh")]
 
+        self.stderr = sys.stderr
+        self.stdout = sys.stdout
+
     def load(self, name, config):
         """
         Load a job from a dictionary
@@ -78,8 +81,8 @@ class Job(object):
         script = make_script(lines)
         opened = subprocess.Popen(self.shell,
                                   stdin=subprocess.PIPE,
-                                  stdout=sys.stdout,
-                                  stderr=sys.stderr)
+                                  stdout=self.stdout,
+                                  stderr=self.stderr)
         opened.communicate(input=script.encode())
 
         result = opened.returncode
