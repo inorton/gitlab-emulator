@@ -5,8 +5,8 @@ import os
 import sys
 import platform
 import subprocess
-import shutil
-import tempfile
+import select
+import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 
@@ -77,6 +77,29 @@ class Job(object):
             info("killing child build process..")
             self.build_process.kill()
 
+    def communicate(self, script):
+        """
+        Process STDIO for the build process
+        :param script: script (eg bytezs) to pipe into stdin
+        :return:
+        """
+        opened = self.build_process
+
+        opened.stdin.write(script)
+        opened.stdin.flush()
+        opened.stdin.close()
+
+        while not opened.poll():
+            data = opened.stdout.read(100)
+            if data:
+                self.stdout.write(data.decode())
+                self.stdout.flush()
+            else:
+                opened.stdout.close()
+                self.stdout.close()
+                opened.wait()
+                return
+
     def run(self):
         """
         Run the job on the local machine
@@ -91,10 +114,11 @@ class Job(object):
         script = make_script(lines)
         opened = subprocess.Popen(self.shell,
                                   stdin=subprocess.PIPE,
-                                  stdout=self.stdout,
-                                  stderr=self.stderr)
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT)
         self.build_process = opened
-        opened.communicate(input=script.encode())
+        self.communicate(script.encode())
+
         result = opened.returncode
         if result:
             fatal("Shell job {} failed".format(self.name))
