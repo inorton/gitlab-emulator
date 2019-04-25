@@ -95,14 +95,14 @@ class DockerJob(Job):
             info("kill container {}".format(self.name))
             subprocess.call(["docker", "kill", self.container])
 
-    def run(self):
+    def run(self, cwd=os.getcwd()):
         cmdline = [
             "docker", 
             "run",
             "-i",
             "--rm",
-            "-w", os.getcwd(),
-            "-v", os.getcwd() + ":" + os.getcwd()]
+            "-w", cwd,
+            "-v", cwd + ":" + cwd]
 
         if platform.system() == "Windows":
             warning("warning windows docker is experimental")
@@ -152,6 +152,7 @@ class DockerJob(Job):
             cmdline.append(self.image)
             info("starting docker container for {}".format(self.name))
             opened = subprocess.Popen(cmdline,
+                                      cwd=cwd,
                                       stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)

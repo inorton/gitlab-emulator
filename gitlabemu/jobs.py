@@ -100,7 +100,7 @@ class Job(object):
                 opened.wait()
                 return
 
-    def run(self):
+    def run(self, cwd=os.getcwd()):
         """
         Run the job on the local machine
         :return:
@@ -113,6 +113,7 @@ class Job(object):
         lines = self.before_script + self.script + self.after_script
         script = make_script(lines)
         opened = subprocess.Popen(self.shell,
+                                  cwd=os.getcwd(),
                                   stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT)
