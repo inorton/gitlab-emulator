@@ -31,6 +31,7 @@ def docker_services(job):
                                    ])
             # this could be a list of images
             for service in services:
+                job.stdout.write("create docker service : {}".format(service))
                 assert ":" in service["name"]
                 image = service["name"]
                 name = service["name"].split(":", 1)[0]
@@ -38,7 +39,11 @@ def docker_services(job):
                 if "alias" in service:
                     aliases.append(service["alias"])
                 try:
-                    subprocess.check_call(["docker", "pull", image])
+                    pull = subprocess.Popen(["docker", "pull", image],
+                                            stdin=None,
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.STDOUT)
+                    job.communicate(pull)
                 except subprocess.CalledProcessError:
                     warning("could not pull {}".format(image))
                 docker_cmdline = ["docker", "run", "-d", "--rm"]
@@ -57,7 +62,6 @@ def docker_services(job):
                 network_cmd.append(network)
                 network_cmd.append(container)
                 subprocess.check_call(network_cmd)
-
         yield network
     finally:
         for container in containers:
@@ -122,7 +126,12 @@ class DockerJob(Job):
 
         info("pulling docker image {}".format(self.image))
         try:
-            subprocess.check_call(["docker", "pull", self.image])
+            self.stdout.write("Pulling {}...".format(self.image))
+            pull = subprocess.Popen(["docker", "pull", self.image],
+                                    stdin=None,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT)
+            self.communicate(pull)
         except subprocess.CalledProcessError:
             warning("could not pull docker image {}".format(self.image))
 
@@ -157,7 +166,7 @@ class DockerJob(Job):
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
             self.build_process = opened
-            self.communicate(script.encode())
+            self.communicate(opened, script=script.encode())
 
         result = opened.returncode
         if result:

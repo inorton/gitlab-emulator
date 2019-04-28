@@ -78,27 +78,26 @@ class Job(object):
             info("killing child build process..")
             self.build_process.kill()
 
-    def communicate(self, script):
+    def communicate(self, process, script=None):
         """
         Process STDIO for the build process
+        :param process: child started by POpen
         :param script: script (eg bytezs) to pipe into stdin
         :return:
         """
-        opened = self.build_process
+        if script is not None:
+            process.stdin.write(script)
+            process.stdin.flush()
+            process.stdin.close()
 
-        opened.stdin.write(script)
-        opened.stdin.flush()
-        opened.stdin.close()
-
-        while not opened.poll():
-            data = opened.stdout.read(100)
+        while not process.poll():
+            data = process.stdout.read(100)
             if data:
                 self.stdout.write(data.decode())
                 self.stdout.flush()
             else:
-                opened.stdout.close()
-                self.stdout.close()
-                opened.wait()
+                process.stdout.close()
+                process.wait()
                 return
 
     def run(self):
@@ -119,7 +118,7 @@ class Job(object):
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT)
         self.build_process = opened
-        self.communicate(script.encode())
+        self.communicate(opened, script=script.encode())
 
         result = opened.returncode
         if result:
