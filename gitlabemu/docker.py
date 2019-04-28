@@ -43,7 +43,7 @@ def docker_services(job):
                                             stdin=None,
                                             stdout=subprocess.PIPE,
                                             stderr=subprocess.STDOUT)
-                    job.communicate(pull)
+                    job.check_communicate(pull)
                 except subprocess.CalledProcessError:
                     warning("could not pull {}".format(image))
                 docker_cmdline = ["docker", "run", "-d", "--rm"]
@@ -131,7 +131,7 @@ class DockerJob(Job):
                                     stdin=None,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
-            self.communicate(pull)
+            self.check_communicate(pull)
         except subprocess.CalledProcessError:
             warning("could not pull docker image {}".format(self.image))
 

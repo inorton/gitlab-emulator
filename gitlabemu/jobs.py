@@ -78,9 +78,18 @@ class Job(object):
             info("killing child build process..")
             self.build_process.kill()
 
+    def check_communicate(self, process, script=None):
+        """
+        Process STDIO for a build process but raise an exception on error
+        :param process: child started by POpen
+        :param script: script (eg bytezs) to pipe into stdin
+        :return:
+        """
+        comm(process, stdout=self.stdout, script=script, throw=True)
+
     def communicate(self, process, script=None):
         """
-        Process STDIO for the build process
+        Process STDIO for a build process
         :param process: child started by POpen
         :param script: script (eg bytezs) to pipe into stdin
         :return:

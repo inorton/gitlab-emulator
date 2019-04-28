@@ -30,10 +30,10 @@ linux-job-runner:
   before_script:
     - apk add python2
     - apk add py2-pip
-    - pip install pyyaml
+    - pip install -e .
   script:
-    - python2.7 locallab.py job-build-docker
-    - python2.7 locallab.py .job-build-shell
+    - locallab.py job-build-docker
+    - locallab.py .job-build-shell
 
 windows-docker-job-runner:
   stage: build
