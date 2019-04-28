@@ -9,7 +9,7 @@ import select
 import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
-
+from .helpers import communicate as comm
 
 class NoSuchJob(GitlabEmulatorError):
     """
@@ -85,20 +85,7 @@ class Job(object):
         :param script: script (eg bytezs) to pipe into stdin
         :return:
         """
-        if script is not None:
-            process.stdin.write(script)
-            process.stdin.flush()
-            process.stdin.close()
-
-        while not process.poll():
-            data = process.stdout.read(100)
-            if data:
-                self.stdout.write(data.decode())
-                self.stdout.flush()
-            else:
-                process.stdout.close()
-                process.wait()
-                return
+        comm(process, stdout=self.stdout, script=script)
 
     def run(self):
         """
