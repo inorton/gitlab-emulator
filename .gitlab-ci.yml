@@ -61,5 +61,8 @@ windows-shell-job:
     - echo %NUMBER_OF_PROCESSORS%
     - echo %OS%
     - echo %CD%
+    - echo sleeping..
+    - powershell -c "Start-Sleep -s 5"
+    - echo done
 
 
