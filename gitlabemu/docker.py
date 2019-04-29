@@ -1,7 +1,5 @@
-import os
 import platform
 import subprocess
-import sys
 import uuid
 from contextlib import contextmanager
 from .logmsg import warning, info, fatal
@@ -99,7 +97,7 @@ class DockerJob(Job):
             info("kill container {}".format(self.name))
             subprocess.call(["docker", "kill", self.container])
 
-    def run(self):
+    def run(self, environ={}):
         cmdline = [
             "docker", 
             "run",
@@ -140,6 +138,10 @@ class DockerJob(Job):
 
             if network:
                 cmdline.extend(["--network", network])
+
+            for envname in environ:
+                cmdline.extend(["-e", "{}={}".format(envname,
+                                                     environ[envname])])
 
             for envname in self.variables:
                 cmdline.extend(["-e", "{}={}".format(envname,

@@ -96,12 +96,12 @@ class Job(object):
         """
         comm(process, stdout=self.stdout, script=script)
 
-    def run(self):
+    def run(self, environ=dict(os.environ)):
         """
         Run the job on the local machine
         :return:
         """
-        envs = dict(os.environ)
+        envs = dict(environ)
         for name in self.variables:
             envs[name] = self.variables[name]
 
@@ -109,6 +109,7 @@ class Job(object):
         lines = self.before_script + self.script + self.after_script
         script = make_script(lines)
         opened = subprocess.Popen(self.shell,
+                                  env=envs,
                                   cwd=self.workspace,
                                   stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE,
