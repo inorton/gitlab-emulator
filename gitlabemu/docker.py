@@ -97,7 +97,14 @@ class DockerJob(Job):
             info("kill container {}".format(self.name))
             subprocess.call(["docker", "kill", self.container])
 
-    def run(self, environ={}):
+    def get_envs(self):
+        """
+        Get env vars for a docker job
+        :return:
+        """
+        return dict(self.variables)
+
+    def run(self):
         cmdline = [
             "docker", 
             "run",
@@ -138,14 +145,10 @@ class DockerJob(Job):
 
             if network:
                 cmdline.extend(["--network", network])
-
+            environ = self.get_envs()
             for envname in environ:
                 cmdline.extend(["-e", "{}={}".format(envname,
                                                      environ[envname])])
-
-            for envname in self.variables:
-                cmdline.extend(["-e", "{}={}".format(envname,
-                                                     self.variables[envname])])
 
             if self.entrypoint is not None:
                 # docker run does not support multiple args for entrypoint

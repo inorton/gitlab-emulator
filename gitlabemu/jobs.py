@@ -96,15 +96,22 @@ class Job(object):
         """
         comm(process, stdout=self.stdout, script=script)
 
-    def run(self, environ=dict(os.environ)):
+    def get_envs(self):
+        """
+        Get environment variable dict for the job
+        :return:
+        """
+        envs = dict(os.environ)
+        for name in self.variables:
+            envs[name] = self.variables[name]
+        return envs
+
+    def run(self):
         """
         Run the job on the local machine
         :return:
         """
-        envs = dict(environ)
-        for name in self.variables:
-            envs[name] = self.variables[name]
-
+        envs = self.get_envs()
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script + self.after_script
         script = make_script(lines)
