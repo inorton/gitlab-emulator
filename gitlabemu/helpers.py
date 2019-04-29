@@ -2,6 +2,7 @@
 Various useful common funcs
 """
 import sys
+import platform
 import subprocess
 
 
@@ -15,6 +16,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False):
     :param throw: raise an exception if the process exits non-zero
     :return:
     """
+    windows = platform.system() == "Windows"
 
     if script is not None:
         process.stdin.write(script)
@@ -23,7 +25,11 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False):
 
     while process.poll() is not None:
         try:
-            data = process.stdout.readline()
+            if windows:
+                # readline() on windows just gets the whole stdout, so read in small chunks
+                data = process.stdout.read(50)
+            else:
+                data = process.stdout.readline()
         except ValueError:
             pass
 
