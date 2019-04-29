@@ -39,4 +39,9 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False):
 
     if throw:
         if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, cmd=process.args)
+            if hasattr(process, "args"):
+                args = process.args
+            else:
+                args = None
+
+            raise subprocess.CalledProcessError(process.returncode, cmd=args)
