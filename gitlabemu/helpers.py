@@ -23,13 +23,9 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False):
         process.stdin.flush()
         process.stdin.close()
 
-    while process.poll() is not None:
+    while process.poll() is None:
         try:
-            if windows:
-                # readline() on windows just gets the whole stdout, so read in small chunks
-                data = process.stdout.read(50)
-            else:
-                data = process.stdout.readline()
+            data = process.stdout.readline()
         except ValueError:
             pass
 
