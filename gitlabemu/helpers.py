@@ -10,7 +10,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False):
     Write output incrementally to stdout
     :param process: a POpen child process
     :type Popen
-    :param stdout: a file descriptor
+    :param stdout: a file-like object to write to
     :param script: a script (ie, bytes) to stream to stdin
     :param throw: raise an exception if the process exits non-zero
     :return:
@@ -21,19 +21,21 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False):
         process.stdin.flush()
         process.stdin.close()
 
-    while True:
+    while process.poll() is not None:
         try:
-            data = process.stdout.read(50)
+            data = process.stdout.readline()
         except ValueError:
             pass
+
         if data:
             stdout.write(data.decode())
-            stdout.flush()
-        else:
-            process.stdout.close()
-            process.wait()
-        if process.poll() is not None:
-            break
+
+    # child has exited now, get any last output if there is any
+    if not process.stdout.closed:
+        stdout.write(process.stdout.read().decode())
+
+    if hasattr(stdout, "flush"):
+        stdout.flush()
 
     if throw:
         if process.returncode != 0:
