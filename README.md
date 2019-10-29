@@ -10,19 +10,19 @@ Should understand:
 
 ```
 cd my-gitlab-repo
-python /home/inb/gitlabemu/locallab.py --list
+python -m gitlabemu --list
 ```
 
 ## Run a single job
 
 ```
 cd my-gitlab-repo
-python /home/inb/gitlabemu/locallab.py JOBNAME
+python -m gitlabemu JOBNAME
 ```
 
 ## Run all required jobs (dependency order)
 
 ```
 cd my-gitlab-repo
-python /home/inb/gitlabemu/locallab.py --full JOBNAME
+python -m gitlabemu --full JOBNAME
 ```

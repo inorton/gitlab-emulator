@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.0.26"
+VERSION = "0.0.27"
 
 setup(
     name="gitlab-emulator",
@@ -11,7 +11,7 @@ setup(
     url="https://gitlab.com/cunity/gitlab-emulator",
     packages=["gitlabemu"],
     scripts=["locallab.py"],
-    install_requires=["pyyaml"],
+    install_requires=["pyyaml>=3.13"],
     platforms=["any"],
     license="License :: OSI Approved :: MIT License",
     long_description="Run a subset of .gitlab-ci.yml jobs locally using docker"
