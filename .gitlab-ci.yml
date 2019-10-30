@@ -38,7 +38,7 @@ linux-job-runner:
 windows-docker-job-runner:
   stage: build
   tags:
-    - cunity-windows-docker-1803
+    - cunity-windows-2019-docker
   script:
     - c:\Python27\python locallab.py .windows-docker-job
 
@@ -55,7 +55,7 @@ windows-docker-job-runner:
 windows-shell-job:
   stage: build
   tags:
-    - cunity-windows-docker-1803
+    - cunity-windows-2019-docker
   script:
     - echo %PATH%
     - echo %NUMBER_OF_PROCESSORS%
