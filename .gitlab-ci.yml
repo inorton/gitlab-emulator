@@ -1,12 +1,13 @@
+include:
+  - "/ci-includes/ubuntu-image.yml"
+  - local: "/ci-includes/windows-dir-after.yml"
+
 stages:
 - build
 
-.template_1: &template_1_def
-  image: ubuntu:18.04
-
 
 job-build-docker:
-  <<: *template_1_def
+  extends: .ubuntu-1804-image
   stage: build
   script:
   - pwd
@@ -53,6 +54,7 @@ windows-docker-job-runner:
     - pwd
 
 windows-shell-job:
+  extends: .windows-dir-after
   stage: build
   tags:
     - cunity-windows-2019-docker

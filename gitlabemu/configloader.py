@@ -2,13 +2,13 @@
 Load a .gitlab-ci.yml file
 """
 import os
+import sys
 import yaml
-import subprocess
 
 from .errors import GitlabEmulatorError
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
-
+from . import yamlloader
 
 RESERVED_TOP_KEYS = ["stages",
                      "services",
@@ -26,6 +26,14 @@ class ConfigLoaderError(GitlabEmulatorError):
     There was an error loading a gitlab configuration
     """
     pass
+
+
+class BadSyntaxError(ConfigLoaderError):
+    """
+    The yaml was somehow invalid
+    """
+    def __init__(self, message):
+        super(BadSyntaxError, self).__init__(message)
 
 
 class FeatureNotSupportedError(ConfigLoaderError):
@@ -46,45 +54,115 @@ def check_unsupported(config):
     :param config:
     :return:
     """
-    if "include" in config:
-        raise FeatureNotSupportedError("include")
 
     for childname in config:
         # if this is a dict, it is probably a job
         child = config[childname]
         if isinstance(child, dict):
-            for bad in ["extends", "parallel"]:
+            for bad in ["parallel"]:
                 if bad in config[childname]:
                     raise FeatureNotSupportedError(bad)
 
 
-def read(yamlfile):
+def do_single_include(inc):
+    """
+    Load a single included file and return it's object graph
+    :param inc:
+    :return:
+    """
+    include = None
+    if isinstance(inc, str):
+        include = inc
+    elif isinstance(inc, dict):
+        include = inc.get("local", None)
+        if not include:
+            raise FeatureNotSupportedError("We only support local includes right now")
+
+    include = include.lstrip("/\\")
+    include = os.path.join(os.getcwd(), include)
+
+    return read(include, variables=False)
+
+
+def do_includes(baseobj):
+    """
+    Deep process include directives
+    :param baseobj:
+    :return:
+    """
+    # include can be an array or a map.
+    #
+    # include: "/templates/scripts.yaml"
+    #
+    # include:
+    #   - "/templates/scripts.yaml"
+    #   - "/templates/windows-jobs.yaml"
+    #
+    # include:
+    #   local: "/templates/scripts.yaml"
+    #
+    # include:
+    #    - local: "/templates/scripts.yaml"
+    #    - local: "/templates/after.yaml"
+    #    "/templates/windows-jobs.yaml"
+    incs = baseobj.get("include", None)
+    if incs:
+        if isinstance(incs, list):
+            includes = incs
+        else:
+            includes = [incs]
+        for filename in includes:
+            obj = do_single_include(filename)
+            for item in obj:
+                if item in baseobj:
+                    print("warning, {} is already defined in the loaded yaml".format(item), file=sys.stderr)
+                baseobj[item] = obj[item]
+
+    # now do extends
+    for job in baseobj:
+        if isinstance(baseobj[job], dict):
+            extends = baseobj[job].get("extends", None)
+            if extends:
+                baseclass = baseobj.get(extends, None)
+                if not baseclass:
+                    raise BadSyntaxError("job {} extends {} which cannot be found".format(job, extends))
+                copy = dict(baseobj[job])
+                newbase = dict(baseclass)
+                for item in copy:
+                    newbase[item] = copy[item]
+                baseobj[job] = newbase
+
+
+def read(yamlfile, check_supported=True, variables=True):
     """
     Read a .gitlab-ci.yml file into python types
     :param yamlfile:
     :return:
     """
     with open(yamlfile, "r") as yamlobj:
-        loaded = yaml.load(yamlobj, Loader=yaml.FullLoader)
+        loaded = yamlloader.ordered_load(yamlobj, Loader=yaml.FullLoader)
 
-    check_unsupported(loaded)
+    if check_supported:
+        check_unsupported(loaded)
 
-    loaded["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))
+    do_includes(loaded)
 
-    if "variables" not in loaded:
-        loaded["variables"] = {}
+    if variables:
+        loaded["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))
+        if "variables" not in loaded:
+            loaded["variables"] = {}
 
-    # set CI_ values
-    loaded["variables"]["CI_PIPELINE_ID"] = os.getenv(
-        "CI_PIPELINE_ID", "0")
-    loaded["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
-        "CI_COMMIT_REF_SLUG", "offline-build")
-    loaded["variables"]["CI_COMMIT_SHA"] = os.getenv(
-        "CI_COMMIT_SHA", "unknown")
+        # set CI_ values
+        loaded["variables"]["CI_PIPELINE_ID"] = os.getenv(
+            "CI_PIPELINE_ID", "0")
+        loaded["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
+            "CI_COMMIT_REF_SLUG", "offline-build")
+        loaded["variables"]["CI_COMMIT_SHA"] = os.getenv(
+            "CI_COMMIT_SHA", "unknown")
 
-    for name in os.environ:
-        if name.startswith("CI_"):
-            loaded["variables"][name] = os.environ[name]
+        for name in os.environ:
+            if name.startswith("CI_"):
+                loaded["variables"][name] = os.environ[name]
 
     return loaded
 
