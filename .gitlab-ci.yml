@@ -43,7 +43,7 @@ windows-docker-job-runner:
   script:
     - echo %CD%
     - dir c:\\
-    - c:\\python27\\python.exe locallab.py .windows-docker-job
+    - c:\\python27\\python.exe locallab.py .windows-docker-job  || exit /b
 
 .windows-docker-job:
   image:
