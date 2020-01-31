@@ -1,6 +1,6 @@
 # Run Gitlab Jobs without Gitlab
 
-Supported Gitlab features:
+Supported Gitlab v11 and v12 features:
 
  * docker (windows and linux)
  * `include` and `extends` keywords
@@ -19,6 +19,19 @@ Supported Platforms:
    * services and service aliases
      * linux
      * windows (untested)
+
+## Installation
+
+```
+python -m pip install .
+```
+
+or
+```
+python -m pip install gitlab-emulator
+```
+
+# Examples
 
 ## List Possible Jobs
 
