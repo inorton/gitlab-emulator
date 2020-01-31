@@ -47,7 +47,7 @@ windows-docker-job-runner:
 
 .windows-docker-job:
   image:
-    name: cunity/windows-1803-cmake:latest
+    name: cunity/windows-2019-vs2015-cmake:master
     entrypoint:
       - "powershell.exe"
   stage: build

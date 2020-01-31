@@ -66,8 +66,8 @@ class Job(object):
         for name in job_vars:
             self.variables[name] = job_vars[name]
         self.tags = job.get("tags", [])
-        self.dependencies = job.get("dependencies", [])
-        # TODO add gitlab env vars to variables
+        # prefer needs over dependencies
+        self.dependencies = job.get("needs", job.get("dependencies", []))
 
     def abort(self):
         """
