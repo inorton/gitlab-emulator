@@ -115,7 +115,7 @@ def do_includes(baseobj):
             obj = do_single_include(filename)
             for item in obj:
                 if item in baseobj:
-                    print("warning, {} is already defined in the loaded yaml".format(item), file=sys.stderr)
+                    print("warning, {} is already defined in the loaded yaml".format(item))
                 baseobj[item] = obj[item]
 
     # now do extends
