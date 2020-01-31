@@ -108,6 +108,7 @@ class DockerJob(Job):
         cmdline = [
             "docker", 
             "run",
+            "-d",
             "-i",
             "--rm",
             "-w", self.workspace,
@@ -123,9 +124,6 @@ class DockerJob(Job):
             image = self.image["name"]
             self.entrypoint = self.image.get("entrypoint", self.entrypoint)
             self.image = image
-        # squirt the script into the container stdin like gitlab does
-        lines = self.before_script + self.script + self.after_script
-        script = make_script(lines)
 
         self.container = "gitlab-emu-" + str(uuid.uuid4())
 
@@ -165,15 +163,49 @@ class DockerJob(Job):
                 cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
             cmdline.append(self.image)
             info("starting docker container for {}".format(self.name))
-            opened = subprocess.Popen(cmdline,
-                                      cwd=self.workspace,
-                                      stdin=subprocess.PIPE,
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT)
-            self.build_process = opened
-            self.communicate(opened, script=script.encode())
 
-        result = opened.returncode
+            # start the container
+            subprocess.check_call(cmdline, shell=False)
+
+            # exec the script
+            cmdline = ["docker", "exec", "-w", self.workspace]
+            environ = self.get_envs()
+            for envname in environ:
+                cmdline.extend(["-e", "{}={}".format(envname,
+                                                     environ[envname])])
+            cmdline.extend(["-i", self.container])
+            cmdline.extend(self.shell)
+
+            try:
+                build_task = subprocess.Popen(cmdline,
+                                              cwd=self.workspace,
+                                              stdin=subprocess.PIPE,
+                                              stdout=subprocess.PIPE,
+                                              stderr=subprocess.STDOUT)
+                self.build_process = build_task
+
+                # squirt the before and build script into the container stdin like gitlab does
+                lines = self.before_script + self.script
+                script = make_script(lines)
+                self.communicate(build_task, script=script.encode())
+
+            finally:
+                after_task = subprocess.Popen(cmdline,
+                                              cwd=self.workspace,
+                                              stdin=subprocess.PIPE,
+                                              stdout=subprocess.PIPE,
+                                              stderr=subprocess.STDOUT)
+
+                # squirt the after_script into the container stdin like gitlab does
+                script = make_script(self.after_script)
+                self.communicate(after_task, script=script.encode())
+
+                try:
+                    subprocess.check_output(["docker", "kill", self.container], stderr=subprocess.STDOUT)
+                except subprocess.CalledProcessError:
+                    pass
+
+        result = self.build_process.returncode
         if result:
             fatal("Docker job {} failed".format(self.name))
 

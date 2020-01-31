@@ -11,6 +11,7 @@ from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm
 
+
 class NoSuchJob(GitlabEmulatorError):
     """
     Could not find a job with the given name
@@ -65,8 +66,8 @@ class Job(object):
         for name in job_vars:
             self.variables[name] = job_vars[name]
         self.tags = job.get("tags", [])
-        self.dependencies = job.get("dependencies", [])
-        # TODO add gitlab env vars to variables
+        # prefer needs over dependencies
+        self.dependencies = job.get("needs", job.get("dependencies", []))
 
     def abort(self):
         """
@@ -106,14 +107,13 @@ class Job(object):
             envs[name] = self.variables[name]
         return envs
 
-    def run(self):
+    def run_script(self, lines):
         """
-        Run the job on the local machine
+        Execute a script
+        :param lines:
         :return:
         """
         envs = self.get_envs()
-        info("running shell job {}".format(self.name))
-        lines = self.before_script + self.script + self.after_script
         script = make_script(lines)
         opened = subprocess.Popen(self.shell,
                                   env=envs,
@@ -124,9 +124,22 @@ class Job(object):
         self.build_process = opened
         self.communicate(opened, script=script.encode())
 
-        result = opened.returncode
-        if result:
-            fatal("Shell job {} failed".format(self.name))
+        return opened.returncode
+
+    def run(self):
+        """
+        Run the job on the local machine
+        :return:
+        """
+
+        info("running shell job {}".format(self.name))
+        lines = self.before_script + self.script
+        result = self.run_script(lines)
+        try:
+            if result:
+                fatal("Shell job {} failed".format(self.name))
+        finally:
+            self.run_script(self.after_script)
 
 
 def make_script(lines):
