@@ -174,6 +174,8 @@ class DockerJob(Job):
                 cmdline.extend(["-e", "{}={}".format(envname,
                                                      environ[envname])])
             cmdline.extend(["-i", self.container])
+            cmdline.append(self.shell)
+
             try:
                 build_task = subprocess.Popen(cmdline,
                                               cwd=self.workspace,
