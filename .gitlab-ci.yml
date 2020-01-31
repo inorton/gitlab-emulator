@@ -41,9 +41,8 @@ windows-docker-job-runner:
   tags:
     - cunity-windows-2019-docker
   script:
-    - echo %CD%
-    - dir c:\\
-    - c:\\python27\\python.exe locallab.py .windows-docker-job  || exit /b
+    - dir c:\
+    - c:\python37\python.exe locallab.py .windows-docker-job
 
 .windows-docker-job:
   image:
