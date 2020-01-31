@@ -1,12 +1,13 @@
+include:
+  - "/ci-includes/ubuntu-image.yml"
+  - local: "/ci-includes/windows-dir-after.yml"
+
 stages:
 - build
 
-.template_1: &template_1_def
-  image: ubuntu:18.04
-
 
 job-build-docker:
-  <<: *template_1_def
+  extends: .ubuntu-1804-image
   stage: build
   script:
   - pwd
@@ -40,11 +41,12 @@ windows-docker-job-runner:
   tags:
     - cunity-windows-2019-docker
   script:
-    - c:\Python27\python locallab.py .windows-docker-job
+    - dir c:\
+    - c:\python37\python.exe locallab.py .windows-docker-job
 
 .windows-docker-job:
   image:
-    name: cunity/windows-1803-cmake:latest
+    name: cunity/windows-2019-vs2015-cmake:master
     entrypoint:
       - "powershell.exe"
   stage: build
@@ -53,6 +55,7 @@ windows-docker-job-runner:
     - pwd
 
 windows-shell-job:
+  extends: .windows-dir-after
   stage: build
   tags:
     - cunity-windows-2019-docker
