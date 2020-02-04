@@ -1,0 +1,21 @@
+stages:
+  - build
+  - test
+
+
+start:
+  stage: build
+  script:
+    - env
+    - touch build.txt
+
+wait:
+  stage: build
+  script:
+    - sleep 30
+
+finish:
+  stage: test
+  needs: [start]
+  script:
+    - touch finish.txt

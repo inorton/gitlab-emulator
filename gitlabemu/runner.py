@@ -38,8 +38,8 @@ def execute_job(config, jobname, seen=set(), recurse=False):
         seen.add(jobname)
 
 
-def run():
-    options = parser.parse_args()
+def run(args=None):
+    options = parser.parse_args(args)
 
     yamlfile = options.CONFIG
     jobname = options.JOB
