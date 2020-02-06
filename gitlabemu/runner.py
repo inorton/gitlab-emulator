@@ -17,7 +17,7 @@ parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
                     help="Use an alternative gitlab yaml file")
 
 parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
-                    help="If a job fails, execute this process (can be a shell)")
+                    help="If a docker job fails, execute this process (can be a shell)")
 
 parser.add_argument("--ignore-docker", dest="no_docker", action="store_true", default=False,
                     help="If set, run jobs using the local system as a shell job instead of docker"
@@ -62,9 +62,9 @@ def run(args=None):
     else:
 
         if options.no_docker:
-            config["hide-docker"] = True
+            config["hide_docker"] = True
 
         if options.error_shell:
-            config["error-shell"] = [options.error_shell]
+            config["error_shell"] = [options.error_shell]
 
         execute_job(config, jobname, recurse=options.FULL)

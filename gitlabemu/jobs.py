@@ -56,6 +56,7 @@ class Job(object):
         self.workspace = config["_workspace"]
         self.name = name
         job = config[name]
+        self.error_shell = config.get("error_shell", [])
         all_before = config.get("before_script", [])
         self.before_script = job.get("before_script", all_before)
         self.script = job.get("script", [])
@@ -68,7 +69,6 @@ class Job(object):
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         self.dependencies = job.get("needs", job.get("dependencies", []))
-        self.error_shell = config.get("error-shell", [])
 
     def abort(self):
         """
@@ -136,15 +136,11 @@ class Job(object):
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
         result = self.run_script(lines)
-        try:
-            if result:
-                fatal("Shell job {} failed".format(self.name))
-        finally:
-            try:
-                self.run_script(self.after_script)
-            finally:
-                if self.error_shell:
-                    self.run_script(self.error_shell)
+
+        self.run_script(self.after_script)
+
+        if result:
+            fatal("Shell job {} failed".format(self.name))
 
 
 def make_script(lines):

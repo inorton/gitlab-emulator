@@ -211,7 +211,7 @@ def job_docker_image(config, name):
     :param name:
     :return:
     """
-    if config.get("hide-docker"):
+    if config.get("hide_docker"):
         return None
     image = config[name].get("image")
     if not image:
