@@ -201,6 +201,13 @@ class DockerJob(Job):
                 self.communicate(after_task, script=script.encode())
 
                 try:
+                    if self.error_shell:
+                        try:
+                            print("Running error-shell..")
+                            subprocess.check_call(["docker", "exec", "-it", self.container] + self.error_shell)
+                        except subprocess.CalledProcessError:
+                            pass
+
                     subprocess.check_output(["docker", "kill", self.container], stderr=subprocess.STDOUT)
                 except subprocess.CalledProcessError:
                     pass

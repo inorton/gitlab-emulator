@@ -33,6 +33,7 @@ class Job(object):
         self.before_script = []
         self.script = []
         self.after_script = []
+        self.error_shell = []
         self.tags = []
         self.stage = None
         self.variables = {}
@@ -40,7 +41,7 @@ class Job(object):
         if platform.system() == "Windows":
             self.shell = [os.getenv("COMSPEC", "C:\\WINDOWS\\system32\\cmd.exe")]
         else:
-            self.shell = [os.getenv("SHELL", "/bin/sh")]
+            self.shell = ["/bin/sh"]
         self.workspace = None
         self.stderr = sys.stderr
         self.stdout = sys.stdout
@@ -60,7 +61,6 @@ class Job(object):
         self.script = job.get("script", [])
         all_after = config.get("after_script", [])
         self.after_script = job.get("after_script", all_after)
-
         self.variables = config.get("variables", {})
         job_vars = job.get("variables", {})
         for name in job_vars:
@@ -68,6 +68,7 @@ class Job(object):
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         self.dependencies = job.get("needs", job.get("dependencies", []))
+        self.error_shell = config.get("error-shell", [])
 
     def abort(self):
         """
@@ -139,7 +140,11 @@ class Job(object):
             if result:
                 fatal("Shell job {} failed".format(self.name))
         finally:
-            self.run_script(self.after_script)
+            try:
+                self.run_script(self.after_script)
+            finally:
+                if self.error_shell:
+                    self.run_script(self.error_shell)
 
 
 def make_script(lines):

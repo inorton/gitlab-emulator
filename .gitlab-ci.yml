@@ -19,6 +19,12 @@ job-build-docker:
   - pwd
   - ls -l
 
+.fail-job:
+  stage: build
+  image: busybox:latest
+  script:
+    - df -h
+    - /bin/false
 
 linux-job-runner:
   variables:
