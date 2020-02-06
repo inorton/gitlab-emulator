@@ -6,13 +6,13 @@ from . import configloader
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
 parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(sys.executable)))
-parser.add_argument("--list", dest="LIST", default=False,
+parser.add_argument("--list", "-l", dest="LIST", default=False,
                     action="store_true",
                     help="List runnable jobs")
-parser.add_argument("--full", dest="FULL", default=False,
+parser.add_argument("--full", "-r", dest="FULL", default=False,
                     action="store_true",
                     help="Run any jobs that are dependencies")
-parser.add_argument("--config", dest="CONFIG", default=CONFIG_DEFAULT,
+parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
                     type=str,
                     help="Use an alternative gitlab yaml file")
 parser.add_argument("JOB", type=str, default=None,
