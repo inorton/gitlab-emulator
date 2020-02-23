@@ -4,6 +4,7 @@ include:
 
 stages:
 - build
+- test
 
 
 job-build-docker:
