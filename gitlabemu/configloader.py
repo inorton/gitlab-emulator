@@ -204,6 +204,21 @@ def get_job(config, name):
     return config.get(name)
 
 
+def job_docker_image(config, name):
+    """
+    Return a docker image if a job is configured for it
+    :param config:
+    :param name:
+    :return:
+    """
+    if config.get("hide_docker"):
+        return None
+    image = config[name].get("image")
+    if not image:
+        image = config.get("image")
+    return image
+
+
 def load_job(config, name):
     """
     Load a job from the configuration
@@ -214,11 +229,12 @@ def load_job(config, name):
     jobs = get_jobs(config)
     if name not in jobs:
         raise NoSuchJob(name)
-
-    if config.get("image") or config[name].get("image"):
+    image = job_docker_image(config, name)
+    if image:
         job = DockerJob()
     else:
         job = Job()
+
     job.load(name, config)
 
     return job

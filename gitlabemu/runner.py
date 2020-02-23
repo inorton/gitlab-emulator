@@ -6,15 +6,23 @@ from . import configloader
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
 parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(sys.executable)))
-parser.add_argument("--list", dest="LIST", default=False,
+parser.add_argument("--list", "-l", dest="LIST", default=False,
                     action="store_true",
                     help="List runnable jobs")
-parser.add_argument("--full", dest="FULL", default=False,
+parser.add_argument("--full", "-r", dest="FULL", default=False,
                     action="store_true",
                     help="Run any jobs that are dependencies")
-parser.add_argument("--config", dest="CONFIG", default=CONFIG_DEFAULT,
+parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
                     type=str,
                     help="Use an alternative gitlab yaml file")
+
+parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
+                    help="If a docker job fails, execute this process (can be a shell)")
+
+parser.add_argument("--ignore-docker", dest="no_docker", action="store_true", default=False,
+                    help="If set, run jobs using the local system as a shell job instead of docker"
+                    )
+
 parser.add_argument("JOB", type=str, default=None,
                     nargs="?",
                     help="Run this named job")
@@ -38,8 +46,8 @@ def execute_job(config, jobname, seen=set(), recurse=False):
         seen.add(jobname)
 
 
-def run():
-    options = parser.parse_args()
+def run(args=None):
+    options = parser.parse_args(args)
 
     yamlfile = options.CONFIG
     jobname = options.JOB
@@ -52,4 +60,11 @@ def run():
         parser.print_usage()
         sys.exit(1)
     else:
+
+        if options.no_docker:
+            config["hide_docker"] = True
+
+        if options.error_shell:
+            config["error_shell"] = [options.error_shell]
+
         execute_job(config, jobname, recurse=options.FULL)

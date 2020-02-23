@@ -85,6 +85,7 @@ class DockerJob(Job):
         super(DockerJob, self).load(name, config)
         all_images = config.get("image", None)
         self.image = config[name].get("image", all_images)
+        self.configure_job_variable("CI_JOB_IMAGE", self.image)
         self.services = get_services(config, name)
 
     def abort(self):
@@ -201,6 +202,13 @@ class DockerJob(Job):
                 self.communicate(after_task, script=script.encode())
 
                 try:
+                    if self.error_shell:
+                        try:
+                            print("Running error-shell..")
+                            subprocess.check_call(["docker", "exec", "-it", self.container] + self.error_shell)
+                        except subprocess.CalledProcessError:
+                            pass
+
                     subprocess.check_output(["docker", "kill", self.container], stderr=subprocess.STDOUT)
                 except subprocess.CalledProcessError:
                     pass

@@ -4,14 +4,24 @@ include:
 
 stages:
 - build
+- test
 
 
 job-build-docker:
   extends: .ubuntu-1804-image
   stage: build
   script:
-  - pwd
-  - ls -l
+    - pwd
+    - ls -l
+    - env|grep CI_|sort
+    - touch ${CI_JOB_NAME}
+
+job-build-later:
+  stage: test
+  extends: .ubuntu-1804-image
+  needs: [job-build-docker]
+  script:
+    - ls -l
 
 .job-build-shell:
   stage: build
@@ -19,6 +29,12 @@ job-build-docker:
   - pwd
   - ls -l
 
+.fail-job:
+  stage: build
+  image: busybox:latest
+  script:
+    - df -h
+    - /bin/false
 
 linux-job-runner:
   variables:

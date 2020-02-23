@@ -33,14 +33,15 @@ class Job(object):
         self.before_script = []
         self.script = []
         self.after_script = []
+        self.error_shell = []
         self.tags = []
-        self.stage = None
+        self.stage = "test"
         self.variables = {}
         self.dependencies = []
         if platform.system() == "Windows":
             self.shell = [os.getenv("COMSPEC", "C:\\WINDOWS\\system32\\cmd.exe")]
         else:
-            self.shell = [os.getenv("SHELL", "/bin/sh")]
+            self.shell = ["/bin/sh"]
         self.workspace = None
         self.stderr = sys.stderr
         self.stdout = sys.stdout
@@ -55,12 +56,12 @@ class Job(object):
         self.workspace = config["_workspace"]
         self.name = name
         job = config[name]
+        self.error_shell = config.get("error_shell", [])
         all_before = config.get("before_script", [])
         self.before_script = job.get("before_script", all_before)
         self.script = job.get("script", [])
         all_after = config.get("after_script", [])
         self.after_script = job.get("after_script", all_after)
-
         self.variables = config.get("variables", {})
         job_vars = job.get("variables", {})
         for name in job_vars:
@@ -68,6 +69,22 @@ class Job(object):
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         self.dependencies = job.get("needs", job.get("dependencies", []))
+
+        self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
+        self.configure_job_variable("CI_JOB_NAME", self.name)
+        self.configure_job_variable("CI_JOB_STAGE", self.stage)
+        self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
+        self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
+
+    def configure_job_variable(self, name, value):
+        """
+        Set job variables
+        :return:
+        """
+        # set job related env vars
+        if name in os.environ:
+            value = os.environ[name]  # prefer env variables if set
+        self.variables[name] = value
 
     def abort(self):
         """
@@ -135,11 +152,11 @@ class Job(object):
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
         result = self.run_script(lines)
-        try:
-            if result:
-                fatal("Shell job {} failed".format(self.name))
-        finally:
-            self.run_script(self.after_script)
+
+        self.run_script(self.after_script)
+
+        if result:
+            fatal("Shell job {} failed".format(self.name))
 
 
 def make_script(lines):
