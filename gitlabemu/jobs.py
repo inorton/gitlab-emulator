@@ -35,7 +35,7 @@ class Job(object):
         self.after_script = []
         self.error_shell = []
         self.tags = []
-        self.stage = None
+        self.stage = "test"
         self.variables = {}
         self.dependencies = []
         if platform.system() == "Windows":
@@ -69,6 +69,22 @@ class Job(object):
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         self.dependencies = job.get("needs", job.get("dependencies", []))
+
+        self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
+        self.configure_job_variable("CI_JOB_NAME", self.name)
+        self.configure_job_variable("CI_JOB_STAGE", self.stage)
+        self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
+        self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
+
+    def configure_job_variable(self, name, value):
+        """
+        Set job variables
+        :return:
+        """
+        # set job related env vars
+        if name in os.environ:
+            value = os.environ[name]  # prefer env variables if set
+        self.variables[name] = value
 
     def abort(self):
         """

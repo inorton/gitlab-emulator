@@ -85,6 +85,7 @@ class DockerJob(Job):
         super(DockerJob, self).load(name, config)
         all_images = config.get("image", None)
         self.image = config[name].get("image", all_images)
+        self.configure_job_variable("CI_JOB_IMAGE", self.image)
         self.services = get_services(config, name)
 
     def abort(self):
