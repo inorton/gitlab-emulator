@@ -55,6 +55,6 @@ linux-docker-job:
 linux-build-later:
   stage: test
   image: ubuntu:18.04
-  needs: [linux-build-docker]
+  needs: [linux-docker-job, linux-shell-job]
   script:
     - ls -l
