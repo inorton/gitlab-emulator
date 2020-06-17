@@ -30,7 +30,7 @@ linux-job-runner:
     - apk add py3-pip
     - pip install -e .
   script:
-    - locallab.py -c test-ci-yml --full linux-build-later
+    - locallab.py -c test-ci.yml --full linux-build-later
     - locallab.py -c test-ci.yml generic-build-shell
 
 windows-job-runner:
