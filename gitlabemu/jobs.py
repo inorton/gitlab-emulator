@@ -78,13 +78,18 @@ class Job(object):
 
     def configure_job_variable(self, name, value):
         """
-        Set job variables
+        Set job variable defaults. If the variable is not present in self.variables, set it to the given value. If the variable is present in os.environ, use that value instead
         :return:
         """
+        if value is None:
+            value = ""
+        value = str(value)
+
         # set job related env vars
-        if name in os.environ:
-            value = os.environ[name]  # prefer env variables if set
-        self.variables[name] = value
+        if name not in self.variables:
+            if name in os.environ:
+                value = os.environ[name]  # prefer env variables if set
+            self.variables[name] = value
 
     def abort(self):
         """
