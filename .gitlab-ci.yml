@@ -27,18 +27,20 @@ linux-job-runner:
   before_script:
     - apk add python3
     - apk add py3-pip
+    - pip install pytest
     - pip install -e .
   script:
     - locallab.py -c test-ci-yml -s linux-build-later
     - locallab.py -c test-ci.yml generic-build-shell
 
-windows-docker-job-runner:
+windows-job-runner:
   stage: build
   tags:
     - cunity-windows-2019-docker
   script:
     - dir c:\
-    - c:\python37\python.exe locallab.py -c test-ci.yml .windows-docker-job
+    - c:\python37\python.exe locallab.py -c test-ci.yml windows-docker-job
+    - c:\python37\python.exe locallab.py -c test-ci.yml windows-shell-job
 
 
 
