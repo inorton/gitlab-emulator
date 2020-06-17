@@ -37,7 +37,7 @@ windows-shell-job:
     - powershell -c "Start-Sleep -s 5"
     - echo done
 
-linux-shell-job
+linux-shell-job:
   stage: build
   script:
     - uname -a
