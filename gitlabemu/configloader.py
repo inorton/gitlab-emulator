@@ -79,6 +79,10 @@ def do_single_include(inc):
             raise FeatureNotSupportedError("We only support local includes right now")
 
     include = include.lstrip("/\\")
+    # make this work on windows
+    if os.sep != "/":
+        include = include.replace("/", os.sep)
+
     include = os.path.join(os.getcwd(), include)
 
     return read(include, variables=False)
