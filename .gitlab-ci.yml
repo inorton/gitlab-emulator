@@ -40,8 +40,8 @@ windows-job-runner:
     - cunity-windows-2019-docker
   script:
     - dir c:\
-    - c:\python37\python.exe locallab.py -c test-ci.yml windows-docker-job
-    - c:\python37\python.exe locallab.py -c test-ci.yml windows-shell-job
+    - c:\python37\python.exe locallab.py -c test-ci.yml windows-docker-job || exit /b
+    - c:\python37\python.exe locallab.py -c test-ci.yml windows-shell-job || exit /b
 
 
 
