@@ -1,33 +1,6 @@
-include:
-  - "/ci-includes/ubuntu-image.yml"
-  - local: "/ci-includes/windows-dir-after.yml"
-
 stages:
 - build
 - test
-
-
-job-build-docker:
-  extends: .ubuntu-1804-image
-  stage: build
-  script:
-    - pwd
-    - ls -l
-    - env|grep CI_|sort
-    - touch ${CI_JOB_NAME}
-
-job-build-later:
-  stage: test
-  extends: .ubuntu-1804-image
-  needs: [job-build-docker]
-  script:
-    - ls -l
-
-.job-build-shell:
-  stage: build
-  script:
-  - pwd
-  - ls -l
 
 .fail-job:
   stage: build
@@ -36,10 +9,17 @@ job-build-later:
     - df -h
     - /bin/false
 
+linux-testing:
+  image: python:3.7
+  stage: build
+  script:
+    - pip install -e .
+    - python -m pytest .
+
 linux-job-runner:
   variables:
-   DOCKER_HOST: tcp://docker:2375/
-   DOCKER_DRIVER: overlay2
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
   services:
     - docker:dind
   stage: build
@@ -49,8 +29,8 @@ linux-job-runner:
     - apk add py3-pip
     - pip install -e .
   script:
-    - locallab.py job-build-docker
-    - locallab.py .job-build-shell
+    - locallab.py -c test-ci-yml -s linux-build-later
+    - locallab.py -c test-ci.yml generic-build-shell
 
 windows-docker-job-runner:
   stage: build
@@ -58,30 +38,7 @@ windows-docker-job-runner:
     - cunity-windows-2019-docker
   script:
     - dir c:\
-    - c:\python37\python.exe locallab.py .windows-docker-job
+    - c:\python37\python.exe locallab.py -c test-ci.yml .windows-docker-job
 
-.windows-docker-job:
-  image:
-    name: cunity/windows-2019-vs2015-cmake:master
-    entrypoint:
-      - "powershell.exe"
-  stage: build
-  script:
-    - dir
-    - pwd
-
-windows-shell-job:
-  extends: .windows-dir-after
-  stage: build
-  tags:
-    - cunity-windows-2019-docker
-  script:
-    - echo %PATH%
-    - echo %NUMBER_OF_PROCESSORS%
-    - echo %OS%
-    - echo %CD%
-    - echo sleeping..
-    - powershell -c "Start-Sleep -s 5"
-    - echo done
 
 
