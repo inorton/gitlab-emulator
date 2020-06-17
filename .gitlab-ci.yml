@@ -13,6 +13,7 @@ linux-testing:
   image: python:3.7
   stage: build
   script:
+    - pip install pytest
     - pip install -e .
     - python -m pytest .
 
@@ -27,7 +28,6 @@ linux-job-runner:
   before_script:
     - apk add python3
     - apk add py3-pip
-    - pip install pytest
     - pip install -e .
   script:
     - locallab.py -c test-ci-yml -s linux-build-later
