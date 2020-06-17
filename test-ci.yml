@@ -37,12 +37,13 @@ windows-shell-job:
     - powershell -c "Start-Sleep -s 5"
     - echo done
 
-generic-build-shell:
+linux-shell-job
   stage: build
   script:
-  - dir
+    - uname -a
+    - ls -l
 
-linux-build-docker:
+linux-docker-job:
   image: ubuntu:18.04
   stage: build
   script:
