@@ -64,10 +64,11 @@ def check_unsupported(config):
                     raise FeatureNotSupportedError(bad)
 
 
-def do_single_include(inc):
+def do_single_include(yamldir, inc):
     """
     Load a single included file and return it's object graph
-    :param inc:
+    :param yamldir: folder to search
+    :param inc: file to read
     :return:
     """
     include = None
@@ -83,15 +84,16 @@ def do_single_include(inc):
     if os.sep != "/":
         include = include.replace("/", os.sep)
 
-    include = os.path.join(os.getcwd(), include)
+    include = os.path.join(yamldir, include)
 
     return read(include, variables=False)
 
 
-def do_includes(baseobj):
+def do_includes(baseobj, yamldir):
     """
     Deep process include directives
     :param baseobj:
+    :param yamldir: load include files relative to here
     :return:
     """
     # include can be an array or a map.
@@ -116,7 +118,7 @@ def do_includes(baseobj):
         else:
             includes = [incs]
         for filename in includes:
-            obj = do_single_include(filename)
+            obj = do_single_include(yamldir, filename)
             for item in obj:
                 if item in baseobj:
                     print("warning, {} is already defined in the loaded yaml".format(item))
@@ -149,7 +151,7 @@ def read(yamlfile, check_supported=True, variables=True):
     if check_supported:
         check_unsupported(loaded)
 
-    do_includes(loaded)
+    do_includes(loaded, os.path.dirname(yamlfile))
 
     if variables:
         loaded["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))
