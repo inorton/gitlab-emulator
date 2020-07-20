@@ -36,6 +36,8 @@ linux-job-runner:
 
 windows-job-runner:
   stage: build
+  when: manual
+  allow_failure: true
   tags:
     - cunity-windows-2019-docker
   script:
