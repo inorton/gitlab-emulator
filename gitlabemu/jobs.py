@@ -114,7 +114,7 @@ class Job(object):
         """
         Process STDIO for a build process
         :param process: child started by POpen
-        :param script: script (eg bytezs) to pipe into stdin
+        :param script: script (eg bytes) to pipe into stdin
         :return:
         """
         comm(process, stdout=self.stdout, script=script)

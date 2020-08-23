@@ -1,9 +1,12 @@
 import platform
 import subprocess
+import time
 import uuid
 from contextlib import contextmanager
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
+from .helpers import communicate as comm, DockerTool
+from .errors import DockerExecError
 
 
 @contextmanager
@@ -80,6 +83,7 @@ class DockerJob(Job):
         self.services = []
         self.container = None
         self.entrypoint = None
+        self.docker = DockerTool()
 
     def load(self, name, config):
         super(DockerJob, self).load(name, config)
@@ -105,102 +109,84 @@ class DockerJob(Job):
         """
         return dict(self.variables)
 
-    def run(self):
-        cmdline = [
-            "docker", 
-            "run",
-            "-d",
-            "-i",
-            "--rm",
-            "-w", self.workspace,
-            "-v", self.workspace + ":" + self.workspace]
+    def run_script(self, lines):
+        return self._run_script(lines)
 
+    def _run_script(self, lines, attempts=2):
+        while attempts > 0:
+            try:
+                task = self.docker.exec(self.workspace, self.shell)
+                self.build_process = task
+                return self.communicate(task, script=lines.encode())
+            except DockerExecError:
+                self.stdout.write("Warning: docker exec error - https://gitlab.com/cunity/gitlab-emulator/-/issues/10")
+                attempts -= 1
+                if attempts == 0:
+                    raise
+                else:
+                    time.sleep(2)
+
+    def check_docker_exec_failed(self, line):
+        """
+        Raise an error if the build script has returned "No such exec instance"
+        :param line:
+        :return:
+        """
+        if line:
+            try:
+                decoded = line.decode()
+            except Exception:
+                return
+            if decoded:
+                if "No such exec instance" in decoded:
+                    raise DockerExecError()
+
+    def communicate(self, process, script=None):
+        comm(process, self.stdout, script=script, linehandler=self.check_docker_exec_failed)
+
+    def run(self):
         if platform.system() == "Windows":
             warning("warning windows docker is experimental")
         
         if platform.system() == "Linux":
-            cmdline.append("--privileged")            
+            self.docker.privileged = True
 
         if isinstance(self.image, dict):
             image = self.image["name"]
             self.entrypoint = self.image.get("entrypoint", self.entrypoint)
             self.image = image
 
+        self.docker.image = self.image
         self.container = "gitlab-emu-" + str(uuid.uuid4())
+        self.docker.name = self.container
 
         info("pulling docker image {}".format(self.image))
         try:
             self.stdout.write("Pulling {}...".format(self.image))
-            pull = subprocess.Popen(["docker", "pull", self.image],
-                                    stdin=None,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT)
+            pull = self.docker.pull()
             self.check_communicate(pull)
         except subprocess.CalledProcessError:
             warning("could not pull docker image {}".format(self.image))
 
         with docker_services(self) as network:
-            cmdline.extend(["--name", self.container])
-
             if network:
-                cmdline.extend(["--network", network])
+                self.docker.network = network
+
             environ = self.get_envs()
             for envname in environ:
-                cmdline.extend(["-e", "{}={}".format(envname,
-                                                     environ[envname])])
+                self.docker.env[envname] = environ[envname]
 
             if self.entrypoint is not None:
-                # docker run does not support multiple args for entrypoint
-                if self.entrypoint == ["/bin/sh", "-c"]:
-                    self.entrypoint = [""]
-                if self.entrypoint == [""]:
-                    self.entrypoint = ["/bin/sh"]
+                self.docker.entrypoint = self.entrypoint
 
-                if len(self.entrypoint) > 1:
-                    raise RuntimeError("gitlab-emulator cannot yet support "
-                                       "multiple args for docker entrypoint "
-                                       "overrides")
+            self.docker.volumes = ["{}:{}".format(self.workspace, self.workspace)]
 
-                cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
-            cmdline.append(self.image)
-            info("starting docker container for {}".format(self.name))
-
-            # start the container
-            subprocess.check_call(cmdline, shell=False)
-
-            # exec the script
-            cmdline = ["docker", "exec", "-w", self.workspace]
-            environ = self.get_envs()
-            for envname in environ:
-                cmdline.extend(["-e", "{}={}".format(envname,
-                                                     environ[envname])])
-            cmdline.extend(["-i", self.container])
-            cmdline.extend(self.shell)
+            self.docker.run()
 
             try:
-                build_task = subprocess.Popen(cmdline,
-                                              cwd=self.workspace,
-                                              stdin=subprocess.PIPE,
-                                              stdout=subprocess.PIPE,
-                                              stderr=subprocess.STDOUT)
-                self.build_process = build_task
-
-                # squirt the before and build script into the container stdin like gitlab does
-                lines = self.before_script + self.script
-                script = make_script(lines)
-                self.communicate(build_task, script=script.encode())
-
+                self.run_script(make_script(self.before_script + self.script))
             finally:
-                after_task = subprocess.Popen(cmdline,
-                                              cwd=self.workspace,
-                                              stdin=subprocess.PIPE,
-                                              stdout=subprocess.PIPE,
-                                              stderr=subprocess.STDOUT)
-
-                # squirt the after_script into the container stdin like gitlab does
-                script = make_script(self.after_script)
-                self.communicate(after_task, script=script.encode())
-
+                self.run_script(make_script(self.after_script))
                 try:
                     if self.error_shell:
                         try:
@@ -208,10 +194,10 @@ class DockerJob(Job):
                             subprocess.check_call(["docker", "exec", "-it", self.container] + self.error_shell)
                         except subprocess.CalledProcessError:
                             pass
-
-                    subprocess.check_output(["docker", "kill", self.container], stderr=subprocess.STDOUT)
                 except subprocess.CalledProcessError:
                     pass
+                finally:
+                    subprocess.call(["docker", "kill", self.container], stderr=subprocess.STDOUT)
 
         result = self.build_process.returncode
         if result:
