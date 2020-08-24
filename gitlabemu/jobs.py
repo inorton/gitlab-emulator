@@ -126,7 +126,10 @@ class Job(object):
         """
         envs = dict(os.environ)
         for name in self.variables:
-            envs[name] = self.variables[name]
+            value = self.variables[name]
+            if value is None:
+                value = ""
+            envs[name] = str(value)
         return envs
 
     def run_script(self, lines):
