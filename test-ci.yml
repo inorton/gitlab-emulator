@@ -43,6 +43,15 @@ linux-shell-job:
     - uname -a
     - ls -l
 
+.bad-linux-docker-job:
+  image: alpine:latest
+  stage: build
+  script:
+    - echo running build bad
+    - /bin/false
+  after_script:
+    - echo running after
+
 linux-docker-job:
   image: ubuntu:18.04
   stage: build

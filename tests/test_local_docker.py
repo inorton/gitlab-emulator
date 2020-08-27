@@ -28,6 +28,23 @@ def test_self(has_docker, capsys):
     assert "CI_JOB_IMAGE=ubuntu:18.04" in out
 
 
+def test_self_fail(has_docker, capsys):
+    """
+    Test that we can do a simple build using docker and correctly detect a failure
+    :param has_docker:
+    :return:
+    """
+    if not platform.system() == "Linux":
+        pytest.skip("Linux only")
+    with pytest.raises(SystemExit):
+        run(["-c", os.path.join(TOPDIR, "test-ci.yml"),
+             "--full", ".bad-linux-docker-job"])
+
+    out, err = capsys.readouterr()
+    assert "running build bad" in out
+    assert "running after" in out
+
+
 def test_no_such_exec(has_docker, mocker, capsys):
     """
     Test that we handle docker exec "no such exec instance" errors

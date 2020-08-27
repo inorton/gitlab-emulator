@@ -113,11 +113,12 @@ class DockerJob(Job):
         return self._run_script(lines)
 
     def _run_script(self, lines, attempts=2):
+        task = None
         while attempts > 0:
             try:
                 task = self.docker.exec(self.workspace, self.shell)
-                self.build_process = task
-                return self.communicate(task, script=lines.encode())
+                self.communicate(task, script=lines.encode())
+                break
             except DockerExecError:
                 self.stdout.write("Warning: docker exec error - https://gitlab.com/cunity/gitlab-emulator/-/issues/10")
                 attempts -= 1
@@ -125,6 +126,7 @@ class DockerJob(Job):
                     raise
                 else:
                     time.sleep(2)
+        return task
 
     def check_docker_exec_failed(self, line):
         """
@@ -184,7 +186,7 @@ class DockerJob(Job):
             self.docker.run()
 
             try:
-                self.run_script(make_script(self.before_script + self.script))
+                self.build_process = self.run_script(make_script(self.before_script + self.script))
             finally:
                 self.run_script(make_script(self.after_script))
                 try:

@@ -18,8 +18,10 @@ FATAL_EXIT = True
 def info(msg):
     LOGGER.info(msg)
 
+
 def warning(msg):
     LOGGER.warning(msg)
+
 
 def fatal(msg):
     LOGGER.critical(msg)
