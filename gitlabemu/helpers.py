@@ -1,6 +1,7 @@
 """
 Various useful common funcs
 """
+import os
 import sys
 import platform
 import subprocess
@@ -29,9 +30,9 @@ class DockerTool(object):
 
     def pull(self):
         self.pulled = subprocess.Popen(["docker", "pull", self.image],
-                                     stdin=None,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT)
+                                       stdin=None,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT)
         return self.pulled
 
     def get_envs(self):
@@ -43,6 +44,10 @@ class DockerTool(object):
             else:
                 cmdline.extend(["-e", name])
         return cmdline
+
+    def wait(self):
+        cmdline = ["docker", "container", "wait", self.container]
+        subprocess.check_call(cmdline)
 
     def run(self):
         cmdline = ["docker", "run", "--rm",
@@ -79,8 +84,12 @@ class DockerTool(object):
 
     def kill(self):
         cmdline = ["docker", "kill", self.container]
-        subprocess.check_call(
-            [cmdline], shell=False)
+        subprocess.check_output(
+            cmdline, shell=False)
+
+    def check_call(self, cwd, cmd):
+        cmdline = ["docker", "exec", "-w", cwd, self.container] + cmd
+        subprocess.check_call(cmdline)
 
     def exec(self, cwd, shell):
         cmdline = ["docker", "exec", "-w", cwd]
@@ -137,3 +146,16 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
             if hasattr(process, "args"):
                 args = process.args
             raise subprocess.CalledProcessError(process.returncode, cmd=args)
+
+
+def has_docker():
+    try:
+        subprocess.check_output(["docker", "ps"], stderr=subprocess.STDOUT)
+        return True
+    except Exception as err:
+        return err is None
+
+
+def is_windows():
+    return platform.system() == "Windows"
+

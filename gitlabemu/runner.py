@@ -2,6 +2,7 @@ import sys
 import os
 import argparse
 from . import configloader
+from .helpers import DockerTool, has_docker, is_windows, communicate
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -60,11 +61,30 @@ def run(args=None):
         parser.print_usage()
         sys.exit(1)
     else:
-
+        fix_ownership = True
         if options.no_docker:
             config["hide_docker"] = True
+            fix_ownership = False
 
         if options.error_shell:
             config["error_shell"] = [options.error_shell]
+        try:
+            execute_job(config, jobname, recurse=options.FULL)
+        finally:
+            if fix_ownership and has_docker():
+                if not is_windows():
+                    print("Fixing up local file ownerships..")
+                    dt = DockerTool()
+                    dt.image = "alpine:latest"
+                    dt.entrypoint = ["/bin/sh"]
+                    dt.name = "gitlab-emulator-chowner-{}".format(os.getpid())
+                    dt.add_volume(os.getcwd(), os.getcwd())
+                    dt.run()
+                    try:
+                        dt.check_call(os.getcwd(),
+                                      ["chown", "-R", str(os.getuid()), str(os.getcwd())])
+                    finally:
+                        dt.kill()
+                    print("finished")
+        print("Build complete!")
 
-        execute_job(config, jobname, recurse=options.FULL)
