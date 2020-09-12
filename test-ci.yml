@@ -1,13 +1,13 @@
 include:
-  - "/ci-includes/ubuntu-image.yml"
+  - "/ci-includes/alpine-image.yml"
   - local: "/ci-includes/windows-dir-after.yml"
 
 stages:
 - build
 - test
 
-ubuntu-test:
-  extends: .ubuntu-1804-image
+alpine-test:
+  extends: .alpine-image
   stage: build
   script:
   - uname -a
@@ -53,7 +53,7 @@ linux-shell-job:
     - echo running after
 
 linux-docker-job:
-  image: ubuntu:18.04
+  image: alpine:latest
   stage: build
   script:
     - pwd
@@ -63,7 +63,7 @@ linux-docker-job:
 
 linux-build-later:
   stage: test
-  image: ubuntu:18.04
+  image: alpine:latest
   needs: [linux-docker-job, linux-shell-job]
   script:
     - ls -l

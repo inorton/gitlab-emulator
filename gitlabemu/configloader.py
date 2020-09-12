@@ -128,15 +128,20 @@ def do_includes(baseobj, yamldir):
     for job in baseobj:
         if isinstance(baseobj[job], dict):
             extends = baseobj[job].get("extends", None)
-            if extends:
-                baseclass = baseobj.get(extends, None)
-                if not baseclass:
-                    raise BadSyntaxError("job {} extends {} which cannot be found".format(job, extends))
-                copy = dict(baseobj[job])
-                newbase = dict(baseclass)
-                for item in copy:
-                    newbase[item] = copy[item]
-                baseobj[job] = newbase
+            if extends is not None:
+                if type(extends) == str:
+                    bases = [extends]
+                else:
+                    bases = extends
+                for basename in bases:
+                    baseclass = baseobj.get(basename, None)
+                    if not baseclass:
+                        raise BadSyntaxError("job {} extends {} which cannot be found".format(job, basename))
+                    copy = dict(baseobj[job])
+                    newbase = dict(baseclass)
+                    for item in copy:
+                        newbase[item] = copy[item]
+                    baseobj[job] = newbase
 
 
 def read(yamlfile, check_supported=True, variables=True):

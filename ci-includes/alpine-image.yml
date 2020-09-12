@@ -1,0 +1,2 @@
+.alpine-image:
+  image: alpine:latest

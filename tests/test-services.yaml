@@ -1,0 +1,12 @@
+stages:
+  - test
+
+job1:
+  image: alpine:latest
+  services:
+    - name: nginx:1.19.2
+      alias: aliased
+  script:
+    - sleep 5
+    - ping -c 5 aliased
+    - wget http://aliased -O -

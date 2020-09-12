@@ -18,3 +18,14 @@ def has_docker():
         subprocess.check_output(["docker", "info"])
     except Exception as err:
         pytest.skip("docker not available on this machine : " + str(err))
+
+
+@pytest.fixture(scope="session")
+def linux_docker():
+    try:
+        output = subprocess.check_output(["docker", "info", "-f", "{{.OSType}}"])
+        text = output.decode().strip()
+        if text != "linux":
+            pytest.skip("docker cannot run a linux image")
+    except Exception as err:
+        pytest.skip("could not run docker info " + str(err))

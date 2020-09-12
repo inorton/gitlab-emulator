@@ -1,0 +1,14 @@
+.base1:
+  image: base1:image
+
+.base2:
+  before_script:
+    - base2
+
+job1:
+  extends:
+    - .base1
+    - .base2
+
+job2:
+  extends: .base2
