@@ -151,6 +151,18 @@ class Job(object):
 
         return opened.returncode
 
+    def shell_on_error(self):
+        """
+        Execute a shell command on job errors
+        :return:
+        """
+        try:
+            print("Job {} script error..".format(self.name), flush=True)
+            print("Running error-shell..", flush=True)
+            subprocess.check_call(self.error_shell)
+        except subprocess.CalledProcessError:
+            pass
+
     def run(self):
         """
         Run the job on the local machine
@@ -160,6 +172,8 @@ class Job(object):
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
         result = self.run_script(lines)
+        if result and self.error_shell:
+            self.shell_on_error()
 
         self.run_script(self.after_script)
 

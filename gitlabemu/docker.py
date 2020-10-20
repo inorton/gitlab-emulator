@@ -146,6 +146,18 @@ class DockerJob(Job):
     def communicate(self, process, script=None):
         comm(process, self.stdout, script=script, linehandler=self.check_docker_exec_failed)
 
+    def shell_on_error(self):
+        """
+        Execute a shell command on job errors
+        :return:
+        """
+        try:
+            print("Job {} script error..".format(self.name), flush=True)
+            print("Running error-shell..", flush=True)
+            subprocess.check_call(["docker", "exec", "-it", self.container] + self.error_shell)
+        except subprocess.CalledProcessError:
+            pass
+
     def run(self):
         if platform.system() == "Windows":
             warning("warning windows docker is experimental")
@@ -188,14 +200,11 @@ class DockerJob(Job):
             try:
                 self.build_process = self.run_script(make_script(self.before_script + self.script))
             finally:
-                self.run_script(make_script(self.after_script))
                 try:
-                    if self.error_shell:
-                        try:
-                            print("Running error-shell..")
-                            subprocess.check_call(["docker", "exec", "-it", self.container] + self.error_shell)
-                        except subprocess.CalledProcessError:
-                            pass
+                    if self.build_process.returncode and self.error_shell:
+                        self.shell_on_error()
+
+                    self.run_script(make_script(self.after_script))
                 except subprocess.CalledProcessError:
                     pass
                 finally:
