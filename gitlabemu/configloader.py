@@ -144,7 +144,36 @@ def do_includes(baseobj, yamldir):
                     baseobj[job] = newbase
 
 
-def read(yamlfile, check_supported=True, variables=True):
+def validate(config):
+    """
+    Validate the jobs in the loaded config map
+    """
+    jobs = get_jobs(config)
+    stages = get_stages(config)
+
+    for name in jobs:
+        job = get_job(config, name)
+
+        # check that the stage exists
+        if job["stage"] not in stages:
+            raise ConfigLoaderError("job {} stage {} does not exist".format(name, job["stage"]))
+
+        # check needs
+        needs = job.get("needs", [])
+        for need in needs:
+            # check the needed job exists
+            if need not in jobs:
+                raise ConfigLoaderError("job {} needs job {} which does not exist".format(name, need))
+
+            # check the needed job in in an earlier stage
+            needed = get_job(config, need)
+            stage_order = stages.index(job["stage"])
+            need_stage_order = stages.index(needed["stage"])
+            if not need_stage_order < stage_order:
+                raise ConfigLoaderError("job {} needs {} that is not in an earlier stage".format(name, need))
+
+
+def read(yamlfile, variables=True):
     """
     Read a .gitlab-ci.yml file into python types
     :param yamlfile:
@@ -153,10 +182,14 @@ def read(yamlfile, check_supported=True, variables=True):
     with open(yamlfile, "r") as yamlobj:
         loaded = yamlloader.ordered_load(yamlobj, Loader=yaml.FullLoader)
 
-    if check_supported:
-        check_unsupported(loaded)
-
     do_includes(loaded, os.path.dirname(yamlfile))
+
+    check_unsupported(loaded)
+
+    if "stages" not in loaded:
+        loaded["stages"] = ["test"]
+
+    validate(loaded)
 
     if variables:
         loaded["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))
@@ -212,7 +245,13 @@ def get_job(config, name):
     """
     assert name in get_jobs(config)
 
-    return config.get(name)
+    job = config.get(name)
+
+    # set some implied defaults
+    if "stage" not in job:
+        job["stage"] = "test"
+
+    return job
 
 
 def job_docker_image(config, name):

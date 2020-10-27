@@ -1,0 +1,15 @@
+stages:
+  - one
+  - two
+
+job1:
+  stage: one
+  script:
+    - echo this job is illegal because it depends on a job in a later stage
+  needs:
+    - job2
+
+job2:
+  stage: two
+  script:
+    - echo

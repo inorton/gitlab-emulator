@@ -52,7 +52,11 @@ def run(args=None):
 
     yamlfile = options.CONFIG
     jobname = options.JOB
-    config = configloader.read(yamlfile)
+    try:
+        config = configloader.read(yamlfile)
+    except configloader.ConfigLoaderError as err:
+        print("Config error: " + str(err))
+        sys.exit()
 
     if options.LIST:
         for jobname in sorted(configloader.get_jobs(config)):

@@ -201,8 +201,9 @@ class DockerJob(Job):
                 self.build_process = self.run_script(make_script(self.before_script + self.script))
             finally:
                 try:
-                    if self.build_process.returncode and self.error_shell:
-                        self.shell_on_error()
+                    if self.error_shell:
+                        if not self.build_process or self.build_process.returncode:
+                            self.shell_on_error()
 
                     self.run_script(make_script(self.after_script))
                 except subprocess.CalledProcessError:

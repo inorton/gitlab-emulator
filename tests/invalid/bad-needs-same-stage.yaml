@@ -1,0 +1,14 @@
+stages:
+  - one
+
+job1:
+  stage: one
+  script:
+    - echo
+
+job2:
+  stage: one
+  needs:
+    - job1
+  script:
+    - echo this jobn is illegal as it depends on another in the same stage
