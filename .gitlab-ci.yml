@@ -15,7 +15,11 @@ linux-testing:
   script:
     - pip install pytest
     - pip install -e .
-    - python -m pytest .
+    - python -m pytest . --junit-xml=test-results.xml
+  artifacts:
+    reports:
+      junit:
+        - test-results.xml
 
 linux-job-runner:
   variables:
