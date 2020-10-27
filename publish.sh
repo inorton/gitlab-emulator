@@ -3,5 +3,5 @@
 set -e
 
 rm -rf dist
-python setup.py sdist
-twine upload dist/*.tar.gz
+python3 setup.py sdist
+python3 -m twine upload dist/*.tar.gz
