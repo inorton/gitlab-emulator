@@ -86,7 +86,7 @@ def do_single_include(yamldir, inc):
 
     include = os.path.join(yamldir, include)
 
-    return read(include, variables=False)
+    return read(include, variables=False, validate_jobs=False)
 
 
 def do_includes(baseobj, yamldir):
@@ -173,9 +173,11 @@ def validate(config):
                 raise ConfigLoaderError("job {} needs {} that is not in an earlier stage".format(name, need))
 
 
-def read(yamlfile, variables=True):
+def read(yamlfile, variables=True, validate_jobs=True):
     """
     Read a .gitlab-ci.yml file into python types
+    :param validate_jobs: if True, reject jobs with bad configuration (yet valid yaml)
+    :param variables: if True, inject a variables map (valid for top level only)
     :param yamlfile:
     :return:
     """
@@ -186,10 +188,10 @@ def read(yamlfile, variables=True):
 
     check_unsupported(loaded)
 
-    if "stages" not in loaded:
-        loaded["stages"] = ["test"]
-
-    validate(loaded)
+    if validate_jobs:
+        if "stages" not in loaded:
+            loaded["stages"] = ["test"]
+        validate(loaded)
 
     if variables:
         loaded["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))

@@ -39,7 +39,7 @@ def test_self_fail(linux_docker, capsys):
     assert "running after" in out
 
 
-def test_no_such_exec(has_docker, mocker, capsys):
+def test_no_such_exec(linux_docker, mocker, capsys):
     """
     Test that we handle docker exec "no such exec instance" errors
     :param has_docker:
