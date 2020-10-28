@@ -152,6 +152,9 @@ def validate(config):
     stages = get_stages(config)
 
     for name in jobs:
+        if name.startswith("."):
+            continue
+
         job = get_job(config, name)
 
         # check that the stage exists
