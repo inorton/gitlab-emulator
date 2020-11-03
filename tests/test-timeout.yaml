@@ -1,0 +1,19 @@
+stages:
+  - test
+
+run-ok:
+  stage: test
+  timeout: 1m
+  script:
+    - sleep 5
+
+run-slow:
+  stage: test
+  timeout: 1m
+  script:
+    - echo first
+    - sleep 10
+    - echo second
+    - sleep 10
+    - echo long sleep..
+    - sleep 240

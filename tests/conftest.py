@@ -2,6 +2,7 @@ import sys
 import os
 import pytest
 import subprocess
+import platform
 HERE = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, HERE)
 
@@ -10,6 +11,17 @@ sys.path.insert(0, HERE)
 def tests_dir():
     os.chdir(os.path.dirname(__file__))
     return os.getcwd()
+
+
+@pytest.fixture(scope="session")
+def posix_only():
+    if platform.system() == "Windows":
+        pytest.skip("not a POSIX platform")
+    try:
+        import posix
+        assert posix.uname()
+    except ImportError:
+        pytest.skip("System does not have the posix module")
 
 
 @pytest.fixture(scope="session")

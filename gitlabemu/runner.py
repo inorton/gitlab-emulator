@@ -65,9 +65,15 @@ def run(args=None):
         parser.print_usage()
         sys.exit(1)
     else:
-        fix_ownership = True
+        fix_ownership = has_docker()
         if options.no_docker:
             config["hide_docker"] = True
+            fix_ownership = False
+
+        if not configloader.job_docker_image(config, jobname):
+            fix_ownership = False
+
+        if is_windows():
             fix_ownership = False
 
         if options.error_shell:

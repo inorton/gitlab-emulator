@@ -164,7 +164,7 @@ class DockerJob(Job):
         except subprocess.CalledProcessError:
             pass
 
-    def run(self):
+    def run_impl(self):
         if platform.system() == "Windows":
             warning("warning windows docker is experimental")
         

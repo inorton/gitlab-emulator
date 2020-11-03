@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from gitlabemu import runner, configloader
+from gitlabemu import runner
 
 
 def test_run_needs(tests_dir):

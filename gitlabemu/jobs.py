@@ -2,14 +2,17 @@
 Represent a gitlab job
 """
 import os
+import signal
+
 import sys
 import platform
 import subprocess
-import select
+import threading
 import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm
+from .helpers import parse_timeout
 
 
 class NoSuchJob(GitlabEmulatorError):
@@ -45,6 +48,41 @@ class Job(object):
         self.workspace = None
         self.stderr = sys.stderr
         self.stdout = sys.stdout
+        self.started_time = 0
+        self.ended_time = 0
+        self.timeout_seconds = 0
+        self.monitor_thread = None
+        self.exit_monitor = False
+
+    def duration(self):
+        if self.started_time:
+            return time.time() - self.started_time
+        return 0
+
+    def monitor_thread_loop_once(self):
+        """
+        Execute each time around the monitor loop
+        """
+        # check for timeout
+        if self.timeout_seconds:
+            duration = self.duration()
+            if duration > self.timeout_seconds:
+                info("Job exceeded timeout after {} sec".format(int(self.timeout_seconds)))
+                self.abort()
+                self.exit_monitor = True
+
+    def monitor_thread_loop(self):
+        """
+        Executed by the monitor thread when a job is started
+        and exits when it finishes
+        """
+        while not self.exit_monitor:
+            if self.build_process:
+                self.monitor_thread_loop_once()
+
+                if self.build_process.poll() is not None:
+                    break
+            time.sleep(2)
 
     def load(self, name, config):
         """
@@ -69,6 +107,9 @@ class Job(object):
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         self.dependencies = job.get("needs", job.get("dependencies", []))
+
+        if "timeout" in config[name]:
+            self.timeout_seconds = parse_timeout(config[name].get("timeout"))
 
         self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
         self.configure_job_variable("CI_JOB_NAME", self.name)
@@ -97,9 +138,9 @@ class Job(object):
         :return:
         """
         info("aborting job {}".format(self.name))
-        if self.build_process:
+        if self.build_process and self.build_process.poll() is None:
             info("killing child build process..")
-            self.build_process.kill()
+            os.kill(self.build_process.pid, signal.SIGTERM)
 
     def check_communicate(self, process, script=None):
         """
@@ -168,13 +209,24 @@ class Job(object):
         Run the job on the local machine
         :return:
         """
+        self.started_time = time.time()
+        self.monitor_thread = threading.Thread(target=self.monitor_thread_loop, daemon=True)
+        self.monitor_thread.start()
+        if self.timeout_seconds:
+            info("job {} timeout set to {} mins".format(self.name, int(self.timeout_seconds/60)))
+        try:
+            self.run_impl()
+        finally:
+            self.ended_time = time.time()
+            self.exit_monitor = True
+            self.monitor_thread.join(timeout=5)
 
+    def run_impl(self):
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
         result = self.run_script(lines)
         if result and self.error_shell:
             self.shell_on_error()
-
         self.run_script(self.after_script)
 
         if result:

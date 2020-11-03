@@ -1,8 +1,10 @@
 """
 Various useful common funcs
 """
-import os
+from threading import Thread
+
 import sys
+import re
 import platform
 import subprocess
 
@@ -105,11 +107,40 @@ class DockerTool(object):
         return proc
 
 
+class ProcessLineProxyThread(Thread):
+    def __init__(self, process, stdout, linehandler=None):
+        super(ProcessLineProxyThread, self).__init__()
+        self.process = process
+        self.stdout = stdout
+        self.linehandler = linehandler
+        self.daemon = True
+
+    def writeout(self, data):
+        if self.stdout and data:
+            self.stdout.write(data.decode())
+
+    def run(self):
+        while self.process.poll() is None:
+            try:
+                data = self.process.stdout.readline()
+                if data and self.linehandler:
+                    self.linehandler(data)
+            except ValueError:
+                pass
+            self.writeout(data)
+
+        # child has exited now, get any last output if there is any
+        if not self.process.stdout.closed:
+            self.writeout(self.process.stdout.read())
+
+        if hasattr(self.stdout, "flush"):
+            self.stdout.flush()
+
+
 def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandler=None):
     """
-    Write output incrementally to stdout
-    :param process: a POpen child process
-    :type Popen
+    Write output incrementally to stdout, waits for process to end
+    :param process: a Popened child process
     :param stdout: a file-like object to write to
     :param script: a script (ie, bytes) to stream to stdin
     :param throw: raise an exception if the process exits non-zero
@@ -121,24 +152,12 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
         process.stdin.flush()
         process.stdin.close()
 
-    while process.poll() is None:
-        try:
-            data = process.stdout.readline()
-            if data and linehandler:
-                linehandler(data)
-
-        except ValueError:
-            pass
-
-        if data:
-            stdout.write(data.decode())
-
-    # child has exited now, get any last output if there is any
-    if not process.stdout.closed:
-        stdout.write(process.stdout.read().decode())
-
-    if hasattr(stdout, "flush"):
-        stdout.flush()
+    comm_thread = ProcessLineProxyThread(process, stdout, linehandler=linehandler)
+    comm_thread.start()
+    while comm_thread.is_alive() and process.poll() is None:
+        comm_thread.join(timeout=5)
+        # yes, if the process is dead we potentially leak a sleeping thread
+        # blocked by readline..
 
     if throw:
         if process.returncode != 0:
@@ -150,7 +169,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
 
 def has_docker():
     try:
-        subprocess.check_output(["docker", "ps"], stderr=subprocess.STDOUT)
+        subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT)
         return True
     except Exception as err:
         return err is None
@@ -162,3 +181,41 @@ def is_windows():
 
 def is_linux():
     return platform.system() == "Linux"
+
+def parse_timeout(text):
+    """
+    Decode a human readable time to seconds.
+    eg, 1h 30m
+
+    default is minutes without any suffix
+    """
+    words = text.split()
+    seconds = 0
+
+    if len(words) == 1:
+        # plain single time
+        word = words[0]
+        try:
+            mins = float(word)
+            # plain bare number, use it as minutes
+            return 1 + int(60.0 * mins)
+        except ValueError:
+            pass
+
+    pattern = re.compile("([\d+\.][hm])")
+
+    for word in words:
+        m = pattern.search(word)
+        if m.groups():
+            num, suffix = m.groups()[0]
+            num = float(num)
+            if suffix == "h":
+                if seconds > 0:
+                    raise ValueError("Unexpected h value {}".format(text))
+                seconds += num * 60 * 60
+            elif suffix == "m":
+                seconds += num * 60
+
+    if seconds == 0:
+        raise ValueError("Cannot decode timeout {}".format(text))
+    return seconds
