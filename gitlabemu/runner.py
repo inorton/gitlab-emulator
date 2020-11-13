@@ -2,7 +2,7 @@ import sys
 import os
 import argparse
 from . import configloader
-from .helpers import DockerTool, has_docker, is_windows, communicate
+from .helpers import DockerTool, has_docker, is_linux
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -76,7 +76,7 @@ def run(args=None):
             execute_job(config, jobname, recurse=options.FULL)
         finally:
             if fix_ownership and has_docker():
-                if not is_windows():
+                if is_linux():
                     print("Fixing up local file ownerships..")
                     dt = DockerTool()
                     dt.image = "alpine:latest"
