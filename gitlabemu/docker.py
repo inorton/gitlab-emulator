@@ -52,10 +52,12 @@ def docker_services(job, vars):
                     docker_cmdline.append("--privileged")
 
                 for envname in vars:
-                    docker_cmdline.append("-e{}={}".format(envname, vars[envname]))
+                    docker_cmdline.extend(
+                        ["-e", "{}={}".format(envname, vars[envname])])
 
                 docker_cmdline.append(image)
                 info("creating docker service {}".format(name))
+                info("cmdline: {}".format(" ".join(docker_cmdline)))
                 container = subprocess.check_output(docker_cmdline).strip()
                 info("service {} is container {}".format(name, container))
                 containers.append(container)
