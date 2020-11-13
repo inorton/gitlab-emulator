@@ -10,11 +10,11 @@ from .errors import DockerExecError
 
 
 @contextmanager
-def docker_services(job):
+def docker_services(job, vars):
     """
     Setup docker services required by the given job
-    :param config:
-    :param jobname:
+    :param job:
+    :param vars: dict of env vars to set in the service container
     :return:
     """
     services = job.services
@@ -50,6 +50,10 @@ def docker_services(job):
                 docker_cmdline = ["docker", "run", "-d", "--rm"]
                 if not is_windows():
                     docker_cmdline.append("--privileged")
+
+                for envname in vars:
+                    docker_cmdline.append("-e{}={}".format(envname, vars[envname]))
+
                 docker_cmdline.append(image)
                 info("creating docker service {}".format(name))
                 container = subprocess.check_output(docker_cmdline).strip()
@@ -182,11 +186,10 @@ class DockerJob(Job):
         except subprocess.CalledProcessError:
             warning("could not pull docker image {}".format(self.image))
 
-        with docker_services(self) as network:
+        environ = self.get_envs()
+        with docker_services(self, environ) as network:
             if network:
                 self.docker.network = network
-
-            environ = self.get_envs()
             for envname in environ:
                 self.docker.env[envname] = environ[envname]
 
