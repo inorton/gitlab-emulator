@@ -5,7 +5,7 @@ import uuid
 from contextlib import contextmanager
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
-from .helpers import communicate as comm, DockerTool
+from .helpers import communicate as comm, DockerTool, is_windows
 from .errors import DockerExecError
 
 
@@ -48,7 +48,7 @@ def docker_services(job):
                 except subprocess.CalledProcessError:
                     warning("could not pull {}".format(image))
                 docker_cmdline = ["docker", "run", "-d", "--rm"]
-                if platform.system() == "Linux":
+                if not is_windows():
                     docker_cmdline.append("--privileged")
                 docker_cmdline.append(image)
                 info("creating docker service {}".format(name))
