@@ -73,7 +73,7 @@ def run(args=None):
         if not configloader.job_docker_image(config, jobname):
             fix_ownership = False
 
-        if is_windows():
+        if not is_linux():
             fix_ownership = False
 
         if options.error_shell:
@@ -81,7 +81,7 @@ def run(args=None):
         try:
             execute_job(config, jobname, recurse=options.FULL)
         finally:
-            if fix_ownership and has_docker():
+            if has_docker() and fix_ownership:
                 if is_linux():
                     print("Fixing up local file ownerships..")
                     dt = DockerTool()

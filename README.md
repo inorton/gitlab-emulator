@@ -5,6 +5,7 @@ Supported Gitlab v11 and v12 features:
  * docker (windows and linux)
  * `include` and `extends` keywords
  * `needs` (DAG-ordered builds)
+ * `timeout` for jobs
 
 Supported Platforms:
 
@@ -12,12 +13,15 @@ Supported Platforms:
    * shell:
      * windows
      * linux
-     * unix (any modern supported python platform - eg solaris, OSX, AIX)
+     * MacOS X
+     * unix (any modern supported python platform - eg solaris, AIX)
    * docker
      * linux
      * windows
+     * Docker Desktop on Mac
    * services and service aliases
      * linux
+     * linux services with Docker Desktop on MAc
      * windows (untested)
 
 ## Installation
