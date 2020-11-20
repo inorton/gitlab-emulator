@@ -28,6 +28,7 @@ linux-job-runner:
   services:
     - docker:dind
   stage: build
+  timeout: 15m
   image: docker:stable-git
   before_script:
     - apk add python3
