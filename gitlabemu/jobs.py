@@ -102,14 +102,14 @@ class Job(object):
         self.after_script = job.get("after_script", all_after)
         self.variables = config.get("variables", {})
         job_vars = job.get("variables", {})
-        for name in job_vars:
-            self.variables[name] = job_vars[name]
+        for varname in job_vars:
+            self.variables[varname] = job_vars[varname]
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         self.dependencies = job.get("needs", job.get("dependencies", []))
 
-        if "timeout" in config[name]:
-            self.timeout_seconds = parse_timeout(config[name].get("timeout"))
+        if "timeout" in config[self.name]:
+            self.timeout_seconds = parse_timeout(config[self.name].get("timeout"))
 
         self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
         self.configure_job_variable("CI_JOB_NAME", self.name)
