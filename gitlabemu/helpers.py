@@ -182,6 +182,7 @@ def is_windows():
 def is_linux():
     return platform.system() == "Linux"
 
+
 def parse_timeout(text):
     """
     Decode a human readable time to seconds.
@@ -189,6 +190,10 @@ def parse_timeout(text):
 
     default is minutes without any suffix
     """
+    # collapse the long form
+    text = text.replace(" hours", "h")
+    text = text.replace(" minutes", "m")
+
     words = text.split()
     seconds = 0
 
@@ -198,16 +203,16 @@ def parse_timeout(text):
         try:
             mins = float(word)
             # plain bare number, use it as minutes
-            return 1 + int(60.0 * mins)
+            return int(60.0 * mins)
         except ValueError:
             pass
 
-    pattern = re.compile("([\d+\.][hm])")
+    pattern = re.compile(r"([\d\.]+)\s*([hm])")
 
     for word in words:
         m = pattern.search(word)
-        if m.groups():
-            num, suffix = m.groups()[0]
+        if m and m.groups():
+            num, suffix = m.groups()
             num = float(num)
             if suffix == "h":
                 if seconds > 0:

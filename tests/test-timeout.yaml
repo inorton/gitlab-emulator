@@ -3,7 +3,7 @@ stages:
 
 run-ok:
   stage: test
-  timeout: 1m
+  timeout: 14m
   script:
     - sleep 5
 
