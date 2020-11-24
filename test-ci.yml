@@ -42,6 +42,7 @@ linux-shell-job:
   script:
     - uname -a
     - ls -l
+    - env|sort
 
 .bad-linux-docker-job:
   image: alpine:latest
@@ -67,3 +68,4 @@ linux-build-later:
   needs: [linux-docker-job, linux-shell-job]
   script:
     - ls -l
+

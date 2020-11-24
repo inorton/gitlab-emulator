@@ -37,7 +37,7 @@ linux-job-runner:
   script:
     - locallab.py -c test-ci.yml --full linux-build-later
     - locallab.py -c test-ci.yml linux-docker-job
-    - locallab.py -c test-ci.yml linux-shell-job
+    - cd /tmp/locallab.py -c $(pwd)/test-ci.yml linux-shell-job
 
 windows-job-runner:
   stage: build
