@@ -43,6 +43,7 @@ linux-shell-job:
     - uname -a
     - ls -l
     - env|sort
+    - ls -l ${PWD}/test-ci.yml
 
 .bad-linux-docker-job:
   image: alpine:latest
