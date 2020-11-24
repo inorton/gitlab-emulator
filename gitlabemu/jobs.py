@@ -180,6 +180,7 @@ class Job(object):
         :return:
         """
         envs = self.get_envs()
+        envs["PWD"] = os.path.abspath(self.workspace)
         script = make_script(lines)
         opened = subprocess.Popen(self.shell,
                                   env=envs,
