@@ -117,7 +117,11 @@ class ProcessLineProxyThread(Thread):
 
     def writeout(self, data):
         if self.stdout and data:
-            self.stdout.write(data.decode())
+            try:
+                decoded = data.decode()
+            except UnicodeEncodeError:
+                decoded = str(data)
+            self.stdout.write(decoded)
 
     def run(self):
         while self.process.poll() is None:
