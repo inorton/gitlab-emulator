@@ -119,7 +119,7 @@ class ProcessLineProxyThread(Thread):
         if self.stdout and data:
             try:
                 decoded = data.decode()
-            except UnicodeEncodeError:
+            except UnicodeDecodeError:
                 decoded = str(data)
             self.stdout.write(decoded)
 
