@@ -217,8 +217,16 @@ class Job(object):
         except RuntimeError as err:
             info("could not create a monitor thread, job timeouts may not work: {}".format(err))
             self.monitor_thread = None
-        if self.timeout_seconds and self.monitor_thread:
+        if self.timeout_seconds:
             info("job {} timeout set to {} mins".format(self.name, int(self.timeout_seconds/60)))
+            if not self.monitor_thread:
+                def alarm_handler(x, y):
+                    info("Got SIGALRM, aborting build..")
+                    self.abort()
+
+                signal.signal(signal.SIGALRM, alarm_handler)
+                signal.alarm(self.timeout_seconds)
+
         try:
             self.run_impl()
         finally:
