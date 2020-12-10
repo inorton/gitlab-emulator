@@ -157,11 +157,33 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
         process.stdin.close()
 
     comm_thread = ProcessLineProxyThread(process, stdout, linehandler=linehandler)
-    comm_thread.start()
-    while comm_thread.is_alive() and process.poll() is None:
-        comm_thread.join(timeout=5)
-        # yes, if the process is dead we potentially leak a sleeping thread
-        # blocked by readline..
+    thread_started = False
+    try:
+        comm_thread.start()
+        thread_started = True
+    except RuntimeError:
+        # could not create the thread, so use a loop
+        pass
+
+    if comm_thread and thread_started:
+        while comm_thread.is_alive() and process.poll() is None:
+            comm_thread.join(timeout=5)
+            # yes, if the process is dead we potentially leak a sleeping thread
+            # blocked by readline..
+    else:
+        # could not create a thread (hpux?)
+        while process.poll() is None:
+            try:
+                data = process.stdout.readline()
+                if data and linehandler:
+                    linehandler(data)
+
+            except ValueError:
+                pass
+
+            if data:
+                # we can still use our proxy object to decode and write the data
+                comm_thread.writeout(data)
 
     if throw:
         if process.returncode != 0:

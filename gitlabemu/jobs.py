@@ -212,15 +212,20 @@ class Job(object):
         """
         self.started_time = time.time()
         self.monitor_thread = threading.Thread(target=self.monitor_thread_loop, daemon=True)
-        self.monitor_thread.start()
-        if self.timeout_seconds:
+        try:
+            self.monitor_thread.start()
+        except RuntimeError as err:
+            info("could not create a monitor thread, job timeouts may not work: {}".format(err))
+            self.monitor_thread = None
+        if self.timeout_seconds and self.monitor_thread:
             info("job {} timeout set to {} mins".format(self.name, int(self.timeout_seconds/60)))
         try:
             self.run_impl()
         finally:
             self.ended_time = time.time()
             self.exit_monitor = True
-            self.monitor_thread.join(timeout=5)
+            if self.monitor_thread:
+                self.monitor_thread.join(timeout=5)
 
     def run_impl(self):
         info("running shell job {}".format(self.name))
