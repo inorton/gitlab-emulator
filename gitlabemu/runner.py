@@ -53,7 +53,10 @@ def run(args=None):
     yamlfile = options.CONFIG
     jobname = options.JOB
     try:
-        config = configloader.read(yamlfile)
+        fullpath = os.path.abspath(yamlfile)
+        rootdir = os.path.dirname(fullpath)
+        os.chdir(rootdir)
+        config = configloader.read(fullpath, topdir=rootdir)
     except configloader.ConfigLoaderError as err:
         print("Config error: " + str(err))
         sys.exit()

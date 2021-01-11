@@ -2,6 +2,9 @@ stages:
 - build
 - test
 
+include:
+  - local: ci-includes/subdir/jobs.yml
+
 .fail-job:
   stage: build
   image: busybox:latest

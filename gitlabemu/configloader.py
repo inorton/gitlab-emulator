@@ -84,9 +84,9 @@ def do_single_include(yamldir, inc):
     if os.sep != "/":
         include = include.replace("/", os.sep)
 
-    include = os.path.join(yamldir, include)
+    print("including : {}, top={}".format(include, yamldir))
 
-    return read(include, variables=False, validate_jobs=False)
+    return read(include, variables=False, validate_jobs=False, topdir=yamldir)
 
 
 def do_includes(baseobj, yamldir):
@@ -120,9 +120,8 @@ def do_includes(baseobj, yamldir):
         for filename in includes:
             obj = do_single_include(yamldir, filename)
             for item in obj:
-                if item in baseobj:
-                    print("warning, {} is already defined in the loaded yaml".format(item))
-                baseobj[item] = obj[item]
+                if item != "include":
+                    baseobj[item] = obj[item]
 
     # now do extends
     for job in baseobj:
@@ -176,18 +175,25 @@ def validate(config):
                 raise ConfigLoaderError("job {} needs {} that is not in an earlier stage".format(name, need))
 
 
-def read(yamlfile, variables=True, validate_jobs=True):
+def read(yamlfile, variables=True, validate_jobs=True, topdir=None):
     """
     Read a .gitlab-ci.yml file into python types
+    :param yamlfile:
     :param validate_jobs: if True, reject jobs with bad configuration (yet valid yaml)
     :param variables: if True, inject a variables map (valid for top level only)
-    :param yamlfile:
+    :param topdir: the root directory to search for include files
     :return:
     """
+
+    if topdir is None:
+        topdir = os.path.dirname(yamlfile)
+        print("setting topdir={}".format(topdir))
+    else:
+        yamlfile = os.path.join(topdir, yamlfile)
     with open(yamlfile, "r") as yamlobj:
         loaded = yamlloader.ordered_load(yamlobj, Loader=yaml.FullLoader)
 
-    do_includes(loaded, os.path.dirname(yamlfile))
+    do_includes(loaded, topdir)
 
     check_unsupported(loaded)
 
