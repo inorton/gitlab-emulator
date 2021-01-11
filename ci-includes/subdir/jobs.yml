@@ -1,0 +1,9 @@
+include:
+  - local: ci-includes/alpine-image.yml
+
+
+check-alpine:
+  extends:
+    - .alpine-image
+  script:
+    - env|sort|grep PATH

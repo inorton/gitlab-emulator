@@ -1,6 +1,7 @@
 include:
-  - "/ci-includes/alpine-image.yml"
-  - local: "/ci-includes/windows-dir-after.yml"
+  - ci-includes/alpine-image.yml
+  - local: ci-includes/windows-dir-after.yml
+  - local: ci-includes/subdir/jobs.yml
 
 stages:
 - build
