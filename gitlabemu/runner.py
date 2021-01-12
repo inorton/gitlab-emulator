@@ -63,7 +63,8 @@ def run(args=None):
 
     if options.LIST:
         for jobname in sorted(configloader.get_jobs(config)):
-            print(jobname)
+            if not jobname.startswith("."):
+                print(jobname)
     elif not jobname:
         parser.print_usage()
         sys.exit(1)

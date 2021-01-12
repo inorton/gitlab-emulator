@@ -1,9 +1,10 @@
+include:
+  - local: ci-includes/alpine-image.yml
+  - local: ci-includes/subdir/jobs.yml
+
 stages:
 - build
 - test
-
-include:
-  - local: ci-includes/subdir/jobs.yml
 
 .fail-job:
   stage: build

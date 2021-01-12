@@ -64,9 +64,10 @@ def check_unsupported(config):
                     raise FeatureNotSupportedError(bad)
 
 
-def do_single_include(yamldir, inc):
+def do_single_include(baseobj, yamldir, inc):
     """
     Load a single included file and return it's object graph
+    :param baseobj: previously loaded and included objects
     :param yamldir: folder to search
     :param inc: file to read
     :return:
@@ -80,20 +81,26 @@ def do_single_include(yamldir, inc):
             raise FeatureNotSupportedError("We only support local includes right now")
 
     include = include.lstrip("/\\")
+
+    if include in baseobj["include"]:
+        BadSyntaxError("The file {} has already been included".format(include))
+    baseobj["include"].append(include)
+
     # make this work on windows
     if os.sep != "/":
         include = include.replace("/", os.sep)
 
-    print("including : {}, top={}".format(include, yamldir))
+    print("include : {}".format(include), file=sys.stderr)
 
-    return read(include, variables=False, validate_jobs=False, topdir=yamldir)
+    return read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
 
 
-def do_includes(baseobj, yamldir):
+def do_includes(baseobj, yamldir, incs):
     """
     Deep process include directives
     :param baseobj:
     :param yamldir: load include files relative to here
+    :param incs: files to load
     :return:
     """
     # include can be an array or a map.
@@ -111,36 +118,16 @@ def do_includes(baseobj, yamldir):
     #    - local: "/templates/scripts.yaml"
     #    - local: "/templates/after.yaml"
     #    "/templates/windows-jobs.yaml"
-    incs = baseobj.get("include", None)
     if incs:
         if isinstance(incs, list):
             includes = incs
         else:
             includes = [incs]
         for filename in includes:
-            obj = do_single_include(yamldir, filename)
+            obj = do_single_include(baseobj, yamldir, filename)
             for item in obj:
                 if item != "include":
                     baseobj[item] = obj[item]
-
-    # now do extends
-    for job in baseobj:
-        if isinstance(baseobj[job], dict):
-            extends = baseobj[job].get("extends", None)
-            if extends is not None:
-                if type(extends) == str:
-                    bases = [extends]
-                else:
-                    bases = extends
-                for basename in bases:
-                    baseclass = baseobj.get(basename, None)
-                    if not baseclass:
-                        raise BadSyntaxError("job {} extends {} which cannot be found".format(job, basename))
-                    copy = dict(baseobj[job])
-                    newbase = dict(baseclass)
-                    for item in copy:
-                        newbase[item] = copy[item]
-                    baseobj[job] = newbase
 
 
 def validate(config):
@@ -175,51 +162,81 @@ def validate(config):
                 raise ConfigLoaderError("job {} needs {} that is not in an earlier stage".format(name, need))
 
 
-def read(yamlfile, variables=True, validate_jobs=True, topdir=None):
+def read(yamlfile, variables=True, validate_jobs=True, topdir=None, baseobj=None):
     """
     Read a .gitlab-ci.yml file into python types
     :param yamlfile:
     :param validate_jobs: if True, reject jobs with bad configuration (yet valid yaml)
     :param variables: if True, inject a variables map (valid for top level only)
     :param topdir: the root directory to search for include files
+    :param baseobj: the document tree loaded so far.
     :return:
     """
-
+    parent = False
     if topdir is None:
         topdir = os.path.dirname(yamlfile)
-        print("setting topdir={}".format(topdir))
+        print("setting topdir={}".format(topdir), file=sys.stderr)
     else:
         yamlfile = os.path.join(topdir, yamlfile)
     with open(yamlfile, "r") as yamlobj:
         loaded = yamlloader.ordered_load(yamlobj, Loader=yaml.FullLoader)
 
-    do_includes(loaded, topdir)
+    if not baseobj:
+        parent = True
+        baseobj = {"include": []}
 
-    check_unsupported(loaded)
+    for item in loaded:
+        if item != "include":
+            baseobj[item] = loaded[item]
+
+    do_includes(baseobj, topdir, loaded.get("include", []))
+    baseobj["include"].append(yamlfile)
+
+    if parent:
+        # now do extends
+        for job in baseobj:
+            if isinstance(baseobj[job], dict):
+                extends = baseobj[job].get("extends", None)
+                if extends is not None:
+                    if type(extends) == str:
+                        bases = [extends]
+                    else:
+                        bases = extends
+                    for basename in bases:
+                        baseclass = baseobj.get(basename, None)
+                        if not baseclass:
+                            raise BadSyntaxError("job {} extends {} which cannot be found".format(job, basename))
+                        copy = dict(baseobj[job])
+                        newbase = dict(baseclass)
+                        for item in copy:
+                            newbase[item] = copy[item]
+                        baseobj[job] = newbase
+
+    check_unsupported(baseobj)
 
     if validate_jobs:
-        if "stages" not in loaded:
-            loaded["stages"] = ["test"]
-        validate(loaded)
+        if "stages" not in baseobj:
+            baseobj["stages"] = ["test"]
+        validate(baseobj)
 
     if variables:
-        loaded["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))
-        if "variables" not in loaded:
-            loaded["variables"] = {}
+        baseobj["_workspace"] = os.path.abspath(os.path.dirname(yamlfile))
+        if "variables" not in baseobj:
+            baseobj["variables"] = {}
 
         # set CI_ values
-        loaded["variables"]["CI_PIPELINE_ID"] = os.getenv(
+        baseobj["variables"]["CI_PIPELINE_ID"] = os.getenv(
             "CI_PIPELINE_ID", "0")
-        loaded["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
+        baseobj["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
             "CI_COMMIT_REF_SLUG", "offline-build")
-        loaded["variables"]["CI_COMMIT_SHA"] = os.getenv(
+        baseobj["variables"]["CI_COMMIT_SHA"] = os.getenv(
             "CI_COMMIT_SHA", "unknown")
 
         for name in os.environ:
             if name.startswith("CI_"):
-                loaded["variables"][name] = os.environ[name]
+                baseobj["variables"][name] = os.environ[name]
 
-    return loaded
+    return baseobj
 
 
 def get_stages(config):
