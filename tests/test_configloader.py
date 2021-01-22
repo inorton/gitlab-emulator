@@ -2,8 +2,6 @@
 Test the configloader
 """
 import os
-import pytest
-
 from gitlabemu import configloader
 
 HERE = os.path.dirname(__file__)

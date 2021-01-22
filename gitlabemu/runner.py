@@ -49,20 +49,20 @@ def execute_job(config, jobname, seen=set(), recurse=False):
 
 def run(args=None):
     options = parser.parse_args(args)
-
+    loader = configloader.Loader()
     yamlfile = options.CONFIG
     jobname = options.JOB
     try:
         fullpath = os.path.abspath(yamlfile)
         rootdir = os.path.dirname(fullpath)
         os.chdir(rootdir)
-        config = configloader.read(fullpath, topdir=rootdir)
+        loader.load(fullpath)
     except configloader.ConfigLoaderError as err:
         print("Config error: " + str(err))
         sys.exit()
 
     if options.LIST:
-        for jobname in sorted(configloader.get_jobs(config)):
+        for jobname in sorted(loader.get_jobs()):
             if not jobname.startswith("."):
                 print(jobname)
     elif not jobname:
@@ -71,19 +71,19 @@ def run(args=None):
     else:
         fix_ownership = has_docker()
         if options.no_docker:
-            config["hide_docker"] = True
+            loader.config["hide_docker"] = True
             fix_ownership = False
 
-        if not configloader.job_docker_image(config, jobname):
+        if not loader.get_docker_image(jobname):
             fix_ownership = False
 
         if not is_linux():
             fix_ownership = False
 
         if options.error_shell:
-            config["error_shell"] = [options.error_shell]
+            loader.config["error_shell"] = [options.error_shell]
         try:
-            execute_job(config, jobname, recurse=options.FULL)
+            execute_job(loader.config, jobname, recurse=options.FULL)
         finally:
             if has_docker() and fix_ownership:
                 if is_linux():
