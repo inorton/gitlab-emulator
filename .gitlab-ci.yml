@@ -17,13 +17,14 @@ linux-testing:
   image: python:3.7
   stage: build
   script:
+    - cd emulator
     - pip install pytest
     - pip install -e .
     - python -m pytest . --junit-xml=test-results.xml
   artifacts:
     reports:
       junit:
-        - test-results.xml
+        - emulator/test-results.xml
 
 linux-job-runner:
   variables:
@@ -35,14 +36,15 @@ linux-job-runner:
   timeout: 15m
   image: docker:stable-git
   before_script:
+    - cd emulator
     - apk add python3
     - apk add py3-pip
     - pip install -e .
   script:
-    - locallab.py -c test-ci.yml --full linux-build-later
-    - locallab.py -c test-ci.yml linux-docker-job
+    - locallab.py -c ../test-ci.yml --full linux-build-later
+    - locallab.py -c ../test-ci.yml linux-docker-job
     - HERE=$(pwd)
-    - cd /tmp && locallab.py -c ${HERE}/test-ci.yml linux-shell-job
+    - cd /tmp && locallab.py -c ${HERE}/../test-ci.yml linux-shell-job
 
 windows-job-runner:
   stage: build
@@ -51,9 +53,9 @@ windows-job-runner:
   tags:
     - cunity-windows-2019-docker
   script:
-    - dir c:\
-    - c:\python37\python.exe locallab.py -c test-ci.yml windows-docker-job || exit /b
-    - c:\python37\python.exe locallab.py -c test-ci.yml windows-shell-job || exit /b
+    - cd emulator
+    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job || exit /b
+    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-shell-job || exit /b
 
 
 

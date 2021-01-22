@@ -91,7 +91,7 @@ class Job(object):
         :param config:
         :return:
         """
-        self.workspace = config["_workspace"]
+        self.workspace = config[".gitlab-emulator-workspace"]
         self.name = name
         job = config[name]
         self.error_shell = config.get("error_shell", [])

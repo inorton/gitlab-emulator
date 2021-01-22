@@ -1,0 +1,14 @@
+# estimated cost of each job in minutes
+timings:
+  build-linux: 4
+  test-linux: 2
+  release-linux: 2
+  build-other: 10
+
+# number of runners to simulate
+runners:
+  - linux-docker:
+      images: True
+      runners: 2
+
+

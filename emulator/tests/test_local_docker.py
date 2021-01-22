@@ -8,7 +8,8 @@ import os
 from gitlabemu.runner import run
 from gitlabemu.errors import DockerExecError
 
-TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+TEST_DIR = os.path.join(TOPDIR, "emulator", "tests")
 
 
 def test_self(linux_docker, capsys):
@@ -63,7 +64,7 @@ def test_services(linux_docker, capsys):
     :param linux_docker:
     :return:
     """
-    run(["-c", os.path.join(TOPDIR, "tests", "test-services.yaml"),
+    run(["-c", os.path.join(TEST_DIR, "test-services.yaml"),
          "--full", "job1"])
 
     out, err = capsys.readouterr()
