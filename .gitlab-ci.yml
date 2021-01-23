@@ -41,8 +41,8 @@ linux-job-runner:
     - apk add py3-pip
     - pip install -e .
   script:
-    - locallab.py -c test-ci.yml --full linux-build-later
-    - locallab.py -c test-ci.yml linux-docker-job
+    - locallab.py -c ../test-ci.yml --full linux-build-later
+    - locallab.py -c ../test-ci.yml linux-docker-job
     - HERE=$(pwd)
     - cd /tmp && locallab.py -c ../test-ci.yml linux-shell-job
 
