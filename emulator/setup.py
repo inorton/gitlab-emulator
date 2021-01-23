@@ -3,7 +3,7 @@ from distutils.core import setup
 VERSION = "0.3.1"
 
 setup(
-    name="gitlab-emulator",
+    name="gitlab-tests",
     version=VERSION,
     description="Run a subset of .gitlab-ci.yml jobs locally",
     author="Ian Norton",

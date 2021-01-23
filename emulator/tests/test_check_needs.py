@@ -4,11 +4,11 @@ import os
 from gitlabemu import runner
 
 
-def test_run_needs(tests_dir):
+def test_run_needs(in_tests):
     runner.run(["--config", "test-needs.yaml", "--full", "finish"])
 
 
-def test_illegal_needs_early(tests_dir, capsys):
+def test_illegal_needs_early(in_tests, capsys):
     with pytest.raises(SystemExit):
         runner.run([
             "--list",
@@ -19,7 +19,7 @@ def test_illegal_needs_early(tests_dir, capsys):
     assert "job job1 needs job2 that is not in an earlier stage" in stderr
 
 
-def test_illegal_needs_same(tests_dir, capsys):
+def test_illegal_needs_same(in_tests, capsys):
     with pytest.raises(SystemExit):
         runner.run([
             "--list",

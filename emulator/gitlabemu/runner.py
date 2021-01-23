@@ -91,7 +91,7 @@ def run(args=None):
                     dt = DockerTool()
                     dt.image = "alpine:latest"
                     dt.entrypoint = ["/bin/sh"]
-                    dt.name = "gitlab-emulator-chowner-{}".format(os.getpid())
+                    dt.name = "gitlab-tests-chowner-{}".format(os.getpid())
                     dt.add_volume(os.getcwd(), os.getcwd())
                     dt.run()
                     try:

@@ -5,10 +5,11 @@ import os
 from gitlabemu import configloader
 
 HERE = os.path.dirname(__file__)
+TOPDIR = os.path.dirname(os.path.dirname(HERE))
 
 
 def test_loading_ci():
-    loaded = configloader.read(os.path.join(os.path.dirname(HERE), ".gitlab-ci.yml"))
+    loaded = configloader.read(os.path.join(TOPDIR, ".gitlab-ci.yml"))
     assert loaded
 
 

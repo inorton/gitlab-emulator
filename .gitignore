@@ -2,7 +2,6 @@ dist/
 build/
 MANIFEST
 *.pyc
-.idea/
 venv/
 gitlab_emulator.egg-info/
 linux-build-later

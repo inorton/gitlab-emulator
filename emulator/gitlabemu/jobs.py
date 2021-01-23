@@ -91,7 +91,7 @@ class Job(object):
         :param config:
         :return:
         """
-        self.workspace = config[".gitlab-emulator-workspace"]
+        self.workspace = config[".gitlab-tests-workspace"]
         self.name = name
         job = config[name]
         self.error_shell = config.get("error_shell", [])
@@ -115,7 +115,7 @@ class Job(object):
         self.configure_job_variable("CI_JOB_NAME", self.name)
         self.configure_job_variable("CI_JOB_STAGE", self.stage)
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
-        self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
+        self.configure_job_variable("CI_JOB_URL", "file://gitlab-tests/none")
 
     def configure_job_variable(self, name, value):
         """

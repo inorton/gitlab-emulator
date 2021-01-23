@@ -18,7 +18,7 @@ RESERVED_TOP_KEYS = ["stages",
                      "pages",
                      "variables",
                      "include",
-                     ".gitlab-emulator-workspace"
+                     ".gitlab-tests-workspace"
                      ]
 
 
@@ -288,7 +288,7 @@ def load_job(config, name):
 
 
 def do_variables(baseobj, yamlfile):
-    baseobj[".gitlab-emulator-workspace"] = os.path.abspath(os.path.dirname(yamlfile))
+    baseobj[".gitlab-tests-workspace"] = os.path.abspath(os.path.dirname(yamlfile))
     if "variables" not in baseobj:
         baseobj["variables"] = {}
     # set CI_ values

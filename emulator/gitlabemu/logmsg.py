@@ -9,7 +9,7 @@ from .errors import GitlabEmulatorError
 FORMAT = '%(asctime)-15s %(name)s  %(message)s'
 logging.basicConfig(format=FORMAT)
 
-LOGGER = logging.getLogger('gitlab-emulator')
+LOGGER = logging.getLogger('gitlab-tests')
 LOGGER.setLevel(logging.INFO)
 
 FATAL_EXIT = True

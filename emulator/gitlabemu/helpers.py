@@ -74,7 +74,7 @@ class DockerTool(object):
                 self.entrypoint = ["/bin/sh"]
 
             if len(self.entrypoint) > 1:
-                raise RuntimeError("gitlab-emulator cannot yet support "
+                raise RuntimeError("gitlab-tests cannot yet support "
                                    "multiple args for docker entrypoint "
                                    "overrides")
 

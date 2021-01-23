@@ -1,16 +1,25 @@
-import sys
 import os
 import pytest
 import subprocess
 import platform
-HERE = os.path.dirname(os.path.dirname(__file__))
-sys.path.insert(0, HERE)
+import sys
+
+TESTS_DIR = os.path.abspath(os.path.dirname(__file__))
+EMULATOR_DIR = os.path.dirname(TESTS_DIR)
+sys.path.insert(0, EMULATOR_DIR)
+
+
+@pytest.fixture(scope="session")
+def top_dir():
+    return os.path.dirname(EMULATOR_DIR)
 
 
 @pytest.fixture(scope="function")
-def tests_dir():
-    os.chdir(os.path.dirname(__file__))
-    return os.getcwd()
+def in_tests():
+    initdir = os.getcwd()
+    os.chdir(TESTS_DIR)
+    yield os.getcwd()
+    os.chdir(initdir)
 
 
 @pytest.fixture(scope="session")
