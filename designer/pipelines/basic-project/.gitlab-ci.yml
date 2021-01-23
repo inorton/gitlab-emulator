@@ -1,0 +1,10 @@
+include:
+  - local: conf/images.yml
+  - local: conf/test-machines.yml
+  - local: conf/builds.yml
+  - local: conf/tests.yml
+
+stages:
+  - one
+  - two
+  - three
