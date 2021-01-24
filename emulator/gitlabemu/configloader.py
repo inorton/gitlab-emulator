@@ -8,7 +8,7 @@ import yaml
 from .errors import GitlabEmulatorError
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
-from . import yamlloader
+from . import yamlloader, logmsg
 
 RESERVED_TOP_KEYS = ["stages",
                      "services",
@@ -96,7 +96,7 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None):
     if os.sep != "/":
         include = include.replace("/", os.sep)
 
-    print("include : {}".format(include), file=sys.stderr)
+    logmsg.info(f"include : {include}")
 
     return handle_read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
 
@@ -325,7 +325,7 @@ def read(yamlfile, variables=True, validate_jobs=True, topdir=None, baseobj=None
     parent = False
     if topdir is None:
         topdir = os.path.dirname(yamlfile)
-        print("setting topdir={}".format(topdir), file=sys.stderr)
+        logmsg.info(f"setting topdir={topdir}")
     else:
         yamlfile = os.path.join(topdir, yamlfile)
     with open(yamlfile, "r") as yamlobj:
