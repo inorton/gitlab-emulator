@@ -62,7 +62,7 @@ class SimulatedTask(object):
 
     def ready(self):
         for task in self.needs:
-            if not task.ready():
+            if task.remaining > 0:
                 return False
         return True
 
@@ -304,6 +304,7 @@ class SimulatedResources(object):
                         break
                 if not started:
                     task.add_delay("runner", 1)
+
             ticks += 1
 
             for runner in self.runners:

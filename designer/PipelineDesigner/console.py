@@ -51,13 +51,16 @@ def console_run(ci_file, profile_file, pipelines=1):
     print("-" * 50)
     delays = 0
     for task in build_order:
-        indent = " " * task.started
         label = f"{task.pipeline} {task.name}"
-        left = " " * (16 - len(label))
-        duration = "=" * task.cost
-        print(f"{label} {left} {indent} {duration}")
+        left = " " * (24 - len(label))
+        delayed = 0
         for cause, cost in task.get_delays().items():
-            delays += cost
+            if cause == "runner":
+                delayed += cost
+        delay = ":" * delayed
+        duration = "=" * task.cost
+        indent = " " * (task.started - delayed)
+        print(f"{label} {left} {indent} {delay}{duration}")
     print("-" * 50)
 
     print("The runner usage was:")
@@ -76,3 +79,4 @@ def console_run(ci_file, profile_file, pipelines=1):
         duration = sim.pipeline_duration(id)
         print(f"pipeline {id} took {duration} mins")
     print("-" * 50)
+
