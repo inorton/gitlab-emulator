@@ -25,8 +25,9 @@ class Delay(object):
 
 
 class SimulatedTask(object):
-    def __init__(self, name, image, ticks, needs, tags, pipeline):
+    def __init__(self, name, image, ticks, needs, tags, stage, pipeline):
         self.name = name
+        self.stage = stage
         self.image = image
         self.cost = ticks
         self.remaining = ticks
@@ -96,7 +97,8 @@ class SimulatedRunner(object):
         self.time = 0
 
     def active_tasks(self):
-        return [task for task in self.tasks if task.started and task.remaining > 0]
+        tasks = [task for task in self.tasks if task.remaining > 0]
+        return tasks
 
     def can_execute(self, task):
         running = self.active_tasks()
@@ -140,6 +142,7 @@ class SimulatedResources(object):
         self.tasks = []
         self.pipelines = []
         self.profile = CostProfile()
+        self.loader = None
 
     def load(self, yamlfile):
         """
@@ -171,9 +174,11 @@ class SimulatedResources(object):
         """
         self.runners.append(SimulatedRunner(images=images, name=name, tags=tags, concurrent=concurrent))
 
-    def add_task(self, name, image=True, cost=1, needs=[], tags=[], pipeline=0):
+    def add_task(self, name, image=True, cost=1, needs=[], tags=[], stage="test", pipeline=0):
         """
         Add a task
+        :param stage:
+        :param tags:
         :param name:
         :param image:
         :param cost:
@@ -181,7 +186,7 @@ class SimulatedResources(object):
         :param pipeline:
         :return:
         """
-        task = SimulatedTask(name, image=image, ticks=cost, needs=needs, tags=tags, pipeline=pipeline)
+        task = SimulatedTask(name, image=image, ticks=cost, needs=needs, tags=tags, stage=stage, pipeline=pipeline)
         self.tasks.append(task)
         return task
 
@@ -191,6 +196,7 @@ class SimulatedResources(object):
         :param loader:
         :return:
         """
+        self.loader = loader
         pipeline = 1 + len(self.pipelines)
         jobs = dict()
         for jobname in loader.get_jobs():
@@ -213,6 +219,7 @@ class SimulatedResources(object):
                                       cost=self.profile.get_cost(jobname),
                                       needs=need_tasks,
                                       tags=job.get("tags", []),
+                                      stage=job.get("stage", "test"),
                                       pipeline=pipeline
                                       )
                 tasks[jobname] = added
@@ -223,7 +230,26 @@ class SimulatedResources(object):
     def _task_needs(self, task):
         return (item for item in self._pipeline(task.pipeline) if item.name in task.needs and item.remaining > 0)
 
+    def _stage_needs(self, task):
+        """
+        Get the tasks in earlier stages
+        :param task:
+        :return:
+        """
+        stage = task.stage
+        need_stages = []
+        stages = self.loader.get_stages()
+        for item in stages:
+            if item == stage:
+                break
+            need_stages.append(item)
+
+        earlier_stage_tasks = (task for task in self._pipeline(task.pipeline)
+                               if task.stage in need_stages and task.remaining > 0)
+        return list(earlier_stage_tasks)
+
     def run(self):
+        started_tasks = set()
         for runner in self.runners:
             runner.reset()
         for task in self.tasks:
@@ -243,15 +269,25 @@ class SimulatedResources(object):
         while True:
             for task in self.tasks:
                 started = False
-                if task.started:
+                if task in started_tasks:
                     continue
                 # find out if everything this task needs is done
                 if not task.ready():
                     continue
+
+                # if the task has no needs, it must wait for earlier stages to finish
+                if not task.needs:
+                    stage_needs = self._stage_needs(task)
+                    if len(stage_needs):
+                        # waiting for an earlier stage
+                        task.add_delay("stage", 1)
+                        continue
+
                 for runner in self.runners:
                     if runner.can_execute(task):
                         runner.execute(task, ticks)
                         started = True
+                        started_tasks.add(task)
                         break
                 if not started:
                     task.add_delay("runner", 1)
