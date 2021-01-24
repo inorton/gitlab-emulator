@@ -1,0 +1,15 @@
+<mat-toolbar color="primary">
+  <mat-toolbar-row>
+    <h1>Gitlab Pipeline Designer</h1>
+    <span class="menu-spacer"></span>
+    <div>
+      <a mat-button [routerLink]="'/pipeline'"> Pipeline View </a>
+      <a mat-button [routerLink]="'/resources'"> CI Resources </a>
+      <a mat-button [routerLink]="'/simulation'"> Simulation </a>
+
+    </div>
+  </mat-toolbar-row>
+
+</mat-toolbar>
+
+<router-outlet></router-outlet>
