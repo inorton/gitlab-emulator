@@ -11,7 +11,7 @@ timings:
 runners:
   - linux-docker:
       images: True
-      runners: 1
+      runners: 3
 
   - windows-docker:
       images: True

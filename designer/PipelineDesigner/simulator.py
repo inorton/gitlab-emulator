@@ -1,11 +1,10 @@
 """
 Simulate pipelines
 """
-import os
-import sys
 import uuid
 import yaml
-from gitlabemu.configloader import Loader
+
+PROFILE_FILENAME = ".gitlab-emulator-profile.yml"
 
 
 class NoRunnerError(Exception):
@@ -36,6 +35,9 @@ class SimulatedTask(object):
         self.pipeline = pipeline
         self.started = 0
         self.delays = []
+
+    def ended(self):
+        return self.cost + self.started
 
     def get_delays(self):
         reasons = {}
@@ -75,7 +77,7 @@ class SimulatedTask(object):
         else:
             progress = int(100.0 * (self.cost - self.remaining) / self.cost)
             progress = f"{progress}%"
-        return f"{self.pipeline} {self.name} {progress}"
+        return f"[{self.pipeline}] {self.name} {progress}"
 
 
 class SimulatedRunner(object):
@@ -197,6 +199,7 @@ class SimulatedResources(object):
         :return:
         """
         self.loader = loader
+        pipe = set()
         pipeline = 1 + len(self.pipelines)
         jobs = dict()
         for jobname in loader.get_jobs():
@@ -223,6 +226,16 @@ class SimulatedResources(object):
                                       pipeline=pipeline
                                       )
                 tasks[jobname] = added
+                pipe.add(added)
+        self.pipelines.append(pipe)
+
+    def pipeline_duration(self, pipeline):
+        tasks = self._pipeline(pipeline)
+        ended = 0
+        for task in tasks:
+            if task.ended() > ended:
+                ended = task.ended()
+        return ended
 
     def _pipeline(self, id):
         return (task for task in self.tasks if task.pipeline == id)
@@ -305,51 +318,3 @@ class SimulatedResources(object):
         return ticks, self.tasks
 
 
-def console_run(ci_file, profile_file):
-    sim = SimulatedResources()
-    loader = Loader()
-    print(f"Parsing {ci_file}..", flush=True)
-    loader.load(ci_file)
-    sys.stderr.flush()
-    print("CI file parsed.", flush=True)
-    if os.path.exists(profile_file):
-        print(f"Loading resource profile {profile_file}..")
-        with open(profile_file, "rb") as profile_yml:
-            sim.load(profile_yml)
-    else:
-        print(f"Warning, there was no {profile_file} profile file")
-
-    print(f"Loading tasks into simulator..")
-    sim.load_tasks(loader)
-    print("Simulator loaded")
-    print("-" * 50)
-    total_time, tasks = sim.run()
-    print(f"Pipeline {ci_file} will take {total_time} minutes")
-    build_order = sorted(tasks, key=lambda t: t.started)
-    print("-" * 50)
-    print("The build order was:")
-    print("-" * 50)
-    delays = 0
-    for task in build_order:
-        print(f"{task.name}")
-        for cause, cost in task.get_delays().items():
-            delays += cost
-    print("-" * 50)
-
-    print("The runner usage was:")
-    print("-" * 50)
-    for runner in sim.runners:
-        jobs_done = len(runner.tasks)
-        print(f"{runner.name} {jobs_done} jobs")
-
-    print("-" * 50)
-    if delays:
-        print(f"There were delays totalling {delays} mins over the course of the pipeline")
-        print("-" * 50)
-        for task in build_order:
-            print(f"{task.name}:")
-            task_delays = task.get_delays()
-            for cause in sorted(task_delays.keys()):
-                delay = task_delays[cause]
-                print(f"   {delay} mins {cause}")
-        print("-" * 50)

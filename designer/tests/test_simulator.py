@@ -6,7 +6,7 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 PIPELINES = os.path.join(os.path.dirname(HERE), "pipelines")
 
 
-def load_project(folder):
+def load_project(folder, pipelines=1):
     sim = simulator.SimulatedResources()
     ciconfig = os.path.join(folder, ".gitlab-ci.yml")
     simconfig = os.path.join(folder, ".gitlab-emulator-profile.yml")
@@ -16,7 +16,8 @@ def load_project(folder):
 
     loader = Loader()
     loader.load(ciconfig)
-    sim.load_tasks(loader)
+    for _ in range(pipelines):
+        sim.load_tasks(loader)
 
     return sim
 
@@ -35,14 +36,22 @@ def test_simulate_basic_project():
 
     windows_tools = task_by_name(tasks, "windows-tools")
     delays = windows_tools.get_delays()
-    assert len(delays) == 1
-    assert delays["runner"] == 3
+    assert len(delays) == 0
 
     installer = task_by_name(tasks, "installer")
-    delays = installer.get_delays()
-    assert len(delays) == 2
-    assert delays["runner"] == 2
-    assert delays["inherited windows-tools"] == 3
+    installer_delays = installer.get_delays()
+    assert len(installer_delays) == 0
+
+    linux_test = task_by_name(tasks, "linux-test")
+    linux_test_delays = linux_test.get_delays()
+    assert len(linux_test_delays) == 0
+
+
+def test_simulate_basic_project_repeat():
+    sim = load_project(os.path.join(PIPELINES, "basic-project"), pipelines=3)
+    timed, tasks = sim.run()
+
+    assert timed == 48
 
 
 def test_simulate_needless():
