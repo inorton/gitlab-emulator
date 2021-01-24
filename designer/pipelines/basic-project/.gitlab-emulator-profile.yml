@@ -9,13 +9,13 @@ timings:
 
 # number of runners to simulate
 runners:
-  - untagged:
+  - linux-docker:
       images: True
-      runners: 3
+      runners: 1
 
   - windows-docker:
       images: True
-      runners: 2
+      runners: 1
       tags:
         - windows2020-docker
 

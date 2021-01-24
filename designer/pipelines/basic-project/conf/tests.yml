@@ -14,7 +14,7 @@ windows-test:
   needs:
     - windows-tools
   extends:
-    - .windows-2020
+    - .windows-driver-testbed
   script:
     - cd inst
     - cd tools
