@@ -47,7 +47,7 @@ def console_run(ci_file, profile_file, pipelines=1):
     print(f"{ci_file} will take {total_time} minutes to run {pipelines} concurrent pipelines")
     build_order = sorted(tasks, key=lambda t: t.started)
     print("-" * 50)
-    print("The build order was:")
+    print("The build order: ( :: = time waiting for runner,  ## = time building )")
     print("-" * 50)
     delays = 0
     for task in build_order:
@@ -60,7 +60,7 @@ def console_run(ci_file, profile_file, pipelines=1):
         delay = ":" * delayed
         duration = "=" * task.cost
         indent = " " * (task.started - delayed)
-        print(f"{label} {left} {indent} {delay}{duration}")
+        print(f"{label} {left} |{indent}{delay}{duration}")
     print("-" * 50)
 
     print("The runner usage was:")
