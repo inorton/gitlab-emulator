@@ -36,7 +36,9 @@ def pipeline():
     for stage in loader.get_stages():
         resp["stages"].append(stage)
 
-    for jobname in loader.get_jobs():
+    for jobname in sorted(loader.get_jobs()):
+        if jobname.startswith("."):
+            continue
         job = loader.get_job(jobname)
         resp["jobs"].append({
             "name": jobname,
