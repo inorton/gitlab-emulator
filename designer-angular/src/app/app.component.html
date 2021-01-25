@@ -1,15 +1,24 @@
-<mat-toolbar color="primary">
-  <mat-toolbar-row>
-    <h1>Gitlab Pipeline Designer</h1>
-    <span class="menu-spacer"></span>
-    <div>
-      <a mat-button [routerLink]="'/pipeline'"> Pipeline View </a>
-      <a mat-button [routerLink]="'/resources'"> CI Resources </a>
-      <a mat-button [routerLink]="'/simulation'"> Simulation </a>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <a class="navbar-brand" href="#">Navbar</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
 
-    </div>
-  </mat-toolbar-row>
+  <div class="collapse navbar-collapse " id="navbarSupportedContent">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item" [ngClass]="{'active': this.router.url == '/pipeline'}">
+        <a class="nav-link" routerLink="/pipeline">Pipeline</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/simulator">Simulator</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/resources">Resource Profile</a>
+      </li>
+    </ul>
+  </div>
+</nav>
 
-</mat-toolbar>
-
-<router-outlet></router-outlet>
+<div class="router-outlet container-fluid">
+  <router-outlet></router-outlet>
+</div>

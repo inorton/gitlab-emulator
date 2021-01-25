@@ -1,4 +1,6 @@
-import { Component, Injectable } from '@angular/core';
+import {Component, Injectable} from '@angular/core';
+import {Router} from '@angular/router';
+
 
 @Component({
   selector: 'app-root',
@@ -6,6 +8,11 @@ import { Component, Injectable } from '@angular/core';
   styleUrls: ['./app.component.css']
 })
 
+@Injectable()
 export class AppComponent {
   title = 'pipeline-designer';
+
+  constructor(private router: Router ) {
+
+  }
 }

@@ -1,9 +1,28 @@
 {
   "pipeline": {
+    "filename": "/home/inb/git/thing/.gitlab-ci.yml",
+    "stages": [
+      "build",
+      "test"
+    ],
     "jobs": [
-
+      {
+        "name": "build",
+        "stage": "build"
+      },
+      {
+        "name": "coverage",
+        "stage": "build"
+      },
+      {
+        "name": "test",
+        "stage": "test",
+        "needs": ["build"]
+      }
     ],
     "variables": {
+      "RELEASE_MODE": "debug",
+      "K8S_USER": "debug-user"
     }
   }
 }

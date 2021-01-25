@@ -1,1 +1,35 @@
-<p>pipeline works!</p>
+
+<table class="proplist">
+  <tr>
+    <th>Filename:</th><td>{{pipeline.filename}}</td>
+  </tr>
+</table>
+
+<table class="proplist">
+  <tr *ngFor="let variable of pipeline.variables | keyvalue">
+    <td>{{variable.key}}</td>
+    <td>{{variable.value}}</td>
+  </tr>
+</table>
+
+<div class="pipeline-container">
+  <table class="table table-light table-sm table-borderless">
+    <tr>
+      <th *ngFor="let stage of pipeline.stages">
+        {{stage}}
+      </th>
+    </tr>
+    <tr>
+      <td *ngFor="let stage of pipeline.stages">
+        <ng-container *ngFor="let job of pipeline.jobs">
+          <ng-container *ngIf="job.stage == stage">
+            <button type="button" class="btn btn-primary text-nowrap btn-sm btn-job">
+            {{job.name}}
+            </button>
+            <br/>
+          </ng-container>
+        </ng-container>
+      </td>
+    </tr>
+  </table>
+</div>

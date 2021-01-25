@@ -4,10 +4,18 @@ import {HttpClient} from '@angular/common/http';
 
 export interface PipelineJob {
   name: string;
+  source_file: string;
+  extends: string[];
+  stage: string;
+  needs: string[];
 }
 
+
 export interface PipelineDocument {
+  filename: string;
+  stages: string[];
   jobs: PipelineJob[];
+  variables: Map<string, string>;
 }
 
 @Component({
@@ -19,15 +27,17 @@ export interface PipelineDocument {
 export class PipelineComponent implements OnInit {
 
   private timer: Observable<number>;
+  pipeline: PipelineDocument;
 
   constructor(private http: HttpClient) {
-
+    this.pollPipeline();
   }
 
   pollPipeline(): void {
     const resp = this.http.get('/api/pipeline', {observe: 'body', responseType: 'json'});
-    resp.subscribe(
-
+    resp.subscribe((data: PipelineDocument) => {
+      this.pipeline = data;
+      }
     );
   }
 
