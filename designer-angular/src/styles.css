@@ -27,3 +27,11 @@ body {
   min-width: 4cm;
   text-align: left;
 }
+
+.table-job {
+  width: auto;
+}
+
+.table-job td {
+  border-right: 1px dotted silver;
+}

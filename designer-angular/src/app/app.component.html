@@ -9,10 +9,10 @@
       <li class="nav-item" [ngClass]="{'active': this.router.url == '/pipeline'}">
         <a class="nav-link" routerLink="/pipeline">Pipeline</a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" [ngClass]="{'active': this.router.url == '/simulator'}">
         <a class="nav-link" routerLink="/simulator">Simulator</a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" [ngClass]="{'active': this.router.url == '/resources'}">
         <a class="nav-link" routerLink="/resources">Resource Profile</a>
       </li>
     </ul>
