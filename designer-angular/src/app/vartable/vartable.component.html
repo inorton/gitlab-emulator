@@ -1,7 +1,7 @@
 <p>
   <button type="button" class="btn btn-outline-primary btn-sm" (click)="collapse.toggle()" [attr.aria-expanded]="!isCollapsed"
           aria-controls="collapseExample">
-    {{button_text}}
+    {{buttonText}}
   </button>
 </p>
 <div #collapse="ngbCollapse" [(ngbCollapse)]="isCollapsed">

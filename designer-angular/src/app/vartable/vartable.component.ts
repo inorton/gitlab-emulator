@@ -8,7 +8,7 @@ import {Component, Input, OnInit} from '@angular/core';
 export class VartableComponent implements OnInit {
 
   @Input() variables: Map<string, string>;
-  @Input() button_text: string;
+  @Input() buttonText: string;
 
   public isCollapsed = true;
 

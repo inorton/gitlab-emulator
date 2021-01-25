@@ -27,7 +27,7 @@ def pipeline():
         "filename": os.path.abspath(DEFAULT_CI_FILE),
         "variables": {},
         "stages": [],
-        "jobs": [],
+        "jobs": {},
     }
     variables = loader.config.get("variables", {})
     for varname in variables:
@@ -40,13 +40,13 @@ def pipeline():
         if jobname.startswith("."):
             continue
         job = loader.get_job(jobname)
-        resp["jobs"].append({
+        resp["jobs"][jobname] = {
             "name": jobname,
             "stage": job.get("stage"),
             "needs": job.get("needs", []),
             "filename": loader.get_job_filename(jobname),
             "extends": loader.get_job_bases(jobname),
-        })
+        }
 
     return jsonify(resp)
 

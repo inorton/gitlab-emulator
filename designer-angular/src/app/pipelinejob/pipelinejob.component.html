@@ -1,0 +1,10 @@
+<button type="button" class="btn text-nowrap btn-sm btn-job"
+        [ngClass]="{
+          'btn-primary': !active,
+          'btn-light': active
+        }"
+        (mouseover)="activate()"
+        (mouseleave)="deactivate()"
+>
+  {{job.name}}
+</button>

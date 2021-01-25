@@ -1,6 +1,6 @@
 <h5>{{pipeline.filename}}</h5>
 
-<app-vartable [variables]="pipeline.variables" button_text="CI Variables"></app-vartable>
+<app-vartable [variables]="pipeline.variables" buttonText="CI Variables"></app-vartable>
 
 <div class="pipeline-container">
   <table class="table table-light table-sm table-borderless table-job">
@@ -11,11 +11,12 @@
     </tr>
     <tr>
       <td *ngFor="let stage of pipeline.stages">
-        <ng-container *ngFor="let job of pipeline.jobs">
-          <ng-container *ngIf="job.stage == stage">
-            <button type="button" class="btn btn-primary text-nowrap btn-sm btn-job">
-            {{job.name}}
-            </button>
+        <ng-container *ngFor="let job of pipeline.jobs|keyvalue">
+          <ng-container *ngIf="job.value.stage == stage">
+            <app-pipelinejob
+              [pipeline]="this"
+              [job]="job.value">
+            </app-pipelinejob>
             <br/>
           </ng-container>
         </ng-container>

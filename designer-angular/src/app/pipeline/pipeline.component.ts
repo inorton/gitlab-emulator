@@ -1,22 +1,8 @@
 import {interval, Observable} from 'rxjs';
-import {Component, OnInit, ViewChild, AfterViewChecked, ElementRef, Injectable} from '@angular/core';
+import {Component, Injectable, OnInit} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
+import {PipelineDocument} from '../pipelineTypes';
 
-export interface PipelineJob {
-  name: string;
-  source_file: string;
-  extends: string[];
-  stage: string;
-  needs: string[];
-}
-
-
-export interface PipelineDocument {
-  filename: string;
-  stages: string[];
-  jobs: PipelineJob[];
-  variables: Map<string, string>;
-}
 
 @Component({
   selector: 'app-pipeline',

@@ -9,6 +9,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { VartableComponent } from './vartable/vartable.component';
+import { PipelinejobComponent } from './pipelinejob/pipelinejob.component';
 
 
 const routes: Routes = [
@@ -22,6 +23,7 @@ const routes: Routes = [
     AppComponent,
     PipelineComponent,
     VartableComponent,
+    PipelinejobComponent,
   ],
   imports: [
     BrowserModule,
