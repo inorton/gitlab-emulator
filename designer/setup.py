@@ -10,7 +10,7 @@ setup(
     author_email="inorton@gmail.com",
     url="https://gitlab.com/cunity/gitlab-emulator",
     packages=["PipelineDesigner"],
-    install_requires=["gitlab-emulator>=0.3.1"],
+    install_requires=["gitlab-emulator>=0.3.1", "Flask>=1.1.2"],
     platforms=["any"],
     license="License :: OSI Approved :: MIT License",
     long_description="Render a full gitlab pipeline and estimate build timings",

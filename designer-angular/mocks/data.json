@@ -24,5 +24,23 @@
       "RELEASE_MODE": "debug",
       "K8S_USER": "debug-user"
     }
+  },
+  "resources": {
+    "runners": [
+      {
+        "name": "linux-docker",
+        "images": true,
+        "runners": 2
+      },
+      {
+        "name": "windows",
+        "images": true,
+        "tags": ["windows-2019", "windows-docker"],
+        "runners": 1
+      }
+    ]
+  },
+  "simulation": {
+    
   }
 }

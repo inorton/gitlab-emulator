@@ -1,0 +1,23 @@
+<p>
+  <button type="button" class="btn btn-outline-primary btn-sm" (click)="collapse.toggle()" [attr.aria-expanded]="!isCollapsed"
+          aria-controls="collapseExample">
+    {{button_text}}
+  </button>
+</p>
+<div #collapse="ngbCollapse" [(ngbCollapse)]="isCollapsed">
+  <div class="card">
+    <div class="card-body">
+      <table class="table table-sm table-hover">
+        <tbody>
+          <tr *ngFor="let variable of variables | keyvalue">
+            <td>{{variable.key}}</td>
+            <td>{{variable.value}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+

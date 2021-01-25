@@ -1,6 +1,6 @@
 {
   "/api/pipeline": {
-    "target": "http://localhost:3000/pipeline",
+    "target": "http://localhost:5000/",
     "secure": false
   }
 }

@@ -8,6 +8,7 @@ import { PipelineComponent } from './pipeline/pipeline.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { VartableComponent } from './vartable/vartable.component';
 
 
 const routes: Routes = [
@@ -20,6 +21,7 @@ const routes: Routes = [
   declarations: [
     AppComponent,
     PipelineComponent,
+    VartableComponent,
   ],
   imports: [
     BrowserModule,

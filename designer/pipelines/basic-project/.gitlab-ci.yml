@@ -4,6 +4,10 @@ include:
   - local: conf/builds.yml
   - local: conf/tests.yml
 
+variables:
+  COLOR: red
+  GRADE: three
+
 stages:
   - one
   - two

@@ -2,13 +2,14 @@
 Load a .gitlab-ci.yml file
 """
 import os
-import sys
 import yaml
 
 from .errors import GitlabEmulatorError
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader, logmsg
+
+DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
 RESERVED_TOP_KEYS = ["stages",
                      "services",

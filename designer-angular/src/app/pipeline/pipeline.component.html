@@ -1,16 +1,6 @@
+<h5>{{pipeline.filename}}</h5>
 
-<table class="proplist">
-  <tr>
-    <th>Filename:</th><td>{{pipeline.filename}}</td>
-  </tr>
-</table>
-
-<table class="proplist">
-  <tr *ngFor="let variable of pipeline.variables | keyvalue">
-    <td>{{variable.key}}</td>
-    <td>{{variable.value}}</td>
-  </tr>
-</table>
+<app-vartable [variables]="pipeline.variables" button_text="CI Variables"></app-vartable>
 
 <div class="pipeline-container">
   <table class="table table-light table-sm table-borderless table-job">
