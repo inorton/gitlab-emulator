@@ -5,21 +5,23 @@
       "build",
       "test"
     ],
-    "jobs": [
-      {
+    "jobs": {
+      "build": {
         "name": "build",
         "stage": "build"
       },
-      {
+      "coverage": {
         "name": "coverage",
         "stage": "build"
       },
-      {
+      "test": {
         "name": "test",
         "stage": "test",
-        "needs": ["build"]
+        "needs": [
+          "build"
+        ]
       }
-    ],
+    },
     "variables": {
       "RELEASE_MODE": "debug",
       "K8S_USER": "debug-user"
@@ -35,12 +37,14 @@
       {
         "name": "windows",
         "images": true,
-        "tags": ["windows-2019", "windows-docker"],
+        "tags": [
+          "windows-2019",
+          "windows-docker"
+        ],
         "runners": 1
       }
     ]
   },
   "simulation": {
-    
   }
 }

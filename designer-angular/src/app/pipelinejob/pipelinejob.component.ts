@@ -13,17 +13,24 @@ export class PipelinejobComponent implements OnInit {
   @Input() job: PipelineJob;
   @Input() pipeline: PipelineComponent;
 
-  active: boolean;
+  active = false;
 
   constructor() {
   }
 
   ngOnInit(): void {
-    this.deactivate();
   }
 
   activate(): void {
     this.active = true;
+    if (this.job != null) {
+      for (const need of this.job.needs) {
+        const comp = this.pipeline.getJobComponent(this.job.name);
+        if (comp != null) {
+         // comp.activate();
+        }
+      }
+    }
   }
 
   deactivate(): void {
