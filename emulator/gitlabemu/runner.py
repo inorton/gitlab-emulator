@@ -10,6 +10,8 @@ parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(
 parser.add_argument("--list", "-l", dest="LIST", default=False,
                     action="store_true",
                     help="List runnable jobs")
+parser.add_argument("--hidden", default=False, action="store_true",
+                    help="Show hidden jobs in --list(those that start with '.')")
 parser.add_argument("--full", "-r", dest="FULL", default=False,
                     action="store_true",
                     help="Run any jobs that are dependencies")
@@ -61,10 +63,13 @@ def run(args=None):
         print("Config error: " + str(err))
         sys.exit()
 
+    hide_dot_jobs = not options.hidden
+
     if options.LIST:
         for jobname in sorted(loader.get_jobs()):
-            if not jobname.startswith("."):
-                print(jobname)
+            if jobname.startswith(".") and hide_dot_jobs:
+                continue
+            print(jobname)
     elif not jobname:
         parser.print_usage()
         sys.exit(1)
