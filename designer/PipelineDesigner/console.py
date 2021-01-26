@@ -50,9 +50,16 @@ def console_run(ci_file, profile_file, pipelines=1):
     print("The build order: ( :: = time waiting for runner,  ## = time building )")
     print("-" * 50)
     delays = 0
+
+    labelsize = 20
     for task in build_order:
         label = f"{task.pipeline} {task.name}"
-        left = " " * (24 - len(label))
+        if len(label) > labelsize:
+            labelsize = len(label)
+
+    for task in build_order:
+        label = f"{task.pipeline} {task.name}"
+        left = " " * (labelsize - len(label))
         delayed = 0
         for cause, cost in task.get_delays().items():
             if cause == "runner":
@@ -67,7 +74,8 @@ def console_run(ci_file, profile_file, pipelines=1):
     print("-" * 50)
     for runner in sim.runners:
         jobs_done = len(runner.tasks)
-        print(f"{runner.name} {jobs_done} jobs")
+        if jobs_done:
+            print(f"{runner.name} {jobs_done} jobs")
 
     print("-" * 50)
     if delays:
