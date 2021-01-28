@@ -27,33 +27,43 @@ Supported Platforms:
 ## Installation
 
 ```
-python -m pip install .
+python3 -m pip install .
 ```
 
 or
 ```
-python -m pip install gitlab-emulator
+python3 -m pip install gitlab-emulator
 ```
 
 # Examples
+
+The tool can be executed as a module, or if your python is setup, using the `locallab.py` script:
+
+```
+locallab.py --help
+```
+or
+```
+python3 -m gitlabemu --help
+```
 
 ## List Possible Jobs
 
 ```
 cd my-gitlab-repo
-python -m gitlabemu --list
+python3 -m gitlabemu --list
 ```
 
 ## Run a single job
 
 ```
 cd my-gitlab-repo
-python -m gitlabemu JOBNAME
+python3 -m gitlabemu JOBNAME
 ```
 
 ## Run all required jobs (dependency / needs order)
 
 ```
 cd my-gitlab-repo
-python -m gitlabemu --full JOBNAME
+python3 -m gitlabemu --full JOBNAME
 ```
