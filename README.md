@@ -26,11 +26,13 @@ Supported Platforms:
 
 ## Installation
 
+
+Installing from source:
 ```
 python3 -m pip install .
 ```
 
-or
+Installing from PyPi
 ```
 python3 -m pip install gitlab-emulator
 ```
