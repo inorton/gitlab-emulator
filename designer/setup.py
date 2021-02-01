@@ -16,7 +16,8 @@ setup(
     long_description="Render a full gitlab pipeline and estimate build timings",
     entry_points={
         "console_scripts": [
-            "pipeline-designer=PipelineDesigner.console:run"
+            "pipeline-designer=PipelineDesigner.console:run",
+            "glpd=PipelineDesigner.console:run",
         ]
     }
 )

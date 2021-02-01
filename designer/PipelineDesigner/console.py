@@ -2,6 +2,8 @@ import argparse
 import os
 import sys
 
+import yaml
+
 from gitlabemu.configloader import Loader
 from . import simulator
 from .simulator import SimulatedResources
@@ -15,12 +17,38 @@ def run():
                         help="Queue up N pipelines (default = 1)")
     parser.add_argument("--profile", dest="profile", type=str, default=None,
                         help="Load a resource profile YAML file")
+
+    parser.add_argument("--dump-profile", dest="dump_profile", default=False, action="store_true",
+                        help="Overwrite the profile file with auto-detected jobs and runners")
+
     opts = parser.parse_args()
 
     profile = opts.profile
     if not profile:
         profile = os.path.join(os.path.dirname(opts.config), simulator.PROFILE_FILENAME)
-    console_run(opts.config, profile, pipelines=opts.pipelines)
+    sim = console_run(opts.config, profile, pipelines=opts.pipelines)
+
+    if opts.dump_profile:
+        print(f"Dumping new profile file..")
+        data = {}
+        timings = {}
+        for job in sim.tasks:
+            timings[job.name] = sim.profile.get_cost(job.name)
+
+        runners = []
+        for runner in sim.runners:
+            runners.append({
+                runner.name: {
+                    "images": runner.images,
+                    "tags": runner.tags,
+                    "runners": runner.concurrent
+                }
+            })
+        data["timings"] = timings
+        data["runners"] = runners
+
+        with open(profile, "w") as profile_file:
+            yaml.safe_dump(data, profile_file)
 
 
 def console_run(ci_file, profile_file, pipelines=1):
@@ -41,9 +69,19 @@ def console_run(ci_file, profile_file, pipelines=1):
     for i in range(pipelines):
         print(f"Enqueue pipeline {i}")
         sim.load_tasks(loader)
+
     print("Simulator loaded")
     print("-" * 50)
-    total_time, tasks = sim.run()
+    while True:
+        try:
+            total_time, tasks = sim.run()
+            break
+        except simulator.NoRunnerError as nre:
+            print(f"Warning: No runner defined in the profile with tags: {nre.task.tags}, adding 2")
+            sim.add_runner(images=nre.task.image,
+                           name=f"missing runner {nre.task.tags}",
+                           tags=nre.task.tags, concurrent=2)
+
     print(f"{ci_file} will take {total_time} minutes to run {pipelines} concurrent pipelines")
     build_order = sorted(tasks, key=lambda t: t.started)
     print("-" * 50)
@@ -88,3 +126,4 @@ def console_run(ci_file, profile_file, pipelines=1):
         print(f"pipeline {id} took {duration} mins")
     print("-" * 50)
 
+    return sim

@@ -5,10 +5,11 @@ import uuid
 import yaml
 
 PROFILE_FILENAME = ".gitlab-emulator-profile.yml"
-
+DEFAULT_COST_MINS = 5  # if a job has no timing profile, choose 5 mins
 
 class NoRunnerError(Exception):
-    def __init__(self, message):
+    def __init__(self, message, task):
+        self.task = task
         super(NoRunnerError, self).__init__(message)
 
 
@@ -135,7 +136,7 @@ class CostProfile(object):
         return jobname in self.jobs
 
     def get_cost(self, jobname):
-        return self.jobs.get(jobname, 1)
+        return self.jobs.get(jobname, DEFAULT_COST_MINS)
 
 
 class SimulatedResources(object):
@@ -217,6 +218,9 @@ class SimulatedResources(object):
                     if need not in tasks:
                         continue
                     need_tasks.append(tasks[need])
+
+                if not self.profile.has_cost(jobname):
+                    print(f"Warning: job {jobname} has no estimated build cost")
                 added = self.add_task(jobname,
                                       image=loader.get_docker_image(jobname) is not None,
                                       cost=self.profile.get_cost(jobname),
@@ -276,7 +280,7 @@ class SimulatedResources(object):
                     can_execute += 1
 
             if can_execute == 0:
-                raise NoRunnerError(str(task.tags))
+                raise NoRunnerError(str(task.tags), task)
 
         ticks = 0
         while True:
