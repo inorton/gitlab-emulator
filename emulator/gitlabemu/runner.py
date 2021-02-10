@@ -10,6 +10,8 @@ parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(
 parser.add_argument("--list", "-l", dest="LIST", default=False,
                     action="store_true",
                     help="List runnable jobs")
+parser.add_argument("--hidden", default=False, action="store_true",
+                    help="Show hidden jobs in --list(those that start with '.')")
 parser.add_argument("--full", "-r", dest="FULL", default=False,
                     action="store_true",
                     help="Run any jobs that are dependencies")
@@ -49,41 +51,44 @@ def execute_job(config, jobname, seen=set(), recurse=False):
 
 def run(args=None):
     options = parser.parse_args(args)
-
+    loader = configloader.Loader()
     yamlfile = options.CONFIG
     jobname = options.JOB
     try:
         fullpath = os.path.abspath(yamlfile)
         rootdir = os.path.dirname(fullpath)
         os.chdir(rootdir)
-        config = configloader.read(fullpath, topdir=rootdir)
+        loader.load(fullpath)
     except configloader.ConfigLoaderError as err:
         print("Config error: " + str(err))
         sys.exit()
 
+    hide_dot_jobs = not options.hidden
+
     if options.LIST:
-        for jobname in sorted(configloader.get_jobs(config)):
-            if not jobname.startswith("."):
-                print(jobname)
+        for jobname in sorted(loader.get_jobs()):
+            if jobname.startswith(".") and hide_dot_jobs:
+                continue
+            print(jobname)
     elif not jobname:
         parser.print_usage()
         sys.exit(1)
     else:
         fix_ownership = has_docker()
         if options.no_docker:
-            config["hide_docker"] = True
+            loader.config["hide_docker"] = True
             fix_ownership = False
 
-        if not configloader.job_docker_image(config, jobname):
+        if not loader.get_docker_image(jobname):
             fix_ownership = False
 
         if not is_linux():
             fix_ownership = False
 
         if options.error_shell:
-            config["error_shell"] = [options.error_shell]
+            loader.config["error_shell"] = [options.error_shell]
         try:
-            execute_job(config, jobname, recurse=options.FULL)
+            execute_job(loader.config, jobname, recurse=options.FULL)
         finally:
             if has_docker() and fix_ownership:
                 if is_linux():

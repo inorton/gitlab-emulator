@@ -5,12 +5,12 @@ import pytest
 from gitlabemu import runner, helpers
 
 
-def test_timeout_set_but_ample(caplog, posix_only, tests_dir):
+def test_timeout_set_but_ample(caplog, posix_only, in_tests):
     runner.run(["--config", "test-timeout.yaml", "run-ok"])
     assert "job run-ok timeout set to 14 mins" in caplog.messages
 
 
-def test_timeout_set_job_slow(caplog, posix_only, tests_dir):
+def test_timeout_set_job_slow(caplog, posix_only, in_tests):
     with pytest.raises(SystemExit):
         runner.run(["--config", "test-timeout.yaml", "run-slow"])
 

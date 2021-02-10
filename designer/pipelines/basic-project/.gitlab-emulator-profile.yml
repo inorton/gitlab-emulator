@@ -1,0 +1,31 @@
+# estimated cost of each job in minutes
+timings:
+  installer: 15
+  linux-libs: 2
+  linux-test: 15
+  linux-tools: 3
+  windows-test: 24
+  windows-tools: 10
+
+# number of runners to simulate
+runners:
+  - linux-docker:
+      images: True
+      runners: 3
+
+  - windows-docker:
+      images: True
+      runners: 1
+      tags:
+        - windows2020-docker
+
+  - windows-test:
+      runners: 2
+      tags:
+        - windows-test-drivers
+
+  - linux-test:
+      runners: 3
+      tags:
+        - linux-x64-usb
+
