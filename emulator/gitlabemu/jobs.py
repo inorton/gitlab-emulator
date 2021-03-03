@@ -11,7 +11,7 @@ import threading
 import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
-from .helpers import communicate as comm
+from .helpers import communicate as comm, is_windows
 from .helpers import parse_timeout
 
 
@@ -37,6 +37,8 @@ class Job(object):
         self.script = []
         self.after_script = []
         self.error_shell = []
+        self.enter_shell = False
+        self.shell_is_user = False
         self.tags = []
         self.stage = "test"
         self.variables = {}
@@ -95,6 +97,8 @@ class Job(object):
         self.name = name
         job = config[name]
         self.error_shell = config.get("error_shell", [])
+        self.enter_shell = config.get("enter_shell", [])
+        self.shell_is_user = config.get("shell_is_user", False)
         all_before = config.get("before_script", [])
         self.before_script = job.get("before_script", all_before)
         self.script = job.get("script", [])
@@ -193,6 +197,22 @@ class Job(object):
 
         return opened.returncode
 
+    def run_shell(self, prog=None):
+        """
+        Execute a shell command on job errors
+        :return:
+        """
+        try:
+            print("Running interactive-shell..", flush=True)
+            env = self.get_envs()
+            if prog is None:
+                prog = ["/bin/sh"]
+                if is_windows():
+                    prog = ["cmd"]
+            subprocess.check_call(prog, env=env)
+        except subprocess.CalledProcessError:
+            pass
+
     def shell_on_error(self):
         """
         Execute a shell command on job errors
@@ -236,6 +256,11 @@ class Job(object):
                 self.monitor_thread.join(timeout=5)
 
     def run_impl(self):
+        if self.enter_shell:
+            print("Entering shell")
+            self.run_shell()
+            print("Exiting shell")
+            return
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
         result = self.run_script(lines)

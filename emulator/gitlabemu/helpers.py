@@ -93,18 +93,27 @@ class DockerTool(object):
         cmdline = ["docker", "exec", "-w", cwd, self.container] + cmd
         subprocess.check_call(cmdline)
 
-    def exec(self, cwd, shell):
+    def exec(self, cwd, shell, tty=False, user=0):
         cmdline = ["docker", "exec", "-w", cwd]
         cmdline.extend(self.get_envs())
+        if user:
+            cmdline.extend(["-u", str(user)])
+        if tty:
+            cmdline.append("-t")
+
         cmdline.extend(["-i", self.container])
         cmdline.extend(shell)
-        proc = subprocess.Popen(cmdline,
-                                cwd=cwd,
-                                shell=False,
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT)
-        return proc
+
+        if not tty:
+            proc = subprocess.Popen(cmdline,
+                                    cwd=cwd,
+                                    shell=False,
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT)
+            return proc
+        else:
+            return subprocess.call(cmdline, cwd=cwd, shell=False)
 
 
 class ProcessLineProxyThread(Thread):
