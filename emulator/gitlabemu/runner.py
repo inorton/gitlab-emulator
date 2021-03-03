@@ -19,6 +19,12 @@ parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
                     type=str,
                     help="Use an alternative gitlab yaml file")
 
+parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="store_true",
+                    help="Run an interactive shell but do not run the build"
+                    )
+parser.add_argument("--user", "-u", dest="shell_is_user", default=False, action="store_true",
+                    help="Run the interactive shell as the current user instead of root")
+
 parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
                     help="If a docker job fails, execute this process (can be a shell)")
 
@@ -74,6 +80,11 @@ def run(args=None):
         parser.print_usage()
         sys.exit(1)
     else:
+        jobs = sorted(loader.get_jobs())
+        if jobname not in jobs:
+            print(f"No such job {jobname}")
+            sys.exit(1)
+
         fix_ownership = has_docker()
         if options.no_docker:
             loader.config["hide_docker"] = True
@@ -84,6 +95,13 @@ def run(args=None):
 
         if not is_linux():
             fix_ownership = False
+
+        if options.enter_shell:
+            if options.FULL:
+                print("-i is not compatible with --full")
+                sys.exit(1)
+        loader.config["enter_shell"] = options.enter_shell
+        loader.config["shell_is_user"] = options.shell_is_user
 
         if options.error_shell:
             loader.config["error_shell"] = [options.error_shell]
@@ -106,4 +124,3 @@ def run(args=None):
                         dt.kill()
                     print("finished")
         print("Build complete!")
-

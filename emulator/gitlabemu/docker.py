@@ -1,3 +1,4 @@
+import os
 import platform
 import subprocess
 import time
@@ -5,7 +6,7 @@ import uuid
 from contextlib import contextmanager
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
-from .helpers import communicate as comm, DockerTool, is_windows
+from .helpers import communicate as comm, DockerTool, is_windows, is_linux
 from .errors import DockerExecError
 
 
@@ -113,7 +114,14 @@ class DockerJob(Job):
         Get env vars for a docker job
         :return:
         """
-        return dict(self.variables)
+        ret = {}
+        for name in self.variables:
+            value = self.variables[name]
+            if value is None:
+                value = ""
+            ret[name] = str(value)
+
+        return ret
 
     def run_script(self, lines):
         return self._run_script(lines)
@@ -157,18 +165,37 @@ class DockerJob(Job):
         Execute a shell command on job errors
         :return:
         """
+        print("Job {} script error..".format(self.name), flush=True)
+        self.run_shell(self.error_shell)
+
+    def run_shell(self, cmdline=None):
+        uid = 0
+        if cmdline is not None:
+            cmdline = [cmdline]
+        else:
+            if is_windows():
+                cmdline = ["cmd"]
+            else:
+                if self.shell_is_user:
+                    uid = os.getuid()
+                cmdline = ["/bin/sh"]
+                # set a prompt
+                image_base = self.docker.image
+                if "/" in image_base:
+                    image_base = image_base.split("/")[-1].split("@")[0]
+                self.docker.add_env("PS1", f"{cmdline} `whoami`@{image_base}:$PWD $ ")
+
+        print("Running interactive-shell..", flush=True)
         try:
-            print("Job {} script error..".format(self.name), flush=True)
-            print("Running error-shell..", flush=True)
-            subprocess.check_call(["docker", "exec", "-it", self.container] + self.error_shell)
+            self.docker.exec(self.workspace, cmdline, tty=True, user=uid)
         except subprocess.CalledProcessError:
             pass
 
     def run_impl(self):
-        if platform.system() == "Windows":
+        if is_windows():
             warning("warning windows docker is experimental")
-        
-        if platform.system() == "Linux":
+
+        if is_linux():
             self.docker.privileged = True
 
         if isinstance(self.image, dict):
@@ -203,6 +230,12 @@ class DockerJob(Job):
             self.docker.run()
 
             try:
+                if self.enter_shell:
+                    print("Entering shell")
+                    self.run_shell()
+                    print("Exiting shell")
+                    return
+
                 self.build_process = self.run_script(make_script(self.before_script + self.script))
             finally:
                 try:
