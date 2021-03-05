@@ -170,20 +170,24 @@ class DockerJob(Job):
 
     def run_shell(self, cmdline=None):
         uid = 0
-        if cmdline is not None:
+        if cmdline is str:
             cmdline = [cmdline]
-        else:
+
+        # set the defaults
+        if cmdline is None:
             if is_windows():
                 cmdline = ["cmd"]
             else:
                 if self.shell_is_user:
                     uid = os.getuid()
                 cmdline = ["/bin/sh"]
-                # set a prompt
-                image_base = self.docker.image
-                if "/" in image_base:
-                    image_base = image_base.split("/")[-1].split("@")[0]
-                self.docker.add_env("PS1", f"{cmdline} `whoami`@{image_base}:$PWD $ ")
+
+        # set a prompt
+        if not is_windows():
+            image_base = self.docker.image
+            if "/" in image_base:
+                image_base = image_base.split("/")[-1].split("@")[0]
+            self.docker.add_env("PS1", f"{cmdline} `whoami`@{image_base}:$PWD $ ")
 
         print("Running interactive-shell..", flush=True)
         try:
