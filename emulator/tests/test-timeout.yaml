@@ -9,11 +9,12 @@ run-ok:
 
 run-slow:
   stage: test
+  image: alpine:latest
   timeout: 1m
   script:
-    - echo first
+    - echo first 10
     - sleep 10
-    - echo second
+    - echo second 10
     - sleep 10
-    - echo long sleep..
+    - echo sleep last 240
     - sleep 240

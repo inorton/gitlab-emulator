@@ -69,7 +69,7 @@ class Job(object):
         if self.timeout_seconds:
             duration = self.duration()
             if duration > self.timeout_seconds:
-                info("Job exceeded timeout after {} sec".format(int(self.timeout_seconds)))
+                info(f"Job exceeded {int(self.timeout_seconds)} sec timeout")
                 self.abort()
                 self.exit_monitor = True
 
@@ -79,11 +79,7 @@ class Job(object):
         and exits when it finishes
         """
         while not self.exit_monitor:
-            if self.build_process:
-                self.monitor_thread_loop_once()
-
-                if self.build_process.poll() is not None:
-                    break
+            self.monitor_thread_loop_once()
             time.sleep(2)
 
     def load(self, name, config):
