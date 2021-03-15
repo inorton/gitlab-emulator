@@ -13,7 +13,7 @@ stages:
     - df -h
     - /bin/false
 
-linux-testing:
+emulator-linux-test:
   image: python:3.7
   stage: build
   script:
@@ -26,7 +26,7 @@ linux-testing:
       junit:
         - emulator/test-results.xml
 
-linux-job-runner:
+emulator-linux-run:
   variables:
     DOCKER_HOST: tcp://docker:2375/
     DOCKER_DRIVER: overlay2
@@ -46,7 +46,7 @@ linux-job-runner:
     - HERE=$(pwd)
     - cd /tmp && locallab.py -c ${HERE}/../test-ci.yml linux-shell-job
 
-windows-job-runner:
+emulator-windows-run:
   stage: build
   when: manual
   allow_failure: true
@@ -57,5 +57,69 @@ windows-job-runner:
     - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job || exit /b
     - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-shell-job || exit /b
 
+runner-python3-linux-test:
+  image: python:3.7
+  stage: build
+  script:
+    - cd runner
+    - pip install -e .
+    - gitlab-runner.py --help
+    - python -m pytest . --junit-xml=test-results.xml
+  artifacts:
+    reports:
+      junit:
+        - test-results.xml
 
+runner-child-generator:
+  stage: build
+  image: python:3.7
+  script:
+    - cd runner
+    - python generate_child.py
+  artifacts:
+    paths:
+      - runner/generated/child-pipeline.yml
+      - runner/generated/child-tag.txt
+
+runner-parent-launcher:
+  stage: test
+  needs:
+    - runner-child-generator
+  trigger:
+    include:
+      artifact: runner/generated/child-pipeline.yml
+      job: runner-child-generator
+    strategy: depend
+
+runner-child-runner:
+  stage: test
+  image: python:3.9
+  timeout: 5m
+  needs:
+    - runner-child-generator
+  script:
+    - cd runner
+    - pip install -e .
+    - mkdir runner
+    - cd runner
+    - gitlab-runner.py --register https://gitlab.com
+      --type shell
+      --tag $(cat ../generated/child-tag.txt)
+      --regtoken="${PY_RUNNER_REG_TOKEN}"
+      --desc dynamic-runner
+    - touch http.trace
+    - tail -f http.trace &
+    - echo Running a job..
+    - gitlab-runner.py
+      --trace-http
+      --start gitlab-runner.yml
+      --once
+    - kill %1
+    - echo Job ended..
+  after_script:
+    - cd runner/runner && gitlab-runner.py --unregister
+  artifacts:
+    when: always
+    paths:
+      - runner/runner/*.trace
 

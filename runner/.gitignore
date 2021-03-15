@@ -1,0 +1,9 @@
+venv/
+.idea/
+.pytest_cache/
+build/
+gitlab-runner.yml
+MANIFEST
+runner.log
+*.xml
+*.html
