@@ -68,7 +68,7 @@ runner-python3-linux-test:
   artifacts:
     reports:
       junit:
-        - test-results.xml
+        - runner/test-results.xml
 
 runner-child-generator:
   stage: build
