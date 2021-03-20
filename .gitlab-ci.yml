@@ -61,6 +61,7 @@ runner-python3-linux-test:
   image: python:3.7
   stage: build
   script:
+    - pip install -e emulator
     - cd runner
     - pip install -e .
     - gitlab-runner.py --help
@@ -97,6 +98,8 @@ runner-child-runner:
   timeout: 5m
   needs:
     - runner-child-generator
+  before_script:
+    - pip install -e emulator
   script:
     - cd runner
     - pip install -e .
