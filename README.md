@@ -1,4 +1,4 @@
-# Run Gitlab Jobs without Gitlab
+# Gitlab Emulator and Gitlab Python Runner
 
 Supported Gitlab v11 and v12 features:
 
@@ -9,26 +9,18 @@ Supported Gitlab v11 and v12 features:
 
 Supported Platforms:
 
- * Executors:
-   * shell:
-     * windows
-     * linux
-     * MacOS X
-     * unix (any modern supported python platform - eg solaris, AIX)
-   * docker
-     * linux
-     * windows
-     * Docker Desktop on Mac
-   * services and service aliases
-     * linux
-     * linux services with Docker Desktop on MAc
-     * windows (untested)
+| Emulator                         | Runner OSs                     |
+| -------------------------------- | ------------------------------ |
+| Windows (shell + docker)         | AIX                            |
+| Linux (shell + docker)           | HP-UX                          |
+| Mac (shell + docker)             | Solaris                        |
+|                                  | Windows + Linux (testing only) |
 
-## Installation
-
+## Emulator Installation
 
 Installing from source:
 ```
+cd emulator
 python3 -m pip install .
 ```
 
@@ -42,7 +34,7 @@ python3 -m pip install gitlab-emulator
 The tool can be executed as a module, or if your python is setup, using the `locallab.py` script:
 
 ```
-locallab.py --help
+gle --help
 ```
 or
 ```
@@ -53,19 +45,33 @@ python3 -m gitlabemu --help
 
 ```
 cd my-gitlab-repo
-python3 -m gitlabemu --list
+gle --list
 ```
 
 ## Run a single job
 
 ```
 cd my-gitlab-repo
-python3 -m gitlabemu JOBNAME
+gle JOBNAME
 ```
 
 ## Run all required jobs (dependency / needs order)
 
 ```
 cd my-gitlab-repo
-python3 -m gitlabemu --full JOBNAME
+gle --full JOBNAME
 ```
+
+## Enter a docker container for a job
+
+```
+gle -i JOBNAME
+```
+
+# Gitlab Python Runner
+
+The Python runner lets you use Gitlab with machines that can't run the
+official gitlab-runner (usually systems that can't support Golang) such
+as HP-UX, AIX and Solaris but also others that can run modern Python 3.
+
+For more info and instructions, see the `runner` folder `README.md` file
