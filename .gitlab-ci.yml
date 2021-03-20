@@ -17,8 +17,8 @@ emulator-linux-test:
   image: python:3.7
   stage: build
   script:
+    - pip install -r test_requirements.txt
     - cd emulator
-    - pip install -r ../test_requirements.txt
     - pip install -e .
     - python -m pytest . --junit-xml=test-results.xml
   artifacts:
@@ -61,7 +61,7 @@ runner-python3-linux-test:
   image: python:3.7
   stage: build
   script:
-    - pip install -r ../test_requirements.txt
+    - pip install -r test_requirements.txt
     - pip install -e emulator
     - cd runner
     - pip install -e .
