@@ -20,7 +20,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python -m pytest . --junit-xml=test-results.xml
+    - python -m pytest . --cov gitlabemu --junit-xml=test-results.xml
   artifacts:
     reports:
       junit:
