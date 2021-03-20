@@ -22,7 +22,7 @@ def test_self(linux_docker, capsys):
          "--full", "linux-build-later"])
 
     out, err = capsys.readouterr()
-    assert "CI_JOB_IMAGE=alpine:latest" in out
+    assert "SOME_VARIABLE=hello" in out
 
 
 def test_self_fail(linux_docker, capsys):

@@ -14,13 +14,21 @@ stages:
     - /bin/false
 
 emulator-linux-test:
-  image: python:3.7
+  image:
+    name: docker:stable-dind
+    #entrypoint: ["dockerd-entrypoint.sh"]
   stage: build
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
   script:
+    - apk add py3-pip
+    - ps -ef
+    - sleep 5
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python -m pytest . --cov gitlabemu --junit-xml=test-results.xml
+    - python3 -m pytest . --cov gitlabemu --cov-fail-under=82 --junit-xml=test-results.xml
   artifacts:
     reports:
       junit:
