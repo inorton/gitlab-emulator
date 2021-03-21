@@ -68,6 +68,8 @@ linux-build-later:
   stage: test
   image: alpine:latest
   needs: [linux-docker-job, linux-shell-job]
+  variables:
+    SOME_VARIABLE: hello
   script:
-    - ls -l
+    - env|grep SOME_VARIABLE
 

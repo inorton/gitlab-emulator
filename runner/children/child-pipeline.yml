@@ -1,0 +1,35 @@
+stages:
+  - build
+  - test
+
+dynamic:
+  stage: build
+  tags:
+    - DYNAMIC_TAG
+  script:
+    - echo $PWD
+    - pwd
+    - env|grep CI_|sort
+    - mkdir -p dynamic
+    - env|grep PWD > dynamic/env_pwd.txt
+    - pwd > dynamic/pwd.txt
+    # if we are in the correct folder this should pass
+    - ls -l
+    - ls -l README.md
+    # exclude the readme
+    - cp README.md dynamic/README.txt
+    - find / -type f -name child-job.yml |xargs cat
+  artifacts:
+    paths:
+      - dynamic/*.txt
+    exclude:
+      - "**/README.txt"
+
+after-dynamic:
+  stage: test
+  needs:
+    - dynamic
+  image: alpine:latest
+  script:
+    # this should fail if README.txt was in the artifacts
+    - mkdir dynamic/README.txt

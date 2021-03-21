@@ -199,7 +199,7 @@ class DockerJob(Job):
         if is_windows():
             warning("warning windows docker is experimental")
 
-        if is_linux():
+        if not is_windows():
             self.docker.privileged = True
 
         if isinstance(self.image, dict):
