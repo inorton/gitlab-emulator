@@ -61,8 +61,6 @@ class DockerTool(object):
         if self.network:
             cmdline.extend(["--network", self.network])
 
-        cmdline.extend(self.get_envs())
-
         for volume in self.volumes:
             cmdline.extend(["-v", "{}:rw".format(volume)])
 
@@ -73,15 +71,11 @@ class DockerTool(object):
             if self.entrypoint == [""]:
                 self.entrypoint = ["/bin/sh"]
 
-            if len(self.entrypoint) > 1:
-                raise RuntimeError("gitlab-emulator cannot yet support "
-                                   "multiple args for docker entrypoint "
-                                   "overrides")
-
             cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
 
-        cmdline.extend(["-i", self.image])
-
+        cmdline.append("-i")
+        cmdline.extend(self.get_envs())
+        cmdline.append(self.image)
         self.container = subprocess.check_output(cmdline, shell=False).decode().strip()
 
     def kill(self):
