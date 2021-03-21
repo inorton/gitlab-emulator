@@ -16,7 +16,7 @@ stages:
 emulator-linux-test:
   image:
     name: docker:stable-dind
-    entrypoint: ["/bin/sh"]
+    entrypoint: [""]
   stage: build
   variables:
     DOCKER_DRIVER: overlay2
