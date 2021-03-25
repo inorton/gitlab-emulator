@@ -1,5 +1,8 @@
 # Gitlab Emulator and Gitlab Python Runner
 
+[![pipeline status](https://gitlab.com/cunity/gitlab-emulator/badges/master/pipeline.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/master)
+[![coverage report](https://gitlab.com/cunity/gitlab-emulator/badges/master/coverage.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/master)
+
 Supported Gitlab v11 and v12 features:
 
  * docker (windows and linux)
