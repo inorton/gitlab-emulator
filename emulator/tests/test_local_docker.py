@@ -46,7 +46,7 @@ def test_no_such_exec(linux_docker, mocker, capsys):
     :param has_docker:
     :return:
     """
-    def mock_exec(_, workspace, shell):
+    def mock_exec(_, workspace, shell, user=None):
         raise DockerExecError()
 
     mocker.patch("gitlabemu.helpers.DockerTool.exec", mock_exec)

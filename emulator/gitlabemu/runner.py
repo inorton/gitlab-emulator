@@ -115,11 +115,14 @@ def run(args=None):
                     dt.image = "alpine:latest"
                     dt.entrypoint = ["/bin/sh"]
                     dt.name = "gitlab-emulator-chowner-{}".format(os.getpid())
-                    dt.add_volume(os.getcwd(), os.getcwd())
+                    folder = os.getcwd()
+                    current_user = os.getuid()
+                    current_grp = os.getgid()
+                    dt.add_volume(folder, folder)
                     dt.run()
                     try:
-                        dt.check_call(os.getcwd(),
-                                      ["chown", "-R", str(os.getuid()), str(os.getcwd())])
+                        dt.check_call(folder,
+                                      ["chown", "-R", f"{current_user}.{current_grp}", "."])
                     finally:
                         dt.kill()
                     print("finished")

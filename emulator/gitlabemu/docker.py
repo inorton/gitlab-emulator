@@ -126,11 +126,11 @@ class DockerJob(Job):
     def run_script(self, lines):
         return self._run_script(lines)
 
-    def _run_script(self, lines, attempts=2):
+    def _run_script(self, lines, attempts=2, user=None):
         task = None
         while attempts > 0:
             try:
-                task = self.docker.exec(self.workspace, self.shell)
+                task = self.docker.exec(self.workspace, self.shell, user=user)
                 self.communicate(task, script=lines.encode())
                 break
             except DockerExecError:
@@ -232,6 +232,14 @@ class DockerJob(Job):
             self.docker.volumes = ["{}:{}".format(self.workspace, self.workspace)]
 
             self.docker.run()
+
+            if not is_windows():
+                # work out USER
+                docker_user_cfg = self.docker.get_user()
+                if docker_user_cfg and ":" in docker_user_cfg:
+                    docker_user, docker_grp = docker_user_cfg.split(":", 1)
+                    self.stdout.write(f"Setting ownership to {docker_user}:{docker_grp}")
+                    self._run_script(f"chown -R {docker_user}.{docker_grp} .", attempts=1, user="0")
 
             try:
                 if self.enter_shell:
