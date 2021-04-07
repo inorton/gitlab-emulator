@@ -2,7 +2,7 @@
 Various useful common funcs
 """
 from threading import Thread
-
+import json
 import sys
 import re
 import platform
@@ -29,6 +29,22 @@ class DockerTool(object):
 
     def add_env(self, name, value):
         self.env[name] = value
+
+    def inspect(self):
+        """
+        Inspect the image and return the Config dict
+        :return:
+        """
+        cmdline = ["docker", "inspect", self.image]
+        stdout = subprocess.check_output(cmdline, shell=False).decode()
+        data = json.loads(stdout)
+        if data and len(data) == 1:
+            datadict = data[0]
+            return datadict.get("Config", {})
+        return {}
+
+    def get_user(self):
+        return self.inspect().get("User", None)
 
     def pull(self):
         self.pulled = subprocess.Popen(["docker", "pull", self.image],
@@ -87,10 +103,10 @@ class DockerTool(object):
         cmdline = ["docker", "exec", "-w", cwd, self.container] + cmd
         subprocess.check_call(cmdline)
 
-    def exec(self, cwd, shell, tty=False, user=0):
+    def exec(self, cwd, shell, tty=False, user=None):
         cmdline = ["docker", "exec", "-w", cwd]
         cmdline.extend(self.get_envs())
-        if user:
+        if user is not None:
             cmdline.extend(["-u", str(user)])
         if tty:
             cmdline.append("-t")
