@@ -20,6 +20,8 @@ RESERVED_TOP_KEYS = ["stages",
                      "pages",
                      "variables",
                      "include",
+                     "workflow",
+                     "default",
                      ".gitlab-emulator-workspace"
                      ]
 
