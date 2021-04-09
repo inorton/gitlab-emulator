@@ -289,14 +289,17 @@ def run(runner, job, docker):
 
 def load_pipeline_config(trace, tempdir, build_dir_abs, job, jobname):
     from gitlabemu import configloader
+    loader = configloader.Loader()
     derived = False
     ci_cfg = get_variable(job, "CI_CONFIG_PATH")
     if ci_cfg:
         ci_file = os.path.join(build_dir_abs, ci_cfg)
     if os.path.exists(ci_file):
-        config = configloader.read(ci_file)
+        loader.load(ci_file)
 
-    if not ci_cfg or jobname not in config:
+    config = loader.config
+
+    if not ci_cfg or jobname not in loader.get_jobs():
         begin_log_section(trace, "child-job", "Execute child job")
         trace.writeline("Warning: CI_CONFIG_PATH is empty or unset")
         trace.writeline("Warning: gitlab-python-runner child-pipeline support is experimental")

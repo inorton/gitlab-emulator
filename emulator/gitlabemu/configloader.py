@@ -14,11 +14,14 @@ DEFAULT_CI_FILE = ".gitlab-ci.yml"
 RESERVED_TOP_KEYS = ["stages",
                      "services",
                      "image",
+                     "cache",
                      "before_script",
                      "after_script",
                      "pages",
                      "variables",
                      "include",
+                     "workflow",
+                     "default",
                      ".gitlab-emulator-workspace"
                      ]
 
@@ -153,7 +156,7 @@ def validate(config):
 
         # check that the stage exists
         if job["stage"] not in stages:
-            raise ConfigLoaderError("job {} stage {} does not exist".format(name, job["stage"]))
+            raise ConfigLoaderError("job {} has stage {} does not exist".format(name, job["stage"]))
 
         # check needs
         needs = job.get("needs", [])
@@ -215,7 +218,7 @@ def get_stages(config):
     :param config:
     :return:
     """
-    return config.get("stages", ["test"])
+    return config.get("stages", [".pre", "build", "test", "deploy", ".post"])
 
 
 def get_jobs(config):
@@ -304,7 +307,7 @@ def do_variables(baseobj, yamlfile):
             baseobj["variables"][name] = os.environ[name]
 
 
-def read(yamlfile, variables=True, validate_jobs=True, topdir=None, baseobj=None,
+def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=None,
          handle_include=do_includes,
          handle_extends=do_extends,
          handle_validate=validate,
