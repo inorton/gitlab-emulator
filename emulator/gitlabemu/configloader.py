@@ -307,7 +307,7 @@ def do_variables(baseobj, yamlfile):
             baseobj["variables"][name] = os.environ[name]
 
 
-def read(yamlfile, variables=True, validate_jobs=True, topdir=None, baseobj=None,
+def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=None,
          handle_include=do_includes,
          handle_extends=do_extends,
          handle_validate=validate,
