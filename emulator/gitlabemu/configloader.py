@@ -14,6 +14,7 @@ DEFAULT_CI_FILE = ".gitlab-ci.yml"
 RESERVED_TOP_KEYS = ["stages",
                      "services",
                      "image",
+                     "cache",
                      "before_script",
                      "after_script",
                      "pages",
@@ -153,7 +154,7 @@ def validate(config):
 
         # check that the stage exists
         if job["stage"] not in stages:
-            raise ConfigLoaderError("job {} stage {} does not exist".format(name, job["stage"]))
+            raise ConfigLoaderError("job {} has stage {} does not exist".format(name, job["stage"]))
 
         # check needs
         needs = job.get("needs", [])
@@ -215,7 +216,7 @@ def get_stages(config):
     :param config:
     :return:
     """
-    return config.get("stages", ["test"])
+    return config.get("stages", [".pre", "build", "test", "deploy", ".post"])
 
 
 def get_jobs(config):
