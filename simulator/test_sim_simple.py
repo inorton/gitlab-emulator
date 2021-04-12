@@ -33,12 +33,13 @@ def test_simple_tick():
     assert len(simulator.server.finished_jobs) == 1
     assert list(simulator.server.finished_jobs)[0].name == "build"
 
-    # run one of the two jobs that depends on build
+    # run one of the two jobs that depends on build, there should be one ready job left after the tick
 
     timespan = simulator.tick()
     assert runner.run_count == 2
     assert timespan >= 3
     assert job2.done or job3.done
+    assert len(server.ready_jobs) == 1
 
     # run another
     timespan = simulator.tick()
@@ -55,6 +56,8 @@ def test_simple_tick():
     assert job1.done and job2.done and job3.done and job4.done
     assert simulator.time == 19
     assert server.time == 19
+    assert not server.ready_jobs
+    assert not server.running_jobs
 
     timespan = simulator.tick()
     # next tick does nothing

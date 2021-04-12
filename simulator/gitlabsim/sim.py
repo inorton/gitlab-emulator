@@ -25,7 +25,7 @@ class SimRunner(object):
 
     def reset(self):
         self.jobs.clear()
-        self.completed.clear()
+        self.run_count = 0
 
     def tick(self):
         for job in list(self.jobs):
