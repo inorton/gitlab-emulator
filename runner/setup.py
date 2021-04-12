@@ -7,7 +7,7 @@ setup(
     description="Pure python gitlab-runner",
     author="Ian Norton",
     author_email="inorton@gmail.com",
-    url="https://gitlab.com/cunity/gitlab-python-runner",
+    url="https://gitlab.com/cunity/gitlab-emulator",
     packages=["GitlabPyRunner"],
     include_package_data=True,
     scripts=["gitlab-runner.py"],
