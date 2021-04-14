@@ -100,8 +100,6 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None):
     if os.sep != "/":
         include = include.replace("/", os.sep)
 
-    logmsg.info(f"include : {include}")
-
     return handle_read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
 
 
