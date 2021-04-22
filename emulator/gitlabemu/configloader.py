@@ -327,7 +327,6 @@ def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=N
     parent = False
     if topdir is None:
         topdir = os.path.dirname(yamlfile)
-        logmsg.info(f"setting topdir={topdir}")
     else:
         yamlfile = os.path.join(topdir, yamlfile)
     with open(yamlfile, "r") as yamlobj:
