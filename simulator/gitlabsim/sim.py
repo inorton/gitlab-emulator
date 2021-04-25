@@ -289,3 +289,8 @@ class Simulation(object):
         timeshift = self.server.tick()
         self.time += timeshift
         return timeshift
+
+    def run(self):
+        while self.tick():
+            pass
+        return self.time

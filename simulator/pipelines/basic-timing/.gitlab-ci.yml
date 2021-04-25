@@ -1,0 +1,60 @@
+stages:
+  - build
+  - package
+  - test
+  - release
+
+build-linux:
+  stage: build
+  image: ubuntu:18.04
+  script:
+    - make -j4
+    - make install
+
+build-windows:
+  stage: build
+  tags:
+    - windows-docker
+  image:
+    - windows-2019:builder
+  script:
+    - msbuild win64.sln /Release
+
+package-product:
+  stage: package
+  image: ubuntu:18.04
+  needs:
+    - build-linux
+    - build-windows
+  script:
+    - make packages
+
+test-windows-fast:
+  stage: test
+  needs:
+    - build-windows
+  tags:
+    - windows-vm
+  script:
+    - python3 -m pytest fast
+
+test-linux-fast:
+  stage:
+  image: ubuntu:18.04
+  needs:
+    - build-linux
+  script:
+    - python3 -m pytest fast
+
+test-linux-full:
+  extends: test-linux-fast
+  script:
+    - python3 -m pytest full
+
+test-linux-installer:
+  stage: release
+  image: ubuntu:18.04
+  needs:
+    - package-product
+  script:
+    - python3 -m pytest installer-test
