@@ -15,5 +15,11 @@ setup(
         ],
     platforms=["any"],
     license="License :: OSI Approved :: MIT License",
-    long_description="Simulate Gitlab pipelines and calculate the right runners to scale up/down"
+    long_description="Simulate Gitlab pipelines and calculate the right runners to scale up/down",
+    entry_points={
+        "console_scripts": [
+            "gls=gitlabsim.tool:run",
+        ]
+    }
+
 )

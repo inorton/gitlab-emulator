@@ -8,7 +8,7 @@
       <sourceFolder url="file://$MODULE_DIR$/simulator" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
-    <orderEntry type="inheritedJdk" />
+    <orderEntry type="jdk" jdkName="Python 3.8 (gitlab-emulator)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="gitlab-python-runner" />
   </component>

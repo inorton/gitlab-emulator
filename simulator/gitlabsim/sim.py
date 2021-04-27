@@ -88,6 +88,12 @@ class SimJob(object):
     def __repr__(self):
         return str(self)
 
+    def runner_detail(self):
+        details = list(self.tags)
+        if self.image:
+            details += ["run-docker-images"]
+        return details
+
     def tick(self, time):
         if self.remaining:
             assert time <= self.remaining
@@ -178,7 +184,8 @@ class Pipeline(object):
         loader = configloader.Loader()
         loader.load(configfile)
 
-        for job in loader.get_jobs():
+        for jobname in loader.get_jobs():
+            job = configloader.load_job(loader.config, jobname)
             item = SimJob(name=job.name,
                           stage=job.stage,
                           tags=job.tags,

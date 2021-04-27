@@ -39,7 +39,7 @@ test-windows-fast:
     - python3 -m pytest fast
 
 test-linux-fast:
-  stage:
+  stage: test
   image: ubuntu:18.04
   needs:
     - build-linux
