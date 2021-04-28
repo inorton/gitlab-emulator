@@ -1,6 +1,7 @@
 """
 Various useful common funcs
 """
+import os.path
 from threading import Thread
 import json
 import sys
@@ -45,6 +46,16 @@ class DockerTool(object):
             return datadict.get("Config", {})
         return {}
 
+    def add_file(self, src, dest):
+        """
+        Copy a file to the container
+        :param src:
+        :param dest:
+        :return:
+        """
+        assert self.container
+        subprocess.check_call(["docker", "cp", src, f"{self.container}:{dest}"])
+
     def get_user(self):
         return self.inspect().get("User", None)
 
@@ -73,7 +84,7 @@ class DockerTool(object):
         cmdline = ["docker", "run", "--rm",
                    "--name", self.name,
                    "-d"]
-        if platform.system() != "Windows":
+        if not is_windows():
             if self.privileged:
                 cmdline.append("--privileged")
         if self.network:
@@ -297,3 +308,24 @@ def parse_timeout(text):
     if seconds == 0:
         raise ValueError("Cannot decode timeout {}".format(text))
     return seconds
+
+
+def restore_path_ownership(path):
+    path = os.path.abspath(path)
+    chowner = os.path.abspath(os.path.join(os.path.dirname(__file__), "chown.py"))
+    if not is_windows():
+        if has_docker():
+            dt = DockerTool()
+            dt.name = f"gitlabemu-chowner-{os.getpid()}"
+            dt.image = "python:3.8-slim"
+            dt.add_volume(path, path)
+            dt.add_env("CHOWN", str(os.getuid()))
+            dt.add_env("CHGRP", str(os.getgid()))
+            dt.entrypoint = ["/bin/sh"]
+            dt.pull()
+            dt.run()
+            try:
+                dt.add_file(chowner, "/tmp")
+                dt.check_call(path, ["python", "/tmp/chown.py"])
+            finally:
+                dt.kill()

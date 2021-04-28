@@ -3,7 +3,7 @@ import sys
 import os
 import argparse
 from . import configloader
-from .helpers import DockerTool, has_docker, is_linux
+from .helpers import DockerTool, has_docker, is_linux, restore_path_ownership
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -44,7 +44,7 @@ parser.add_argument("JOB", type=str, default=None,
                     help="Run this named job")
 
 
-def execute_job(config, jobname, seen=set(), recurse=False):
+def execute_job(config, jobname, seen=None, recurse=False):
     """
     Run a job, optionally run required dependencies
     :param config: the config dictionary
@@ -53,6 +53,8 @@ def execute_job(config, jobname, seen=set(), recurse=False):
     :param recurse: if True, execute in dependency order
     :return:
     """
+    if not seen:
+        seen = set()
     if jobname not in seen:
         jobobj = configloader.load_job(config, jobname)
         if recurse:
@@ -135,19 +137,6 @@ def run(args=None):
             if has_docker() and fix_ownership:
                 if is_linux():
                     print("Fixing up local file ownerships..")
-                    dt = DockerTool()
-                    dt.image = "alpine:latest"
-                    dt.entrypoint = ["/bin/sh"]
-                    dt.name = "gitlab-emulator-chowner-{}".format(os.getpid())
-                    folder = os.getcwd()
-                    current_user = os.getuid()
-                    current_grp = os.getgid()
-                    dt.add_volume(folder, folder)
-                    dt.run()
-                    try:
-                        dt.check_call(folder,
-                                      ["chown", "-R", f"{current_user}.{current_grp}", "."])
-                    finally:
-                        dt.kill()
+                    restore_path_ownership(os.getcwd())
                     print("finished")
         print("Build complete!")
