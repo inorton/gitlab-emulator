@@ -1,0 +1,15 @@
+jobs:
+- name: build-linux
+  time: 5
+- name: build-windows
+  time: 5
+- name: package-product
+  time: 5
+- name: test-windows-fast
+  time: 5
+- name: test-linux-fast
+  time: 5
+- name: test-linux-full
+  time: 5
+- name: test-linux-installer
+  time: 5

@@ -90,8 +90,10 @@ class SimJob(object):
 
     def runner_detail(self):
         details = list(self.tags)
+        if not details:
+            details += ["~untagged"]
         if self.image:
-            details += ["run-docker-images"]
+            details += ["~image"]
         return details
 
     def tick(self, time):

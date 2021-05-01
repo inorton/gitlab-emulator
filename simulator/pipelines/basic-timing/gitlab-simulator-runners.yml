@@ -1,0 +1,18 @@
+runners:
+- concurrent: 1
+  image: false
+  name: generated-0
+  run-untagged: false
+  tags:
+  - windows-vm
+- concurrent: 1
+  image: true
+  name: generated-1
+  run-untagged: false
+  tags:
+  - windows-docker
+- concurrent: 1
+  image: true
+  name: generated-2
+  run-untagged: true
+  tags: []

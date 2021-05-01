@@ -1,5 +1,7 @@
 import argparse
+import yaml
 from .sim import Pipeline
+from .utils import runners_template, profile_template
 
 
 parser = argparse.ArgumentParser()
@@ -26,8 +28,16 @@ def run():
         for job in pipe.jobs:
             runners.append(job.runner_detail())
 
-        print(runners)
+        unique = runners_template(runners)
+        with open(opts.newrunners, "w") as rcfg:
+            yaml.safe_dump(unique, rcfg)
+        print(f"Saved runners: {opts.newrunners}")
 
+    if opts.newprofile:
+        profile = profile_template(pipe)
+        with open(opts.newprofile, "w") as rcfg:
+            yaml.safe_dump(profile, rcfg)
+        print(f"Saved profile: {opts.newprofile}")
 
 if __name__ == "__main__":
     run()
