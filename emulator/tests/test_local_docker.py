@@ -73,20 +73,17 @@ def test_self_fail(linux_docker, capsys):
     assert "running after" in out
 
 
-def test_no_such_exec(linux_docker, mocker, capsys):
+def test_no_such_exec(linux_docker, capsys):
     """
     Test that we handle docker exec "no such exec instance" errors
-    :param has_docker:
     :return:
     """
-    def mock_exec(_, workspace, shell, user=None):
-        raise DockerExecError()
-
-    mocker.patch("gitlabemu.helpers.DockerTool.exec", mock_exec)
 
     with pytest.raises(DockerExecError):
         run(["-c", os.path.join(TOPDIR, "test-ci.yml"),
+             "--var", "DIE=No such exec instance",
              "alpine-test"])
+
     out, err = capsys.readouterr()
     assert "Warning: docker exec error" in out
 

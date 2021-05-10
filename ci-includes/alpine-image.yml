@@ -1,2 +1,2 @@
 .alpine-image:
-  image: alpine:latest
+  image: alpine:3.12

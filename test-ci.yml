@@ -13,6 +13,7 @@ alpine-test:
   script:
   - uname -a
   - env|sort
+  - sleep 2  # sleep long enough so that test_no_such_exec() has a chance to pass
 
 windows-docker-job:
   extends: .windows-dir-after  
