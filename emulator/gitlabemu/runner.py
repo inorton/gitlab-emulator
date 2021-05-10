@@ -32,6 +32,9 @@ parser.add_argument("--ignore-docker", dest="no_docker", action="store_true", de
                     help="If set, run jobs using the local system as a shell job instead of docker"
                     )
 
+parser.add_argument("--var", dest="var", type=str, default=[], action="append",
+                    help="Set a pipeline variable, eg DEBUG or DEBUG=1")
+
 parser.add_argument("JOB", type=str, default=None,
                     nargs="?",
                     help="Run this named job")
@@ -95,6 +98,17 @@ def run(args=None):
 
         if not is_linux():
             fix_ownership = False
+
+        for item in options.var:
+            var = item.split("=", 1)
+            if len(var) == 2:
+                name, value = var[0], var[1]
+            else:
+                name = var[0]
+                value = os.environ.get(name, None)
+
+            if value is not None:
+                loader.config["variables"][name] = value
 
         if options.enter_shell:
             if options.FULL:

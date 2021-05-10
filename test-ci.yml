@@ -12,6 +12,7 @@ alpine-test:
   stage: build
   script:
   - uname -a
+  - env|sort
 
 windows-docker-job:
   extends: .windows-dir-after  
