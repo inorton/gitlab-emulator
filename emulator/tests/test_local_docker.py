@@ -2,7 +2,7 @@
 Test using local docker
 """
 import pytest
-import platform
+import uuid
 import os
 
 from gitlabemu.runner import run
@@ -10,6 +10,39 @@ from gitlabemu.errors import DockerExecError
 
 TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 TEST_DIR = os.path.join(TOPDIR, "emulator", "tests")
+
+
+def test_variables_var(linux_docker, capsys):
+    """
+    Test --var
+    :param linux_docker:
+    :param capsys:
+    :return:
+    """
+    random_uuid1 = str(uuid.uuid4())
+    random_uuid2 = str(uuid.uuid4())
+    random_uuid3 = str(uuid.uuid4())
+
+    os.environ["X_FEED_VARIABLE"] = random_uuid3
+    os.environ["TOPGUN_MAV"] = "I feel the need..."
+    os.environ["TOPGUN_GOOSE"] = "... the need for speed!"
+    os.environ["TOPGUN"] = "F14"
+
+    run(["-c", os.path.join(TOPDIR, "test-ci.yml"), "alpine-test",
+         "--var", f"MOOSE={random_uuid1}",
+         "--var", f"BADGER={random_uuid2}",
+         "--var", "X_FEED_VARIABLE",
+         "--revar", "^TOPGUN_"
+         ])
+
+    out, err = capsys.readouterr()
+    assert f"MOOSE={random_uuid1}" in out
+    assert f"BADGER={random_uuid2}" in out
+    assert f"X_FEED_VARIABLE={random_uuid3}" in out
+
+    assert "TOPGUN=F14" not in out
+    assert f"TOPGUN_MAV=I feel the need..." in out
+    assert f"TOPGUN_GOOSE=... the need for speed!" in out
 
 
 def test_self(linux_docker, capsys):
