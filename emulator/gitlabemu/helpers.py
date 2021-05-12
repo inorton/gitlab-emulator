@@ -148,7 +148,6 @@ class ProcessLineProxyThread(Thread):
                 try:
                     self.linehandler(data)
                 except DockerExecError as err:
-                    assert False
                     self.errors.append(err)
 
     def run(self):

@@ -1,12 +1,16 @@
 """
 Test using local docker
 """
+import sys
+
 import pytest
 import uuid
 import os
 
+from gitlabemu.helpers import ProcessLineProxyThread
 from gitlabemu.runner import run
 from gitlabemu.errors import DockerExecError
+from gitlabemu.docker import DockerJob
 
 TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 TEST_DIR = os.path.join(TOPDIR, "emulator", "tests")
@@ -73,19 +77,19 @@ def test_self_fail(linux_docker, capsys):
     assert "running after" in out
 
 
-def test_no_such_exec(linux_docker, capsys):
+def test_no_such_exec():
     """
     Test that we handle docker exec "no such exec instance" errors
     :return:
     """
+    def handler(line):
+        DockerJob.check_docker_exec_failed(None, line)
 
-    with pytest.raises(DockerExecError):
-        run(["-c", os.path.join(TOPDIR, "test-ci.yml"),
-             "--var", "DIE=No such exec instance",
-             "alpine-test"])
+    comm = ProcessLineProxyThread(None, sys.stdout, linehandler=handler)
+    comm.writeout(b"No such exec instance")
 
-    out, err = capsys.readouterr()
-    assert "Warning: docker exec error" in out
+    assert len(comm.errors) == 1
+    assert isinstance(comm.errors[0], DockerExecError)
 
 
 def test_services(linux_docker, capsys):
