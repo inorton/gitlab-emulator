@@ -144,17 +144,17 @@ class ProcessLineProxyThread(Thread):
             except UnicodeDecodeError:
                 decoded = str(data)
             self.stdout.write(decoded)
+            if self.linehandler:
+                try:
+                    self.linehandler(data)
+                except DockerExecError as err:
+                    self.errors.append(err)
 
     def run(self):
         while True:
             try:
                 data = self.process.stdout.readline()
-                if data and self.linehandler:
-                    self.linehandler(data)
             except ValueError:
-                pass
-            except DockerExecError as err:
-                self.errors.append(err)
                 pass
             except Exception as err:
                 self.errors.append(err)
@@ -164,10 +164,6 @@ class ProcessLineProxyThread(Thread):
                     self.writeout(data)
             if self.process.poll() is not None:
                 break
-
-        # child has exited now, get any last output if there is any
-        if not self.process.stdout.closed:
-            self.writeout(self.process.stdout.read())
 
         if hasattr(self.stdout, "flush"):
             self.stdout.flush()
@@ -211,12 +207,8 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     while True:
         try:
             data = process.stdout.readline()
-            if data and linehandler:
-                linehandler(data)
-
         except ValueError:
             pass
-
         if data:
             # we can still use our proxy object to decode and write the data
             comm_thread.writeout(data)
