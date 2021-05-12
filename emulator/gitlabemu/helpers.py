@@ -8,6 +8,8 @@ import re
 import platform
 import subprocess
 
+from .errors import DockerExecError
+
 
 class DockerTool(object):
     """
@@ -129,6 +131,7 @@ class DockerTool(object):
 class ProcessLineProxyThread(Thread):
     def __init__(self, process, stdout, linehandler=None):
         super(ProcessLineProxyThread, self).__init__()
+        self.errors = []
         self.process = process
         self.stdout = stdout
         self.linehandler = linehandler
@@ -141,20 +144,26 @@ class ProcessLineProxyThread(Thread):
             except UnicodeDecodeError:
                 decoded = str(data)
             self.stdout.write(decoded)
+            if self.linehandler:
+                try:
+                    self.linehandler(data)
+                except DockerExecError as err:
+                    self.errors.append(err)
 
     def run(self):
-        while self.process.poll() is None:
+        while True:
             try:
                 data = self.process.stdout.readline()
-                if data and self.linehandler:
-                    self.linehandler(data)
             except ValueError:
                 pass
-            self.writeout(data)
-
-        # child has exited now, get any last output if there is any
-        if not self.process.stdout.closed:
-            self.writeout(self.process.stdout.read())
+            except Exception as err:
+                self.errors.append(err)
+                raise
+            finally:
+                if data:
+                    self.writeout(data)
+            if self.process.poll() is not None:
+                break
 
         if hasattr(self.stdout, "flush"):
             self.stdout.flush()
@@ -184,25 +193,36 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
         # could not create the thread, so use a loop
         pass
 
+    # use a thread to stream build output if we can (hpux can't)
     if comm_thread and thread_started:
-        while comm_thread.is_alive() and process.poll() is None:
-            comm_thread.join(timeout=5)
-            # yes, if the process is dead we potentially leak a sleeping thread
-            # blocked by readline..
-    else:
-        # could not create a thread (hpux?)
         while process.poll() is None:
-            try:
-                data = process.stdout.readline()
-                if data and linehandler:
-                    linehandler(data)
+            if comm_thread.is_alive():
+                comm_thread.join(timeout=5)
 
-            except ValueError:
-                pass
+        if comm_thread.is_alive():
+            comm_thread.join()
 
-            if data:
-                # we can still use our proxy object to decode and write the data
-                comm_thread.writeout(data)
+    # either the task has ended or we could not create a thread, either way,
+    # stream the remaining stdout data
+    while True:
+        try:
+            data = process.stdout.readline()
+        except ValueError:
+            pass
+        if data:
+            # we can still use our proxy object to decode and write the data
+            comm_thread.writeout(data)
+
+        if process.poll() is not None:
+            break
+
+    # process has definitely already ended, read all the lines, this wont deadlock
+    while True:
+        line = process.stdout.readline()
+        if line:
+            comm_thread.writeout(line)
+        else:
+            break
 
     if throw:
         if process.returncode != 0:
@@ -210,6 +230,11 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
             if hasattr(process, "args"):
                 args = process.args
             raise subprocess.CalledProcessError(process.returncode, cmd=args)
+
+    if comm_thread:
+        for err in comm_thread.errors:
+            if isinstance(err, DockerExecError) or throw:
+                raise err
 
 
 def has_docker():
