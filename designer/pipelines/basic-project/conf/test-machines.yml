@@ -1,7 +1,0 @@
-.windows-driver-testbed:
-  tags:
-    - windows-test-drivers
-
-.linux-x64-usb-test:
-  tags:
-    - linux-x64-usb

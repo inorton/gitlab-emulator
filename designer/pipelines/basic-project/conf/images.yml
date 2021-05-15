@@ -1,7 +1,0 @@
-.linux-dev:
-  image: alpine:latest
-
-.windows-2020:
-  image: microsoft/windows-base:2020-rc1
-  tags:
-    - windows2020-docker
