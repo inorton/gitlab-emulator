@@ -228,8 +228,15 @@ class DockerJob(Job):
 
             if self.entrypoint is not None:
                 self.docker.entrypoint = self.entrypoint
+            volumes = []
+            env_volumes = os.environ.get("GLE_DOCKER_VOLUMES", None)
+            if env_volumes:
+                volumes = env_volumes.split(",")
+                info("Extra docker volumes registered:")
+                for item in volumes:
+                    info("- {}".format(item))
 
-            self.docker.volumes = ["{}:{}".format(self.workspace, self.workspace)]
+            self.docker.volumes = volumes + ["{}:{}".format(self.workspace, self.workspace)]
 
             self.docker.run()
 
