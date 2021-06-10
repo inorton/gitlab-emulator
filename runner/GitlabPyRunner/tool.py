@@ -104,8 +104,10 @@ def run():
             "token": instance.token,
             "executor": opts.type,
             "shell": opts.shell,
-            "dir": os.getcwd()
+            "dir": os.getcwd(),
         }
+        if opts.type == "docker":
+            tosave["volumes"] = []
 
         common.save_config("gitlab-runner.yml", tosave)
 
@@ -128,6 +130,11 @@ def run():
         config = common.parse_config(opts.start)
         os.chdir(config["dir"])
         extype = config["executor"]
+        if extype == "docker":
+            os.environ["GLE_DOCKER_VOLUMES"] = ""
+            volumes = config.get("volumes", None)
+            if volumes:
+                os.environ["GLE_DOCKER_VOLUMES"] = ",".join(volumes)
 
         if opts.once:
             logmsg.info("Will exit after one job")

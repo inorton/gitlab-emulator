@@ -67,6 +67,14 @@ shell: /bin/sh
 token: !!python/unicode 'guXssHacXXL6931Xn3Xx'
 ```
 
+The _docker_ executor also supports a list of additional volumes:
+
+```
+volumes:
+ - /host/path/folder1:/guest/path
+ - /host/path/folder2:/guest/path2:ro
+```
+
 This will have created a new runner on your gitlab server with the tag given above by `--tag ARG`  It should also have
 set a meaningful description for you.
 

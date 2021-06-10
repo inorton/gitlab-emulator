@@ -71,6 +71,16 @@ gle --full JOBNAME
 gle -i JOBNAME
 ```
 
+## Run a job with additional docker mounted paths
+
+The following will mount the `/mnt/caches` path into the container as `/caches`.  You can also append `:ro` to force
+the bind mount to be read-only.
+
+```
+export GLE_DOCKER_VOLUMES="/mnt/caches:/caches"
+gle JOBNAME
+```
+
 # Gitlab Python Runner
 
 The Python runner lets you use Gitlab with machines that can't run the
