@@ -80,7 +80,10 @@ class DockerTool(object):
             cmdline.extend(["--network", self.network])
 
         for volume in self.volumes:
-            cmdline.extend(["-v", "{}:rw".format(volume)])
+            entry = volume
+            if not entry.endswith(":ro") and not entry.endswith(":rw"):
+                entry += ":rw"
+            cmdline.extend(["-v", entry])
 
         if self.entrypoint is not None:
             # docker run does not support multiple args for entrypoint

@@ -1,7 +1,9 @@
 """
 Test using local docker
 """
+import shutil
 import sys
+import tempfile
 
 import pytest
 import uuid
@@ -103,3 +105,49 @@ def test_services(linux_docker, capsys):
 
     out, err = capsys.readouterr()
     assert "Welcome to nginx!" in out
+
+
+def test_additional_volumes(linux_docker, capsys, envs):
+    """
+    Test GLE_DOCKER_VOLUMES
+    :param linux_docker:
+    :param capsys:
+    :param envs:
+    :return:
+    """
+    tmpdir1 = tempfile.mkdtemp()
+    tmpdir2 = tempfile.mkdtemp()
+    try:
+        os.environ["GLE_DOCKER_VOLUMES"] = ",".join([
+            f"{tmpdir1}:/volumes/dir1",
+            f"{tmpdir2}:/volumes/dir2:ro"
+        ])
+
+        rnd1 = str(uuid.uuid4())
+        rnd2 = str(uuid.uuid4())
+
+        file1 = os.path.join(tmpdir1, "uuid1.txt")
+        with open(file1, "w") as f1:
+            f1.write(rnd1)
+
+        file2 = os.path.join(tmpdir2, "uuid2.txt")
+        with open(file2, "w") as f2:
+            f2.write(rnd2)
+
+        run(["-c", os.path.join(TEST_DIR, "test-volumes.yaml"), "vol"])
+
+        out, err = capsys.readouterr()
+        assert rnd1 in out
+        assert rnd2 in out
+
+        # check the new file was created
+        newfile = os.path.join(tmpdir1, "hello.txt")
+        assert os.path.exists(newfile)
+
+        # check that the ro folder has no new files
+        rofiles = os.listdir(tmpdir2)
+        assert rofiles == ["uuid2.txt"], "expected only one file"
+
+    finally:
+        shutil.rmtree(tmpdir1)
+        shutil.rmtree(tmpdir2)
