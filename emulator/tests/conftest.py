@@ -50,3 +50,14 @@ def linux_docker():
             pytest.skip("docker cannot run a linux image")
     except Exception as err:
         pytest.skip("could not run docker info " + str(err))
+
+
+@pytest.fixture()
+def envs():
+    envs = dict(os.environ)
+    yield
+    for item in envs:
+        os.environ[item] = envs[item]
+    for item in list(os.environ.keys()):
+        if item not in envs:
+            del os.environ[item]

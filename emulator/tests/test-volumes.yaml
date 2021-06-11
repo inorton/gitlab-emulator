@@ -1,0 +1,14 @@
+stages:
+  - build
+
+
+vol:
+  stage: build
+  image: alpine:3.1
+  script:
+    - mkdir -p /volumes
+    - find /volumes
+    - cat /volumes/dir1/uuid1.txt
+    - cat /volumes/dir2/uuid2.txt
+    - echo hello > /volumes/dir1/hello.txt
+    - echo fail > /volumes/dir2/ro.txt || true
