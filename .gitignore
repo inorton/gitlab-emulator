@@ -6,3 +6,4 @@ venv/
 gitlab_emulator.egg-info/
 linux-build-later
 /designer/gitlab_pipeline_designer.egg-info/
+.idea/
