@@ -3,7 +3,7 @@ import sys
 import os
 import argparse
 from . import configloader
-from .helpers import DockerTool, has_docker, is_linux, restore_path_ownership
+from .helpers import DockerTool, has_docker, is_linux, is_windows, restore_path_ownership
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 

@@ -3,3 +3,15 @@ check-alpine:
     - .alpine-image
   script:
     - env|sort|grep PATH
+
+.check-interactive:
+  extends:
+    - .alpine-image
+  before_script:
+    - echo hello-stderr >&2
+    - export CI_FOO=hello
+    - env|sort|grep CI_
+    - echo ++ done ++
+    - exit 1
+  script:
+    - echo

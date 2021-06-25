@@ -1,6 +1,7 @@
 import os
 import platform
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -211,8 +212,9 @@ class DockerJob(Job):
 
         print("Running interactive-shell..", flush=True)
         try:
+            tty = sys.stdin.isatty()
             if not run_before:
-                self.docker.exec(self.workspace, cmdline, tty=True, user=uid)
+                self.docker.exec(self.workspace, cmdline, tty=tty, user=uid, pipe=False)
             else:
                 print("Running before_script..", flush=True)
                 # create the before script, copy it to the container and run it
@@ -221,7 +223,7 @@ class DockerJob(Job):
                     script.write(make_script(self.before_script + cmdline))
                 try:
                     self.docker.add_file(script_file, script_file)
-                    self.docker.exec(self.workspace, ["/bin/sh", script_file], tty=True, user=uid)
+                    self.docker.exec(self.workspace, ["/bin/sh", script_file], tty=tty, user=uid, pipe=False)
                 finally:
                     os.unlink(script_file)
 

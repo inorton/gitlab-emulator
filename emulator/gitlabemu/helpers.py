@@ -119,18 +119,18 @@ class DockerTool(object):
         cmdline = ["docker", "exec", "-w", cwd, self.container] + cmd
         subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
 
-    def exec(self, cwd, shell, tty=False, user=None):
+    def exec(self, cwd, shell, tty=False, user=None, pipe=True):
         cmdline = ["docker", "exec", "-w", cwd]
         cmdline.extend(self.get_envs())
         if user is not None:
             cmdline.extend(["-u", str(user)])
         if tty:
             cmdline.append("-t")
-
+            pipe = False
         cmdline.extend(["-i", self.container])
         cmdline.extend(shell)
 
-        if not tty:
+        if pipe:
             proc = subprocess.Popen(cmdline,
                                     cwd=cwd,
                                     shell=False,
