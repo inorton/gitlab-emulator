@@ -38,6 +38,7 @@ class Job(object):
         self.after_script = []
         self.error_shell = []
         self.enter_shell = False
+        self.before_script_enter_shell = False
         self.shell_is_user = False
         self.tags = []
         self.stage = "test"
@@ -94,6 +95,7 @@ class Job(object):
         job = config[name]
         self.error_shell = config.get("error_shell", [])
         self.enter_shell = config.get("enter_shell", [])
+        self.before_script_enter_shell = config.get("before_script_enter_shell", False)
         self.shell_is_user = config.get("shell_is_user", False)
         all_before = config.get("before_script", [])
         self.before_script = job.get("before_script", all_before)
@@ -160,6 +162,15 @@ class Job(object):
         """
         comm(process, stdout=self.stdout, script=script)
 
+    def has_bash(self):
+        """
+        Return True if this system has bash and isn't windows
+        """
+        if not is_windows():
+            return os.path.exists("/bin/bash")
+        return False
+
+
     def get_envs(self):
         """
         Get environment variable dict for the job
@@ -193,7 +204,7 @@ class Job(object):
 
         return opened.returncode
 
-    def run_shell(self, prog=None):
+    def run_shell(self, cmdline=None, run_before=False):
         """
         Execute a shell command on job errors
         :return:
@@ -201,11 +212,24 @@ class Job(object):
         try:
             print("Running interactive-shell..", flush=True)
             env = self.get_envs()
-            if prog is None:
-                prog = ["/bin/sh"]
-                if is_windows():
-                    prog = ["cmd"]
-            subprocess.check_call(prog, env=env)
+            prog = ["/bin/sh"]
+            if is_windows():
+                prog = ["cmd"]
+
+            if run_before:
+                print("Running before_script..", flush=True)
+                # create the before script and run it
+                script_file = tempfile.mktemp()
+                with open(script_file, "w") as script:
+                    script.write(make_script(self.before_script + prog))
+                try:
+                    subprocess.check_call(["/bin/sh", script_file], env=env, cwd=self.workspace)
+                finally:
+                    os.unlink(script_file)
+                pass
+            else:
+                subprocess.check_call(prog, env=env)
+
         except subprocess.CalledProcessError:
             pass
 

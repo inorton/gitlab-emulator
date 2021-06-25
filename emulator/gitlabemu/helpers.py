@@ -115,9 +115,9 @@ class DockerTool(object):
         subprocess.check_output(
             cmdline, shell=False)
 
-    def check_call(self, cwd, cmd):
+    def check_call(self, cwd, cmd, stdout=None, stderr=None):
         cmdline = ["docker", "exec", "-w", cwd, self.container] + cmd
-        subprocess.check_call(cmdline)
+        subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
 
     def exec(self, cwd, shell, tty=False, user=None):
         cmdline = ["docker", "exec", "-w", cwd]
