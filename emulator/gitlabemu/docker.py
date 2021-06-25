@@ -1,6 +1,8 @@
 import os
 import platform
 import subprocess
+import sys
+import tempfile
 import time
 import uuid
 from contextlib import contextmanager
@@ -160,16 +162,32 @@ class DockerJob(Job):
     def communicate(self, process, script=None):
         comm(process, self.stdout, script=script, linehandler=self.check_docker_exec_failed)
 
+    def has_bash(self):
+        """
+        Return True of the container has bash
+        :return:
+        """
+        if not is_windows():
+            try:
+                self.docker.check_call(self.workspace, ["which", "bash"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
+            except subprocess.CalledProcessError:
+                pass
+        return False
+
     def shell_on_error(self):
         """
         Execute a shell command on job errors
         :return:
         """
         print("Job {} script error..".format(self.name), flush=True)
-        self.run_shell(self.error_shell)
+        self.run_shell(self.error_shell, run_before=False)
 
-    def run_shell(self, cmdline=None):
+    def run_shell(self, cmdline=None, run_before=False):
         uid = 0
+
+        try_bash = False
+
         if cmdline is str:
             cmdline = [cmdline]
 
@@ -178,9 +196,12 @@ class DockerJob(Job):
             if is_windows():
                 cmdline = ["cmd"]
             else:
+                try_bash = self.has_bash()
                 if self.shell_is_user:
                     uid = os.getuid()
                 cmdline = ["/bin/sh"]
+                if try_bash:
+                    cmdline = ["bash"]
 
         # set a prompt
         if not is_windows():
@@ -191,7 +212,21 @@ class DockerJob(Job):
 
         print("Running interactive-shell..", flush=True)
         try:
-            self.docker.exec(self.workspace, cmdline, tty=True, user=uid)
+            tty = sys.stdin.isatty()
+            if not run_before:
+                self.docker.exec(self.workspace, cmdline, tty=tty, user=uid, pipe=False)
+            else:
+                print("Running before_script..", flush=True)
+                # create the before script, copy it to the container and run it
+                script_file = tempfile.mktemp()
+                with open(script_file, "w") as script:
+                    script.write(make_script(self.before_script + cmdline))
+                try:
+                    self.docker.add_file(script_file, script_file)
+                    self.docker.exec(self.workspace, ["/bin/sh", script_file], tty=tty, user=uid, pipe=False)
+                finally:
+                    os.unlink(script_file)
+
         except subprocess.CalledProcessError:
             pass
 
@@ -251,7 +286,7 @@ class DockerJob(Job):
             try:
                 if self.enter_shell:
                     print("Entering shell")
-                    self.run_shell()
+                    self.run_shell(run_before=self.before_script_enter_shell)
                     print("Exiting shell")
                     return
 

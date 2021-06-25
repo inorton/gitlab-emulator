@@ -3,7 +3,7 @@ import sys
 import os
 import argparse
 from . import configloader
-from .helpers import DockerTool, has_docker, is_linux, restore_path_ownership
+from .helpers import DockerTool, has_docker, is_linux, is_windows, restore_path_ownership
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -22,6 +22,9 @@ parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
 
 parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="store_true",
                     help="Run an interactive shell but do not run the build"
+                    )
+parser.add_argument("--before-script", "-b", dest="before_script_enter_shell", default=False, action="store_true",
+                    help="Run the 'before_script' commands before entering the shell"
                     )
 parser.add_argument("--user", "-u", dest="shell_is_user", default=False, action="store_true",
                     help="Run the interactive shell as the current user instead of root")
@@ -127,7 +130,12 @@ def run(args=None):
                 print("-i is not compatible with --full")
                 sys.exit(1)
         loader.config["enter_shell"] = options.enter_shell
+        loader.config["before_script_enter_shell"] = options.before_script_enter_shell
         loader.config["shell_is_user"] = options.shell_is_user
+
+        if options.before_script_enter_shell and is_windows():
+            print("--before-script is not yet supported on windows")
+            sys.exit(1)
 
         if options.error_shell:
             loader.config["error_shell"] = [options.error_shell]
