@@ -549,3 +549,19 @@ class Loader(object):
                 overridden[key] = value
 
         return overridden
+
+
+def find_ci_config(path):
+    """
+    Starting in path go upwards looking for a .gitlab-ci.yml file
+    :param path:
+    :return:
+    """
+    initdir = path
+    path = os.path.abspath(path)
+    while os.path.dirname(path) != path:
+        filename = os.path.join(path, DEFAULT_CI_FILE)
+        if os.path.exists(filename):
+            return os.path.relpath(filename, initdir)
+        path = os.path.dirname(path)
+    return None
