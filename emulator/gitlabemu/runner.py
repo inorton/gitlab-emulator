@@ -2,10 +2,15 @@ import re
 import sys
 import os
 import argparse
+import yaml
+
 from . import configloader
 from .helpers import has_docker, is_linux, is_windows, restore_path_ownership
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
+USER_CFG_ENV = "GLE_CONFIG"
+USER_CFG_DIR = os.environ.get("LOCALAPPDATA", os.environ.get("HOME", os.getcwd()))
+USER_CFG_DEFAULT = os.path.join(USER_CFG_DIR, ".gle", "emulator.yml")
 
 parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(sys.executable)))
 parser.add_argument("--list", "-l", dest="LIST", default=False,
@@ -46,6 +51,46 @@ parser.add_argument("--revar", dest="revars", metavar="REGEX", type=str, default
 parser.add_argument("JOB", type=str, default=None,
                     nargs="?",
                     help="Run this named job")
+
+
+def load_user_config():
+    """
+    Load user configuration
+    :return:
+    """
+    cfg = os.environ.get(USER_CFG_ENV, None)
+    if not cfg:
+        cfg = USER_CFG_DEFAULT
+    if os.path.exists(cfg):
+        print(f"Reading gle config from {cfg}")
+        with open(cfg, "r") as ycfg:
+            data = yaml.safe_load(ycfg)
+            return data
+    return {}
+
+
+def apply_user_config(loader, cfg, is_docker):
+    """
+    Add the user config values to the loader
+    :param loader:
+    :return:
+    """
+    cfgdata = cfg.get("emulator", {})
+    if cfgdata:
+        allvars = cfgdata.get("variables", {})
+        for name in allvars:
+            loader.config["variables"][name] = allvars[name]
+        if is_docker:
+            jobvars = cfgdata.get("docker", {}).get("variables", {})
+            volumes = os.environ.get("GLE_DOCKER_VOLUMES", None)
+            if not volumes:
+                vols = cfgdata.get("docker", {}).get("volumes", [])
+                if vols:
+                    os.environ["GLE_DOCKER_VOLUMES"] = ",".join(vols)
+        else:
+            jobvars = cfgdata.get("local", {}).get("variables", {})
+        for name in jobvars:
+            loader.config["variables"][name] = jobvars[name]
 
 
 def execute_job(config, jobname, seen=None, recurse=False):
@@ -89,6 +134,7 @@ def run(args=None):
             print(f"Please re-run from {topdir}", file=sys.stderr)
         sys.exit(1)
 
+    cfg = load_user_config()
     try:
         fullpath = os.path.abspath(yamlfile)
         rootdir = os.path.dirname(fullpath)
@@ -119,7 +165,10 @@ def run(args=None):
             loader.config["hide_docker"] = True
             fix_ownership = False
 
-        if not loader.get_docker_image(jobname):
+        docker_job = loader.get_docker_image(jobname)
+        apply_user_config(loader, cfg, is_docker=docker_job)
+
+        if not docker_job:
             fix_ownership = False
 
         if not is_linux():

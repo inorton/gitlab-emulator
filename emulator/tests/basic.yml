@@ -1,0 +1,19 @@
+stages:
+  - build
+
+build-job:
+  stage: build
+  image: alpine:latest
+  before_script:
+    - echo before_script
+  script:
+    - echo script
+    - env|sort
+  after_script:
+    - echo after_script
+
+vars-job:
+  stage: build
+  image: alpine:latest
+  script:
+    - sh -c "${EXECUTE_VARIABLE}"
