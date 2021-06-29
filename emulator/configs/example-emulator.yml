@@ -1,0 +1,9 @@
+emulator:
+  variables:
+    SOME_VAR_NAME: hello
+
+  docker:
+    volumes:
+      - /tmp/:/volume-mount:ro
+    variables:
+      EXECUTE_VARIABLE: ls -l /volume-mount
