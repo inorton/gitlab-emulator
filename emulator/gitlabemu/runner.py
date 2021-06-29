@@ -3,7 +3,7 @@ import sys
 import os
 import argparse
 from . import configloader
-from .helpers import DockerTool, has_docker, is_linux, is_windows, restore_path_ownership
+from .helpers import has_docker, is_linux, is_windows, restore_path_ownership
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -19,7 +19,8 @@ parser.add_argument("--full", "-r", dest="FULL", default=False,
 parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
                     type=str,
                     help="Use an alternative gitlab yaml file")
-
+parser.add_argument("--chdir", "-C", dest="chdir", default=None, type=str, metavar="DIR",
+                    help="Change to this directory before running")
 parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="store_true",
                     help="Run an interactive shell but do not run the build"
                     )
@@ -72,13 +73,29 @@ def run(args=None):
     loader = configloader.Loader()
     yamlfile = options.CONFIG
     jobname = options.JOB
+
+    if options.chdir:
+        if not os.path.exists(options.chdir):
+            print(f"Cannot change to {options.chdir}, no such directory", file=sys.stderr)
+            sys.exit(1)
+        os.chdir(options.chdir)
+
+    if not os.path.exists(yamlfile):
+        print(f"{configloader.DEFAULT_CI_FILE} not found.", file=sys.stderr)
+        find = configloader.find_ci_config(os.getcwd())
+        if find:
+            topdir = os.path.abspath(os.path.dirname(find))
+            print(f"Found config: {find}", file=sys.stderr)
+            print(f"Please re-run from {topdir}", file=sys.stderr)
+        sys.exit(1)
+
     try:
         fullpath = os.path.abspath(yamlfile)
         rootdir = os.path.dirname(fullpath)
         os.chdir(rootdir)
         loader.load(fullpath)
     except configloader.ConfigLoaderError as err:
-        print("Config error: " + str(err))
+        print("Config error: " + str(err), file=sys.stderr)
         sys.exit()
 
     hide_dot_jobs = not options.hidden
@@ -94,7 +111,7 @@ def run(args=None):
     else:
         jobs = sorted(loader.get_jobs())
         if jobname not in jobs:
-            print(f"No such job {jobname}")
+            print(f"No such job {jobname}", file=sys.stderr)
             sys.exit(1)
 
         fix_ownership = has_docker()
@@ -127,14 +144,14 @@ def run(args=None):
 
         if options.enter_shell:
             if options.FULL:
-                print("-i is not compatible with --full")
+                print("-i is not compatible with --full", file=sys.stderr)
                 sys.exit(1)
         loader.config["enter_shell"] = options.enter_shell
         loader.config["before_script_enter_shell"] = options.before_script_enter_shell
         loader.config["shell_is_user"] = options.shell_is_user
 
         if options.before_script_enter_shell and is_windows():
-            print("--before-script is not yet supported on windows")
+            print("--before-script is not yet supported on windows", file=sys.stderr)
             sys.exit(1)
 
         if options.error_shell:

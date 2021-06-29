@@ -61,3 +61,10 @@ def envs():
     for item in list(os.environ.keys()):
         if item not in envs:
             del os.environ[item]
+
+
+@pytest.fixture(scope="function", autouse=True)
+def cwd():
+    here = os.getcwd()
+    yield
+    os.chdir(here)
