@@ -153,11 +153,20 @@ class ProcessLineProxyThread(Thread):
 
     def writeout(self, data):
         if self.stdout and data:
+            encoding = "ascii"
+            if hasattr(self.stdout, "encoding"):
+                encoding = self.stdout.encoding
             try:
-                decoded = data.decode()
-            except UnicodeDecodeError:
-                decoded = str(data)
-            self.stdout.write(decoded)
+                decoded = data.decode(encoding, "namereplace")
+                self.stdout.write(decoded)
+            except (TypeError, UnicodeError):
+                # codec cant handle namereplace or the codec cant represent this.
+                # decode it to utf-8 and replace non-printable ascii with
+                # chars with '?'
+                decoded = data.decode("utf-8", "replace")
+                text = re.sub(r'[^\x00-\x7F]', "?", decoded)
+                self.stdout.write(text)
+
             if self.linehandler:
                 try:
                     self.linehandler(data)
