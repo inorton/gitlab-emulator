@@ -157,7 +157,10 @@ class ProcessLineProxyThread(Thread):
                 decoded = data.decode()
             except UnicodeDecodeError:
                 decoded = str(data)
-            self.stdout.write(decoded)
+            try:
+                self.stdout.write(decoded)
+            except UnicodeEncodeError:
+                self.stdout.write(data.decode("ascii", "replace"))
             if self.linehandler:
                 try:
                     self.linehandler(data)
