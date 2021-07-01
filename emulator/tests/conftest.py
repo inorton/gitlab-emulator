@@ -68,3 +68,13 @@ def cwd():
     here = os.getcwd()
     yield
     os.chdir(here)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def replace_stdout():
+    if not hasattr(sys.stdout, "reconfigure"):
+        pytest.skip("python 3.7 or later required for sys.stdout.reconfigure()")
+
+    default_encoding = sys.stdout.encoding
+    yield
+    sys.stdout.reconfigure(encoding=default_encoding)
