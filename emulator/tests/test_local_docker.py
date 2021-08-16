@@ -2,6 +2,7 @@
 Test using local docker
 """
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -151,3 +152,27 @@ def test_additional_volumes(linux_docker, capsys, envs):
     finally:
         shutil.rmtree(tmpdir1)
         shutil.rmtree(tmpdir2)
+
+
+def test_git_worktree(linux_docker, capsys, envs):
+    """
+    Test support for repos that use "git worktree"
+    :param linux_docker:
+    :param capsys:
+    :param envs:
+    :return:
+    """
+    tmpdir1 = tempfile.mkdtemp()
+    try:
+        # make a worktree
+        subprocess.check_output(["git", "worktree", "add", tmpdir1], cwd=os.path.dirname(__file__))
+
+        # run the check-alpine job
+        run(["-c", os.path.join(tmpdir1, ".gitlab-ci.yml"), "git-alpine"])
+
+        out, err = capsys.readouterr()
+
+        assert True
+
+    finally:
+        shutil.rmtree(tmpdir1)
