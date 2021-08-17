@@ -2,6 +2,7 @@
 Test -i and --before-script
 """
 import os
+import sys
 
 import pytest
 
@@ -13,6 +14,8 @@ TOPCFG = os.path.join(TOPDIR, ".gitlab-ci.yml")
 
 
 def test_interactive_starts_before(linux_docker, capfd):
+    if not sys.stdout.isatty():
+        pytest.skip("tty required")
     runner.run(["-i", "-b", "-c", TOPCFG, ".check-interactive"])
     stdout, stderr = capfd.readouterr()
 
@@ -24,6 +27,8 @@ def test_interactive_starts_before(linux_docker, capfd):
 
 
 def test_interactive_starts(linux_docker, capfd):
+    if not sys.stdout.isatty():
+        pytest.skip("tty required")
     runner.run(["-i", "-c", TOPCFG, ".check-interactive"])
     stdout, stderr = capfd.readouterr()
 

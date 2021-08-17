@@ -338,3 +338,28 @@ def restore_path_ownership(path):
                 dt.check_call(path, ["python", "/tmp/chown.py"])
             finally:
                 dt.kill()
+
+
+def git_worktree(path: str) -> str:
+    """
+    If the given path contains a git worktree, return the path to it
+    :param path:
+    :return:
+    """
+    gitpath = os.path.join(path, ".git")
+
+    if os.path.isfile(gitpath):
+        with open(gitpath, "r") as fd:
+            full = fd.read()
+            for line in full.splitlines():
+                name, value = line.split(":", 1)
+                if name == "gitdir":
+                    value = value.strip()
+                    realpath = value
+                    # keep going upwards until we find a .git folder
+                    for _ in value.split(os.sep):
+                        realpath = os.path.dirname(realpath)
+                        gitdir = os.path.join(realpath, ".git")
+                        if os.path.isdir(gitdir):
+                            return gitdir
+    return None

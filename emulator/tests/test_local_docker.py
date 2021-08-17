@@ -154,7 +154,7 @@ def test_additional_volumes(linux_docker, capsys, envs):
         shutil.rmtree(tmpdir2)
 
 
-def test_git_worktree(linux_docker, capsys, envs):
+def test_git_worktree(linux_docker, envs):
     """
     Test support for repos that use "git worktree"
     :param linux_docker:
@@ -170,9 +170,6 @@ def test_git_worktree(linux_docker, capsys, envs):
         # run the check-alpine job
         run(["-c", os.path.join(tmpdir1, ".gitlab-ci.yml"), "git-alpine"])
 
-        out, err = capsys.readouterr()
-
-        assert True
-
     finally:
         shutil.rmtree(tmpdir1)
+        subprocess.call(["git", "worktree", "prune"], cwd=os.path.dirname(__file__))

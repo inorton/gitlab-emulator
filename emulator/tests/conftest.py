@@ -3,6 +3,7 @@ import pytest
 import subprocess
 import platform
 import sys
+from gitlabemu.userconfig import reset_user_config
 
 TESTS_DIR = os.path.abspath(os.path.dirname(__file__))
 EMULATOR_DIR = os.path.dirname(TESTS_DIR)
@@ -78,3 +79,8 @@ def replace_stdout():
     default_encoding = sys.stdout.encoding
     yield
     sys.stdout.reconfigure(encoding=default_encoding)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def gle_reset_user_config():
+    reset_user_config()
