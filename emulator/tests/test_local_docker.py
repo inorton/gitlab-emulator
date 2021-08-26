@@ -162,7 +162,7 @@ def test_git_worktree(linux_docker, envs):
     :param envs:
     :return:
     """
-    tmpdir1 = tempfile.mkdtemp()
+    tmpdir1 = tempfile.mkdtemp(dir=os.path.dirname(__file__))
     try:
         # make a worktree
         subprocess.check_output(["git", "worktree", "add", tmpdir1], cwd=os.path.dirname(__file__))
