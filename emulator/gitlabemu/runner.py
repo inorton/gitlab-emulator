@@ -2,15 +2,12 @@ import re
 import sys
 import os
 import argparse
-import yaml
 
 from . import configloader
-from .helpers import has_docker, is_linux, is_windows, restore_path_ownership
+from .helpers import has_docker, is_linux, is_windows, restore_path_ownership, git_worktree
+from .userconfig import load_user_config, get_user_config_value, override_user_config_value
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
-USER_CFG_ENV = "GLE_CONFIG"
-USER_CFG_DIR = os.environ.get("LOCALAPPDATA", os.environ.get("HOME", os.getcwd()))
-USER_CFG_DEFAULT = os.path.join(USER_CFG_DIR, ".gle", "emulator.yml")
 
 parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(sys.executable)))
 parser.add_argument("--list", "-l", dest="LIST", default=False,
@@ -53,44 +50,25 @@ parser.add_argument("JOB", type=str, default=None,
                     help="Run this named job")
 
 
-def load_user_config():
-    """
-    Load user configuration
-    :return:
-    """
-    cfg = os.environ.get(USER_CFG_ENV, None)
-    if not cfg:
-        cfg = USER_CFG_DEFAULT
-    if os.path.exists(cfg):
-        print(f"Reading gle config from {cfg}")
-        with open(cfg, "r") as ycfg:
-            data = yaml.safe_load(ycfg)
-            return data
-    return {}
-
-
-def apply_user_config(loader, cfg, is_docker):
+def apply_user_config(loader: configloader.Loader, cfg: dict, is_docker: bool):
     """
     Add the user config values to the loader
     :param loader:
+    :param cfg:
+    :param is_docker:
     :return:
     """
-    cfgdata = cfg.get("emulator", {})
-    if cfgdata:
-        allvars = cfgdata.get("variables", {})
-        for name in allvars:
-            loader.config["variables"][name] = allvars[name]
-        if is_docker:
-            jobvars = cfgdata.get("docker", {}).get("variables", {})
-            volumes = os.environ.get("GLE_DOCKER_VOLUMES", None)
-            if not volumes:
-                vols = cfgdata.get("docker", {}).get("volumes", [])
-                if vols:
-                    os.environ["GLE_DOCKER_VOLUMES"] = ",".join(vols)
-        else:
-            jobvars = cfgdata.get("local", {}).get("variables", {})
-        for name in jobvars:
-            loader.config["variables"][name] = jobvars[name]
+    allvars = get_user_config_value(cfg, "variables", default={})
+    for name in allvars:
+        loader.config["variables"][name] = allvars[name]
+
+    if is_docker:
+        jobvars = get_user_config_value(cfg, "docker", name="variables", default={})
+    else:
+        jobvars = get_user_config_value(cfg, "local", name="variables", default={})
+
+    for name in jobvars:
+        loader.config["variables"][name] = jobvars[name]
 
 
 def execute_job(config, jobname, seen=None, recurse=False):
@@ -166,10 +144,18 @@ def run(args=None):
             fix_ownership = False
 
         docker_job = loader.get_docker_image(jobname)
-        apply_user_config(loader, cfg, is_docker=docker_job)
-
-        if not docker_job:
+        if docker_job:
+            gwt = git_worktree(rootdir)
+            if gwt:
+                print(f"f{rootdir} is a git worktree, adding {gwt} as a docker volume.")
+                # add the real git repo as a docker volume
+                volumes = get_user_config_value(cfg, "docker", name="volumes", default=[])
+                volumes.append(f"{gwt}:{gwt}:ro")
+                override_user_config_value("docker", "volumes", volumes)
+        else:
             fix_ownership = False
+
+        apply_user_config(loader, cfg, is_docker=docker_job)
 
         if not is_linux():
             fix_ownership = False

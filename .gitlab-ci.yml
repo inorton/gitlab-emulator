@@ -24,14 +24,14 @@ emulator-linux-test:
   before_script:
     - nohup dockerd-entrypoint.sh 2>&1 &
   script:
-    - apk add py3-pip py3-yaml
+    - apk add py3-pip py3-yaml git
     - ps -ef
     - sleep 5
     - docker info
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest . --cov gitlabemu --cov-fail-under=82 --junit-xml=test-results.xml
+    - python3 -m pytest . --cov gitlabemu --cov-fail-under=80 --junit-xml=test-results.xml
   artifacts:
     reports:
       junit:
