@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 
+import gitlabemu.userconfig
 from gitlabemu import runner
 
 
@@ -12,7 +13,7 @@ def test_load_userconfig(top_dir, envs):
     if "GLE_DOCKER_VOLUMES" in os.environ:
         del os.environ["GLE_DOCKER_VOLUMES"]
     os.environ["GLE_CONFIG"] = os.path.join(top_dir, "emulator", "configs", "example-emulator.yml")
-    cfg = runner.load_user_config()
+    cfg = gitlabemu.userconfig.load_user_config()
     assert cfg["emulator"]["variables"]["SOME_VAR_NAME"] == "hello"
 
 

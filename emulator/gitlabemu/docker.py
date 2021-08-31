@@ -1,5 +1,4 @@
 import os
-import platform
 import subprocess
 import sys
 import tempfile
@@ -8,7 +7,8 @@ import uuid
 from contextlib import contextmanager
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
-from .helpers import communicate as comm, DockerTool, is_windows, is_linux
+from .helpers import communicate as comm, DockerTool, is_windows
+from .userconfig import load_user_config, get_user_config_value
 from .errors import DockerExecError
 
 
@@ -263,10 +263,9 @@ class DockerJob(Job):
 
             if self.entrypoint is not None:
                 self.docker.entrypoint = self.entrypoint
-            volumes = []
-            env_volumes = os.environ.get("GLE_DOCKER_VOLUMES", None)
-            if env_volumes:
-                volumes = env_volumes.split(",")
+            volumes = get_user_config_value(load_user_config(),
+                                            "docker", name="volumes", default=[])
+            if volumes:
                 info("Extra docker volumes registered:")
                 for item in volumes:
                     info("- {}".format(item))

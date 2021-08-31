@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.6.2"
+VERSION = "0.7.1"
 
 setup(
     name="gitlab-emulator",

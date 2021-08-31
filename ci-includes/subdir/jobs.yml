@@ -15,3 +15,12 @@ check-alpine:
     - exit 1
   script:
     - echo
+
+git-alpine:
+  image:
+    name: alpine/git:v2.30.2
+    entrypoint: [""]
+  script:
+    - ls -l .git
+    - git log -n 1
+    - echo git log ok
