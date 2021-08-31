@@ -162,14 +162,19 @@ def test_git_worktree(linux_docker, envs):
     :param envs:
     :return:
     """
-    tmpdir1 = tempfile.mkdtemp(dir=os.path.dirname(__file__))
+    workdir = os.path.dirname(__file__)
+    tmpdir1 = tempfile.mkdtemp(dir=workdir)
+    tmpdir2 = tempfile.mkdtemp(dir=workdir)
     try:
+        # clone ourself
+        subprocess.check_output(["git", "clone",
+                                 os.path.dirname(os.path.dirname(workdir)),
+                                 tmpdir1], cwd=workdir)
         # make a worktree
-        subprocess.check_output(["git", "worktree", "add", tmpdir1], cwd=os.path.dirname(__file__))
+        subprocess.check_output(["git", "worktree", "add", tmpdir2], cwd=tmpdir1)
 
         # run the check-alpine job
         run(["-c", os.path.join(tmpdir1, ".gitlab-ci.yml"), "git-alpine"])
-
     finally:
         shutil.rmtree(tmpdir1)
         subprocess.call(["git", "worktree", "prune"], cwd=os.path.dirname(__file__))
