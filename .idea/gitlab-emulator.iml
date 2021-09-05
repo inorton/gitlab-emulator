@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/emulator" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/designer" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/runner" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/emulator/dist" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
     <orderEntry type="inheritedJdk" />

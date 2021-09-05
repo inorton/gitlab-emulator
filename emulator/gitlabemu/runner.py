@@ -5,7 +5,7 @@ import argparse
 
 from . import configloader
 from .helpers import has_docker, is_linux, is_windows, restore_path_ownership, git_worktree
-from .userconfig import load_user_config, get_user_config_value, override_user_config_value
+from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -21,6 +21,8 @@ parser.add_argument("--full", "-r", dest="FULL", default=False,
 parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
                     type=str,
                     help="Use an alternative gitlab yaml file")
+parser.add_argument("--settings", "-s", dest="USER_SETTINGS", type=str, default=None,
+                    help="Load gitlab emulator settings from a file")
 parser.add_argument("--chdir", "-C", dest="chdir", default=None, type=str, metavar="DIR",
                     help="Change to this directory before running")
 parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="store_true",
@@ -80,7 +82,7 @@ def execute_job(config, jobname, seen=None, recurse=False):
     :param recurse: if True, execute in dependency order
     :return:
     """
-    if not seen:
+    if seen is None:
         seen = set()
     if jobname not in seen:
         jobobj = configloader.load_job(config, jobname)
@@ -111,6 +113,9 @@ def run(args=None):
             print(f"Found config: {find}", file=sys.stderr)
             print(f"Please re-run from {topdir}", file=sys.stderr)
         sys.exit(1)
+
+    if options.USER_SETTINGS:
+        os.environ[USER_CFG_ENV] = options.USER_SETTINGS
 
     cfg = load_user_config()
     try:
@@ -192,7 +197,8 @@ def run(args=None):
         if options.error_shell:
             loader.config["error_shell"] = [options.error_shell]
         try:
-            execute_job(loader.config, jobname, recurse=options.FULL)
+            executed_jobs = set()
+            execute_job(loader.config, jobname, seen=executed_jobs, recurse=options.FULL)
         finally:
             if has_docker() and fix_ownership:
                 if is_linux():

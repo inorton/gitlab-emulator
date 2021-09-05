@@ -4,22 +4,41 @@ import os
 from gitlabemu import runner
 
 
-def test_run_needs_stages(in_tests, envs):
-    os.environ["GLE_CONFIG"] = os.path.join(os.getcwd(), "gle-config-v14.1.yaml")
-    runner.run(["--config", "test-needs-14.1.yaml", "--full", "finish"])
+def test_run_needs_stages(in_tests, envs, capsys):
+    runner.run(["--config", "needs-stages.yml", "--full", "finish"])
+    stdout, stderr = capsys.readouterr()
+    assert "the-start" in stdout
+    assert "the-middle" in stdout
+    assert "the-end" in stdout
+    assert "Build complete!" in stdout
 
 
-def test_run_needs_no_stages(in_tests, envs):
-    os.environ["GLE_CONFIG"] = os.path.join(os.getcwd(), "gle-config-v14.2.yaml")
-    runner.run(["--config", "test-needs-14.2.yaml", "--full", "finish"])
+def test_run_needs_no_stages(in_tests, envs, capsys):
+    # job creates a "stageless-start" folder to ensure start1 only gets
+    # run once,
+    if os.path.exists("stageless-start"):
+        os.rmdir("stageless-start")
+    try:
+        runner.run(["--config", "needs.yml", "--full", "finish"])
+        stdout, stderr = capsys.readouterr()
+    finally:
+        if os.path.exists("stageless-start"):
+            os.rmdir("stageless-start")
+
+    assert "stageless-start-1" in stdout
+    assert "stageless-start-2" in stdout
+    assert "stageless-middle" in stdout
+    assert "stageless-finish" in stdout
+    assert "Build complete!" in stdout
 
 
 def test_illegal_needs_early(in_tests, capsys, envs):
-    os.environ["GLE_CONFIG"] = os.path.join(os.getcwd(), "gle-config-v14.1.yaml")
+    cfgfile = os.path.join(in_tests, "settings", "gitlab-14.1.yml")
     with pytest.raises(SystemExit):
         runner.run([
+            "--settings", cfgfile,
             "--list",
-            "--config", os.path.join("invalid", "bad-needs-earlier-stage.yaml")])
+            "--config", os.path.join("invalid", "14.1", "bad-needs-earlier-stage.yaml")])
 
     _, stderr = capsys.readouterr()
 
@@ -27,11 +46,12 @@ def test_illegal_needs_early(in_tests, capsys, envs):
 
 
 def test_illegal_needs_same(in_tests, capsys, envs):
-    os.environ["GLE_CONFIG"] = os.path.join(os.getcwd(), "gle-config-v14.1.yaml")
+    cfgfile = os.path.join(in_tests, "settings", "gitlab-14.1.yml")
     with pytest.raises(SystemExit):
         runner.run([
+            "--settings", cfgfile,
             "--list",
-            "--config", os.path.join("invalid", "bad-needs-same-stage.yaml")])
+            "--config", os.path.join("invalid", "14.1", "bad-needs-same-stage.yaml")])
 
     _, stderr = capsys.readouterr()
 

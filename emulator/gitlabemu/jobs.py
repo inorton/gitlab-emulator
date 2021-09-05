@@ -57,6 +57,9 @@ class Job(object):
         self.monitor_thread = None
         self.exit_monitor = False
 
+    def __str__(self):
+        return "job {}".format(self.name)
+
     def duration(self):
         if self.started_time:
             return time.time() - self.started_time
