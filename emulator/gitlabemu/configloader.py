@@ -7,7 +7,8 @@ import yaml
 from .errors import GitlabEmulatorError
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
-from . import yamlloader, logmsg
+from . import yamlloader
+from .userconfig import load_user_config, get_user_config_value
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -139,6 +140,20 @@ def do_includes(baseobj, yamldir, incs, handle_include=do_single_include):
                     baseobj[item] = obj[item]
 
 
+def strict_needs_stages() -> bool:
+    """
+    Return True if gitlab needs requires stage (gitlab 14.1 or earlier)
+    :return:
+    """
+    cfg = load_user_config()
+    version = str(get_user_config_value(cfg, "gitlab", name="version", default="14.2"))
+    if "." in version:
+        major, minor = version.split(".", 1)
+        if int(major) < 15:
+            return int(minor) < 2
+    return False
+
+
 def validate(config):
     """
     Validate the jobs in the loaded config map
@@ -163,12 +178,13 @@ def validate(config):
             if need not in jobs:
                 raise ConfigLoaderError("job {} needs job {} which does not exist".format(name, need))
 
-            # check the needed job in in an earlier stage
-            needed = get_job(config, need)
-            stage_order = stages.index(job["stage"])
-            need_stage_order = stages.index(needed["stage"])
-            if not need_stage_order < stage_order:
-                raise ConfigLoaderError("job {} needs {} that is not in an earlier stage".format(name, need))
+            # check the needed job in in an earlier stage if running in <14.2 mode
+            if strict_needs_stages():
+                needed = get_job(config, need)
+                stage_order = stages.index(job["stage"])
+                need_stage_order = stages.index(needed["stage"])
+                if not need_stage_order < stage_order:
+                    raise ConfigLoaderError("job {} needs {} that is not in an earlier stage".format(name, need))
 
         if "artifacts" in job:
             if "paths" in job["artifacts"]:
@@ -350,8 +366,9 @@ def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=N
     check_unsupported(baseobj)
 
     if validate_jobs:
-        if "stages" not in baseobj:
-            baseobj["stages"] = ["test"]
+        if strict_needs_stages():
+            if "stages" not in baseobj:
+                baseobj["stages"] = ["test"]
         handle_validate(baseobj)
 
     if variables:

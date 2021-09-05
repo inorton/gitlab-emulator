@@ -177,4 +177,5 @@ def test_git_worktree(linux_docker, envs):
         run(["-c", os.path.join(tmpdir1, ".gitlab-ci.yml"), "git-alpine"])
     finally:
         shutil.rmtree(tmpdir1)
+        shutil.rmtree(tmpdir2)
         subprocess.call(["git", "worktree", "prune"], cwd=os.path.dirname(__file__))

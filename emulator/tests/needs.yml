@@ -1,0 +1,25 @@
+start1:
+  script:
+    - echo stageless-start-1
+    - mkdir stageless-start
+
+start2:
+  needs:
+    - start1
+  script:
+    - echo stageless-start-2
+
+middle:
+  needs:
+    - start1
+    - start2
+  script:
+    - echo stageless-middle
+
+finish:
+  needs:
+    - middle
+  script:
+    - echo stageless-finish
+    - ls -l stageless-start
+    - rm -rf stageless-start

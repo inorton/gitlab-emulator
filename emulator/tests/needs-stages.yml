@@ -1,0 +1,21 @@
+stages:
+  - beginning
+  - middle
+  - end
+
+start:
+  script:
+    - echo the-start
+  stage: beginning
+
+middle:
+  script:
+    - echo the-middle
+  stage: middle
+  needs: [start]
+
+finish:
+  stage: end
+  needs: [start, middle]
+  script:
+    - echo the-end
