@@ -2,14 +2,6 @@ include:
   - local: ci-includes/alpine-image.yml
   - local: ci-includes/subdir/jobs.yml
 
-workflow:
-  rules:
-    - if: $CI_COMMIT_MESSAGE =~ /WIP/
-      when: never
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
-
 stages:
 - build
 - test
@@ -78,10 +70,6 @@ emulator-windows-run:
 
 emulator-windows-test:
   stage: build
-  rules:
-    - if: '$DISABLE_SHARED_RUNNERS =~ /windows/'
-      when: never
-    - when: always
   tags:
     - shared-windows
     - windows
