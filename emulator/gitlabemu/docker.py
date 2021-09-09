@@ -194,7 +194,7 @@ class DockerJob(Job):
         # set the defaults
         if cmdline is None:
             if is_windows():
-                cmdline = ["cmd"]
+                cmdline = ["cmd.exe"]
             else:
                 try_bash = self.has_bash()
                 if self.shell_is_user:
