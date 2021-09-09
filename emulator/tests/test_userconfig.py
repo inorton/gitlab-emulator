@@ -17,7 +17,7 @@ def test_load_userconfig(top_dir, envs):
     assert cfg["emulator"]["variables"]["SOME_VAR_NAME"] == "hello"
 
 
-def test_run_userconfig(top_dir, envs, has_docker, capfd):
+def test_run_userconfig(top_dir, envs, linux_docker, capfd):
     if "GLE_DOCKER_VOLUMES" in os.environ:
         del os.environ["GLE_DOCKER_VOLUMES"]
     os.environ["GLE_CONFIG"] = os.path.join(top_dir, "emulator", "configs", "example-emulator.yml")
