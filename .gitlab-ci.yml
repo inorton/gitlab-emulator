@@ -79,11 +79,11 @@ emulator-windows-test:
     - windows
     - windows-1809
   script:
-    - choco install -y python --version=3.8.0
-    - python3 -m pip install -r test_requirements.txt
+    - choco install -y python --version=3.8.0 --params "/InstallDir:C:\python3.8"
+    - c:\python3.8\python -m pip install -r test_requirements.txt
     - cd emulator
-    - python3 -m pip install -e .
-    - python3 -m pytest . --cov gitlabemu
+    - c:\python3.8\python -m pip install -e .
+    - c:\python3.8\python -m pytest . --cov gitlabemu
 
 
 emulator-apple-test:
