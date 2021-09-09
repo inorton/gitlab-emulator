@@ -68,6 +68,38 @@ emulator-windows-run:
     - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job || exit /b
     - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-shell-job || exit /b
 
+emulator-windows-test:
+  stage: build
+  rules:
+    - if: '$DISABLE_SHARED_RUNNERS =~ /windows/'
+      when: never
+    - when: always
+  tags:
+    - shared-windows
+    - windows
+    - windows-1809
+  script:
+    - python3 -m pip install -r test_requirements.txt
+    - cd emulator
+    - python3 -m pip install -e .
+    - python3 -m pytest . --cov gitlabemu
+
+
+emulator-apple-test:
+  stage: build
+  rules:
+    - if: '$DISABLE_SHARED_RUNNERS =~ /apple/'
+      when: never
+    - when: always
+  tags:
+    - shared-macos-amd64
+  image: macos-11-xcode-12
+  script:
+    - python3 -m pip install -r test_requirements.txt
+    - cd emulator
+    - python3 -m pip install -e .
+    - python3 -m pytest . --cov gitlabemu
+
 runner-python3-linux-test:
   image: python:3.7
   stage: build
