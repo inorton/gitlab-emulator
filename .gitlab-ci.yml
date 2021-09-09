@@ -79,7 +79,7 @@ emulator-windows-test:
     - windows
     - windows-1809
   script:
-    - choco install python --version=3.8.0
+    - choco install -y python --version=3.8.0
     - python3 -m pip install -r test_requirements.txt
     - cd emulator
     - python3 -m pip install -e .
