@@ -16,7 +16,7 @@ import zipfile
 
 import yaml
 
-from .common import gethostname, iswindows, generate_config, begin_log_section, end_log_section
+from .common import gethostname, iswindows, generate_config
 from .trace import TraceProxy
 from .consts import NAME, VERSION
 from unidecode import unidecode
