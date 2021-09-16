@@ -215,7 +215,15 @@ def run(runner, job, docker):
         begin_log_section(trace, "git", "Source Control")
 
         trace.writeline("Cloning project..")
-        trace_checkoutput(trace, ["git", "clone", git["repo_url"], build_dir], cwd=tempdir)
+        clonecmd = ["git", "clone", git["repo_url"], build_dir]
+        depth = git.get("depth", None)
+        if depth:
+            reftype = git.get("ref_type", None)
+            if reftype == "branch":
+                clonecmd.extend(["--depth", str(depth),
+                                 "--branch", git["branch"]])
+
+        trace_checkoutput(trace, clonecmd, cwd=tempdir)
 
         # checkout the ref to build
         trace_checkoutput(trace, ["git", "checkout", "-f", get_variable(job, "CI_COMMIT_SHA", "CI_COMMIT_REF")], cwd=build_dir_abs)
