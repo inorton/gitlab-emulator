@@ -220,8 +220,10 @@ def run(runner, job, docker):
         if depth:
             reftype = git.get("ref_type", None)
             if reftype == "branch":
-                clonecmd.extend(["--depth", str(depth),
-                                 "--branch", git["branch"]])
+                refspecs = git.get("ref_specs", [])
+                if refspecs:
+                    clonecmd.extend(["--depth", str(depth),
+                                     "--branch", refspecs[0]])
 
         trace_checkoutput(trace, clonecmd, cwd=tempdir)
 
