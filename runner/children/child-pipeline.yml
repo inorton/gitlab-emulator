@@ -2,6 +2,9 @@ stages:
   - build
   - test
 
+variables:
+  GIT_DEPTH: 10
+
 dynamic:
   stage: build
   tags:
