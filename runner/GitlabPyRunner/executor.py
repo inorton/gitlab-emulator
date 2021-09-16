@@ -207,31 +207,28 @@ def run(runner, job, docker):
     build_dir = os.path.join(tempdir, get_variable(job, "CI_PROJECT_PATH"))
     build_dir_abs = os.path.abspath(build_dir)
     try:
-        os.makedirs(build_dir)
+        with trace.section("git", "Source Control"):
+            os.makedirs(build_dir)
+            # clone the git repo defined in the job
+            git = job["git_info"]
 
-        # clone the git repo defined in the job
-        git = job["git_info"]
+            trace.writeline("Cloning project..")
+            clonecmd = ["git", "clone", git["repo_url"], build_dir]
+            depth = git.get("depth", None)
+            if depth:
+                reftype = git.get("ref_type", None)
+                if reftype == "branch":
+                    refspecs = git.get("ref_specs", [])
+                    if refspecs:
+                        trace.writeline(f"Cloning to depth: {depth}")
+                        clonecmd.extend(["--depth", str(depth),
+                                         "--branch", refspecs[0]])
 
-        begin_log_section(trace, "git", "Source Control")
+            trace_checkoutput(trace, clonecmd, cwd=tempdir)
 
-        trace.writeline("Cloning project..")
-        clonecmd = ["git", "clone", git["repo_url"], build_dir]
-        depth = git.get("depth", None)
-        if depth:
-            reftype = git.get("ref_type", None)
-            if reftype == "branch":
-                refspecs = git.get("ref_specs", [])
-                if refspecs:
-                    trace.writeline(f"Cloning to depth: {depth}")
-                    clonecmd.extend(["--depth", str(depth),
-                                     "--branch", refspecs[0]])
+            # checkout the ref to build
+            trace_checkoutput(trace, ["git", "checkout", "-f", get_variable(job, "CI_COMMIT_SHA", "CI_COMMIT_REF")], cwd=build_dir_abs)
 
-        trace_checkoutput(trace, clonecmd, cwd=tempdir)
-
-        # checkout the ref to build
-        trace_checkoutput(trace, ["git", "checkout", "-f", get_variable(job, "CI_COMMIT_SHA", "CI_COMMIT_REF")], cwd=build_dir_abs)
-
-        end_log_section(trace, "git")
 
         # config_file
         jobname = job["job_info"]["name"]
@@ -239,7 +236,6 @@ def run(runner, job, docker):
 
         if derived_config:
             trace.writeline("Dervied work folder is {}".format(build_dir_abs))
-
 
         # populate real vars
         for var in job["variables"]:
@@ -260,7 +256,8 @@ def run(runner, job, docker):
         emulator_job = configloader.load_job(config, jobname)
         trace.emulator_job = emulator_job
 
-        runner.get_dependencies(trace, job, build_dir_abs)
+        with trace.section("depend-artifacts", "Getting Artifacts"):
+            runner.get_dependencies(trace, job, build_dir_abs)
 
         emulator_job.stdout = trace
 
@@ -268,7 +265,8 @@ def run(runner, job, docker):
         error = False
 
         try:
-            emulator_job.run()
+            with trace.section("job", "Execute Job"):
+                emulator_job.run()
             success = True
         except errors.GitlabEmulatorError:
             # the job failed
@@ -311,19 +309,18 @@ def load_pipeline_config(trace, tempdir, build_dir_abs, job, jobname):
     config = loader.config
 
     if not ci_cfg or jobname not in loader.get_jobs():
-        begin_log_section(trace, "child-job", "Execute child job")
-        trace.writeline("Warning: CI_CONFIG_PATH is empty or unset")
-        trace.writeline("Warning: gitlab-python-runner child-pipeline support is experimental")
-        trace.writeline("Computing child job steps..")
+        with trace.section("child-job", "Execute child job"):
+            trace.writeline("Warning: CI_CONFIG_PATH is empty or unset")
+            trace.writeline("Warning: gitlab-python-runner child-pipeline support is experimental")
+            trace.writeline("Computing child job steps..")
 
-        new_config = generate_config(job)
-        ci_cfg = os.path.join(tempdir, "child-job.yml")
-        with(open(ci_cfg, "w")) as new_config_fh:
-            yaml.safe_dump(new_config, stream=new_config_fh)
-        with(open(ci_cfg, "r")) as new_config_fh:
-            for line in new_config_fh:
-                trace.writeline("#" + line)
-        end_log_section(trace, "child-job")
+            new_config = generate_config(job)
+            ci_cfg = os.path.join(tempdir, "child-job.yml")
+            with(open(ci_cfg, "w")) as new_config_fh:
+                yaml.safe_dump(new_config, stream=new_config_fh)
+            with(open(ci_cfg, "r")) as new_config_fh:
+                for line in new_config_fh:
+                    trace.writeline("#" + line)
         config = configloader.read(ci_cfg, topdir=build_dir_abs)
         config["variables"]["CI_PROJECT_DIR"] = build_dir_abs
         config[".gitlab-emulator-workspace"] = build_dir_abs
