@@ -222,6 +222,7 @@ def run(runner, job, docker):
             if reftype == "branch":
                 refspecs = git.get("ref_specs", [])
                 if refspecs:
+                    trace.writeline(f"Cloning to depth: {depth}")
                     clonecmd.extend(["--depth", str(depth),
                                      "--branch", refspecs[0]])
 
