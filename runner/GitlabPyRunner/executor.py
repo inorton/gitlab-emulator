@@ -72,41 +72,42 @@ def archive(trace, config, jobname, tempdir, build_folder, success):
             excludepatt = os.path.join(build_folder, item)
             excludes.extend(glob.glob(excludepatt, recursive=True))
 
-        trace.writeline("\nFinding artifacts...")
-        if excludes:
-            trace.writeline("\nExclude {} artifacts".format(len(excludes)))
+        with trace.section("artifacts", "Prepare Artifacts"):
+            trace.writeline("\nFinding artifacts...")
+            if excludes:
+                trace.writeline("\nExclude {} artifacts".format(len(excludes)))
 
-        paths = job_config["artifacts"]["paths"]
-        zipname = "archive.zip"
-        if "name" in job_config["artifacts"]:
-            # TODO expand variables for this
-            zipname = job_config["artifacts"]["name"] + ".zip"
+            paths = job_config["artifacts"]["paths"]
+            zipname = "archive.zip"
+            if "name" in job_config["artifacts"]:
+                # TODO expand variables for this
+                zipname = job_config["artifacts"]["name"] + ".zip"
 
-        zippath = os.path.join(tempdir, zipname)
-        with zipfile.ZipFile(zippath, "w") as zipobj:
-            for item in paths:
-                trace.writeline(".. finding {}".format(item))
-                # patterns are posix paths and globs, convert them to local on windows
-                if os.sep != '/':
-                    item = item.replace("/", os.sep)
-                localpatt = os.path.join(build_folder, item)
-                matches = glob.glob(localpatt, recursive=True)
+            zippath = os.path.join(tempdir, zipname)
+            with zipfile.ZipFile(zippath, "w") as zipobj:
+                for item in paths:
+                    trace.writeline(".. finding {}".format(item))
+                    # patterns are posix paths and globs, convert them to local on windows
+                    if os.sep != '/':
+                        item = item.replace("/", os.sep)
+                    localpatt = os.path.join(build_folder, item)
+                    matches = glob.glob(localpatt, recursive=True)
 
-                for include in matches:
-                    if include in excludes:
-                        continue
-                    relpath = os.path.relpath(include, build_folder)
-                    if os.path.isfile(include):
-                        trace.writeline(".. match {}".format(include))
-                        zipobj.write(include, relpath)
-                    if os.path.isdir(include):
-                        # recurse adding the whole folder
-                        for root, _, files in os.walk(include):
-                            for file in files:
-                                fname = os.path.join(root, file)
-                                relname = os.path.relpath(fname, build_folder)
-                                trace.writeline(".. match {}".format(relname))
-                                zipobj.write(fname, relname)
+                    for include in matches:
+                        if include in excludes:
+                            continue
+                        relpath = os.path.relpath(include, build_folder)
+                        if os.path.isfile(include):
+                            trace.writeline(".. match {}".format(include))
+                            zipobj.write(include, relpath)
+                        if os.path.isdir(include):
+                            # recurse adding the whole folder
+                            for root, _, files in os.walk(include):
+                                for file in files:
+                                    fname = os.path.join(root, file)
+                                    relname = os.path.relpath(fname, build_folder)
+                                    trace.writeline(".. match {}".format(relname))
+                                    zipobj.write(fname, relname)
         return zippath
     return None
 
