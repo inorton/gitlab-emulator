@@ -3,6 +3,8 @@ Test functions of the runner without a server
 """
 import os
 import stat
+from contextlib import contextmanager
+
 from GitlabPyRunner.runner import Runner
 from GitlabPyRunner.executor import archive
 from GitlabPyRunner.common import iswindows
@@ -11,6 +13,12 @@ from GitlabPyRunner.common import iswindows
 class FakeTrace(object):
     def writeline(self, msg):
         print(msg)
+
+    @contextmanager
+    def section(self, section, header):
+        print(header)
+        yield
+
 
 
 def test_unpack_permissions(capsys, tmpdir):

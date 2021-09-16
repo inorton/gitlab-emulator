@@ -242,24 +242,23 @@ class Runner(Session):
         :return:
         """
         url = self.api("jobs/{}/artifacts".format(job["id"]))
-        trace.writeline("Uploading artifacts to gitlab..")
-        with open(archive_file, "rb") as archive:
-            # solution to large uploads
-            # lifted from https://stackoverflow.com/questions/35779879/python-requests-upload-large-file-with-additional-data
-            form = encoder.MultipartEncoder({
-                "file": (os.path.basename(archive_file), archive, "application/octet-stream"),
-                "artifact_format": "zip",
-                "artifact_type": "archive"
-            })
-            headers = {
-                       "Content-Type": form.content_type,
-                       "Job-Token": job["token"]
-                       }
-            resp = self.post(url,
-                             headers=headers,
-                             data=form)
-        resp.raise_for_status()
-        trace.writeline("Upload complete")
+        with trace.section("artifact-put", "Uploading artifacts .."):
+            with open(archive_file, "rb") as archive:
+                # solution to large uploads
+                # lifted from https://stackoverflow.com/questions/35779879/python-requests-upload-large-file-with-additional-data
+                form = encoder.MultipartEncoder({
+                    "file": (os.path.basename(archive_file), archive, "application/octet-stream"),
+                    "artifact_format": "zip",
+                    "artifact_type": "archive"
+                })
+                headers = {
+                           "Content-Type": form.content_type,
+                           "Job-Token": job["token"]
+                           }
+                resp = self.post(url,
+                                 headers=headers,
+                                 data=form)
+            resp.raise_for_status()
 
 
 class DockerRunner(Runner):

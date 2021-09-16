@@ -3,6 +3,8 @@ File-like trace bufffer that sends to gitlab
 """
 import os
 import time
+from contextlib import contextmanager
+from gitlabemu.ansi import ANSI_CLEAR_LINE, ANSI_CYAN, ANSI_RESET
 
 
 class TraceProxy(object):
@@ -45,6 +47,14 @@ class TraceProxy(object):
 
         if self._should_write() or flush:
             self.flush()
+
+    @contextmanager
+    def section(self, section, header):
+        start = int(time.time())
+        self.writeline(f"\r{ANSI_CLEAR_LINE}section_start:{start}:{section}\r{ANSI_CLEAR_LINE}{ANSI_CYAN}{header}{ANSI_RESET}")
+        yield
+        ended = int(time.time())
+        self.writeline(f"\r{ANSI_CLEAR_LINE}section_end:{ended}:{section}\r{ANSI_CLEAR_LINE}")
 
     def writeline(self, text):
         """

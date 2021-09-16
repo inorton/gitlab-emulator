@@ -155,12 +155,3 @@ def generate_config(polled):
     global_config[polled["job_info"]["name"]] = job_config
 
     return global_config
-
-
-def begin_log_section(trace, section, header):
-    trace.writeline("section_start:{}:{}\r\33[0K{}".format(int(time.time()), section, header))
-
-
-def end_log_section(trace, section):
-    trace.writeline("section_end:{}:{}\r\33[0K".format(int(time.time()), section))
-

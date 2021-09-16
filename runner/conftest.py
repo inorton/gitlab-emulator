@@ -8,7 +8,7 @@ from GitlabPyRunner.runner import Runner
 GITLAB = "https://gitlab.com"
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def random_runner():
     instance = register_runner()
     yield instance
@@ -16,7 +16,7 @@ def random_runner():
     assert not instance.token
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def playground_runner():
 
     tags = ["python-runner-new"]
