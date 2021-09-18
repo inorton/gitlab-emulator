@@ -2,29 +2,18 @@
 Load a .gitlab-ci.yml file
 """
 import os
+from typing import Dict
+
 import yaml
 
 from .errors import GitlabEmulatorError
+from .gitlab.types import RESERVED_TOP_KEYS
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
 from .userconfig import load_user_config, get_user_config_value
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
-
-RESERVED_TOP_KEYS = ["stages",
-                     "services",
-                     "image",
-                     "cache",
-                     "before_script",
-                     "after_script",
-                     "pages",
-                     "variables",
-                     "include",
-                     "workflow",
-                     "default",
-                     ".gitlab-emulator-workspace"
-                     ]
 
 
 class ConfigLoaderError(GitlabEmulatorError):
@@ -195,28 +184,43 @@ def validate(config):
                     raise ConfigLoaderError("artifacts->reports must be a map")
 
 
-def do_single_extends(basename, baseobj, job):
+def do_single_extends(basename: str, baseobj: dict, job: str) -> Dict[str, dict]:
     baseclass = baseobj.get(basename, None)
-    if not baseclass:
+    if baseclass is None:
         raise BadSyntaxError("job {} extends {} which cannot be found".format(job, basename))
     copy = dict(baseobj[job])
     newbase = dict(baseclass)
     for item in copy:
         newbase[item] = copy[item]
     baseobj[job] = newbase
-    return dict(baseobj[job])
+    return dict(newbase)
 
 
-def do_extends(baseobj, handle_extend=do_single_extends):
+def do_extends(baseobj: dict, handle_extend=do_single_extends):
     """
     Process extends directives
     :param handle_extend:
     :param baseobj:
     :return:
     """
+    default_image = baseobj.get("image", None)
+    default_job = baseobj.get("default", None)
+    default_services = baseobj.get("services", None)
+
+    if not default_job:
+        baseobj["default"] = {}
+        if default_image:
+            baseobj["image"] = default_image
+            del baseobj["image"]
+        if default_services:
+            baseobj["services"] = default_services
+            del baseobj["services"]
+
     for job in baseobj:
+        if job == "default":
+            continue
         if isinstance(baseobj[job], dict):
-            extends = baseobj[job].get("extends", None)
+            extends = baseobj[job].get("extends", "default")
             if extends is not None:
                 if type(extends) == str:
                     bases = [extends]
@@ -278,10 +282,7 @@ def job_docker_image(config, name):
     """
     if config.get("hide_docker"):
         return None
-    image = config[name].get("image")
-    if not image:
-        image = config.get("image")
-    return image
+    return config[name].get("image")
 
 
 def load_job(config, name):
