@@ -20,7 +20,6 @@ class FakeTrace(object):
         yield
 
 
-
 def test_unpack_permissions(capsys, tmpdir):
     """
     Test that execute permissions are restored on unpacking artifacts
