@@ -3,7 +3,7 @@ Classes for types in /api/v4/jobs/request
 
 See https://gitlab.com/gitlab-org/gitlab-runner/-/blob/main/common/network.go for reference
 """
-from typing import List
+from typing import List, Optional
 
 
 class GitlabType:
@@ -11,9 +11,10 @@ class GitlabType:
     Base class for gitlab response types.
     """
     def from_dict(self, data):
-        for name in data:
-            if hasattr(self, name):
-                setattr(self, name, data[name])
+        if data:
+            for name in data:
+                if hasattr(self, name):
+                    setattr(self, name, data[name])
 
 
 class JobInfo(GitlabType):
@@ -56,20 +57,24 @@ class JobVariables(GitlabType):
     """
     The variables type
     """
-    def __init__(self, data: List):
+    def __init__(self, data: Optional[List] = None):
         self.vars = {}
         self.public_vars = set()
-        for item in data:
-            name = item["key"]
-            value = item["value"]
-            public = item["public"]
-            self.vars[name] = str(value)
-            if public:
-                self.public_vars.add(name)
+        self.from_list(data)
+
+    def from_list(self, data):
+        if data:
+            for item in data:
+                name = item["key"]
+                value = item["value"]
+                public = item["public"]
+                self.vars[name] = str(value)
+                if public:
+                    self.public_vars.add(name)
 
 
 class Step(GitlabType):
-    def __init__(self, data: dict):
+    def __init__(self, data: Optional[dict] = None):
         self.name = None
         self.script = []
         self.timeout = 0
@@ -79,19 +84,20 @@ class Step(GitlabType):
 
 
 class Image(GitlabType):
-    def __init__(self, data: dict):
+    def __init__(self, data: Optional[dict] = None):
         self.name = None
         self.alias = None
         self.command = []
         self.entrypoint = []
         self.ports = []
-        self.from_dict(data)
+        if data:
+            self.from_dict(data)
 
     @classmethod
     def from_value(cls, value):
         result = None
         if value:
-            result = IncludeFile()
+            result = Image()
             if isinstance(value, dict):
                 result.from_dict(value)
             if isinstance(value, str):
