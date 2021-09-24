@@ -4,12 +4,144 @@ import sys
 import tempfile
 import time
 import uuid
+import json
 from contextlib import contextmanager
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
-from .helpers import communicate as comm, DockerTool, is_windows
+from .helpers import communicate as comm, is_windows
 from .userconfig import load_user_config, get_user_config_value
 from .errors import DockerExecError
+
+
+class DockerTool(object):
+    """
+    Control docker containers
+    """
+    def __init__(self):
+        self.container = None
+        self.image = None
+        self.env = {}
+        self.volumes = []
+        self.name = None
+        self.privileged = False
+        self.entrypoint = None
+        self.pulled = None
+        self.network = None
+
+    def add_volume(self, outside, inside):
+        self.volumes.append("{}:{}".format(outside, inside))
+
+    def add_env(self, name, value):
+        self.env[name] = value
+
+    def inspect(self):
+        """
+        Inspect the image and return the Config dict
+        :return:
+        """
+        cmdline = ["docker", "inspect", self.image]
+        stdout = subprocess.check_output(cmdline, shell=False).decode()
+        data = json.loads(stdout)
+        if data and len(data) == 1:
+            datadict = data[0]
+            return datadict.get("Config", {})
+        return {}
+
+    def add_file(self, src, dest):
+        """
+        Copy a file to the container
+        :param src:
+        :param dest:
+        :return:
+        """
+        assert self.container
+        subprocess.check_call(["docker", "cp", src, f"{self.container}:{dest}"])
+
+    def get_user(self):
+        return self.inspect().get("User", None)
+
+    def pull(self):
+        self.pulled = subprocess.Popen(["docker", "pull", self.image],
+                                       stdin=None,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT)
+        return self.pulled
+
+    def get_envs(self):
+        cmdline = []
+        for name in self.env:
+            value = self.env.get(name)
+            if value is not None:
+                cmdline.extend(["-e", "{}={}".format(name, value)])
+            else:
+                cmdline.extend(["-e", name])
+        return cmdline
+
+    def wait(self):
+        cmdline = ["docker", "container", "wait", self.container]
+        subprocess.check_call(cmdline)
+
+    def run(self):
+        cmdline = ["docker", "run", "--rm",
+                   "--name", self.name,
+                   "-d"]
+        if not is_windows():
+            if self.privileged:
+                cmdline.append("--privileged")
+        if self.network:
+            cmdline.extend(["--network", self.network])
+
+        for volume in self.volumes:
+            entry = volume
+            if not entry.endswith(":ro") and not entry.endswith(":rw"):
+                entry += ":rw"
+            cmdline.extend(["-v", entry])
+
+        if self.entrypoint is not None:
+            # docker run does not support multiple args for entrypoint
+            if self.entrypoint == ["/bin/sh", "-c"]:
+                self.entrypoint = [""]
+            if self.entrypoint == [""]:
+                self.entrypoint = ["/bin/sh"]
+
+            cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
+
+        cmdline.append("-i")
+        cmdline.extend(self.get_envs())
+        cmdline.append(self.image)
+        self.container = subprocess.check_output(cmdline, shell=False).decode().strip()
+
+    def kill(self):
+        cmdline = ["docker", "kill", self.container]
+        subprocess.check_output(
+            cmdline, shell=False)
+
+    def check_call(self, cwd, cmd, stdout=None, stderr=None):
+        cmdline = ["docker", "exec", "-w", cwd, self.container] + cmd
+        subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
+
+    def exec(self, cwd, shell, tty=False, user=None, pipe=True):
+        cmdline = ["docker", "exec", "-w", cwd]
+        cmdline.extend(self.get_envs())
+        if user is not None:
+            cmdline.extend(["-u", str(user)])
+        if tty:
+            cmdline.append("-t")
+            pipe = False
+        cmdline.extend(["-i", self.container])
+        cmdline.extend(shell)
+
+        if pipe:
+            proc = subprocess.Popen(cmdline,
+                                    cwd=cwd,
+                                    shell=False,
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT)
+            return proc
+        else:
+            return subprocess.call(cmdline, cwd=cwd, shell=False)
+
 
 
 @contextmanager
@@ -342,3 +474,11 @@ def get_services(config, jobname):
             service_defs.append(item)
 
     return service_defs
+
+
+def has_docker() -> bool:
+    try:
+        subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT)
+        return True
+    except Exception as err:
+        return err is None
