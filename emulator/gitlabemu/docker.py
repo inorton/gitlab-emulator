@@ -1,23 +1,32 @@
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
 import uuid
-import json
+import tarfile
 from contextlib import contextmanager
+from typing import Dict, Optional
+
+from docker.errors import DockerException
+
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 from .helpers import communicate as comm, is_windows
 from .userconfig import load_user_config, get_user_config_value
 from .errors import DockerExecError
+from .dockersupport import docker
 
 
 class DockerTool(object):
     """
     Control docker containers
     """
-    def __init__(self):
+    def __init__(self, server: Optional[str] = None, retries: Optional[int] = 0):
+        if retries == 0:
+            retries = 5
+        retry_sleep = 10
         self.container = None
         self.image = None
         self.env = {}
@@ -27,6 +36,19 @@ class DockerTool(object):
         self.entrypoint = None
         self.pulled = None
         self.network = None
+        server = os.getenv("DOCKER_HOST", server)
+        errors = 0
+        while True:
+            try:
+                self.client = docker.DockerClient(base_url=server)
+                return
+            except DockerException as err:
+                errors += 1
+                if errors > retries:
+                    raise
+                warning(f"cannot connect to docker daemon {err}")
+                warning(f"retry in {retry_sleep} seconds")
+                time.sleep(retry_sleep)
 
     def add_volume(self, outside, inside):
         self.volumes.append("{}:{}".format(outside, inside))
@@ -39,13 +61,10 @@ class DockerTool(object):
         Inspect the image and return the Config dict
         :return:
         """
-        cmdline = ["docker", "inspect", self.image]
-        stdout = subprocess.check_output(cmdline, shell=False).decode()
-        data = json.loads(stdout)
-        if data and len(data) == 1:
-            datadict = data[0]
-            return datadict.get("Config", {})
-        return {}
+        if self.image:
+            self.pull()
+            return self.client.images.get(self.image)
+        return None
 
     def add_file(self, src, dest):
         """
@@ -55,17 +74,25 @@ class DockerTool(object):
         :return:
         """
         assert self.container
-        subprocess.check_call(["docker", "cp", src, f"{self.container}:{dest}"])
+        temp = tempfile.mkdtemp()
+        tar = os.path.join(temp, "add.tar")
+        try:
+            with tarfile.open(tar, "w") as tf:
+                tf.add(src, os.path.basename(src))
+            with open(tar, "rb") as td:
+                data = td.read()
+            self.container.put_archive(dest, data)
+        finally:
+            shutil.rmtree(temp)
 
     def get_user(self):
-        return self.inspect().get("User", None)
+        image = self.inspect()
+        if image:
+            return image.attrs["Config"].get("User", None)
+        return None
 
     def pull(self):
-        self.pulled = subprocess.Popen(["docker", "pull", self.image],
-                                       stdin=None,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT)
-        return self.pulled
+        self.client.images.pull(self.image)
 
     def get_envs(self):
         cmdline = []
@@ -78,46 +105,46 @@ class DockerTool(object):
         return cmdline
 
     def wait(self):
-        cmdline = ["docker", "container", "wait", self.container]
-        subprocess.check_call(cmdline)
+        self.container.wait()
 
     def run(self):
-        cmdline = ["docker", "run", "--rm",
-                   "--name", self.name,
-                   "-d"]
-        if not is_windows():
-            if self.privileged:
-                cmdline.append("--privileged")
-        if self.network:
-            cmdline.extend(["--network", self.network])
-
+        priv = self.privileged and not is_windows()
+        volumes = []
         for volume in self.volumes:
             entry = volume
             if not entry.endswith(":ro") and not entry.endswith(":rw"):
                 entry += ":rw"
-            cmdline.extend(["-v", entry])
+            volumes.append(entry)
 
-        if self.entrypoint is not None:
-            # docker run does not support multiple args for entrypoint
-            if self.entrypoint == ["/bin/sh", "-c"]:
-                self.entrypoint = [""]
-            if self.entrypoint == [""]:
+        image = self.inspect()
+        if self.entrypoint == ['']:
+            if image.attrs["Os"] == "linux":
                 self.entrypoint = ["/bin/sh"]
-
-            cmdline.extend(["--entrypoint", " ".join(self.entrypoint)])
-
-        cmdline.append("-i")
-        cmdline.extend(self.get_envs())
-        cmdline.append(self.image)
-        self.container = subprocess.check_output(cmdline, shell=False).decode().strip()
+            else:
+                self.entrypoint = None
+        try:
+            self.container = self.client.containers.run(
+                self.image,
+                detach=True,
+                stdin_open=True,
+                remove=True,
+                name=self.name,
+                privileged=priv,
+                network=self.network,
+                entrypoint=self.entrypoint,
+                volumes=volumes,
+                environment=self.env
+            )
+        except Exception:
+            warning(f"problem running {self.image}")
+            raise
 
     def kill(self):
-        cmdline = ["docker", "kill", self.container]
-        subprocess.check_output(
-            cmdline, shell=False)
+        if self.container:
+            self.container.kill()
 
     def check_call(self, cwd, cmd, stdout=None, stderr=None):
-        cmdline = ["docker", "exec", "-w", cwd, self.container] + cmd
+        cmdline = ["docker", "exec", "-w", cwd, self.container.id] + cmd
         subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
 
     def exec(self, cwd, shell, tty=False, user=None, pipe=True):
@@ -128,7 +155,7 @@ class DockerTool(object):
         if tty:
             cmdline.append("-t")
             pipe = False
-        cmdline.extend(["-i", self.container])
+        cmdline.extend(["-i", self.container.id])
         cmdline.extend(shell)
 
         if pipe:
@@ -141,77 +168,6 @@ class DockerTool(object):
             return proc
         else:
             return subprocess.call(cmdline, cwd=cwd, shell=False)
-
-
-
-@contextmanager
-def docker_services(job, vars):
-    """
-    Setup docker services required by the given job
-    :param job:
-    :param vars: dict of env vars to set in the service container
-    :return:
-    """
-    services = job.services
-    network = None
-    containers = []
-    try:
-        if services:
-            # create a network, start each service attached
-            network = "gitlabemu-services-{}".format(str(uuid.uuid4())[0:4])
-            info("create docker service network")
-            subprocess.check_call(["docker", "network", "create",
-                                   "-d", "bridge",
-                                   "--subnet", "192.168.94.0/24",
-                                   network
-                                   ])
-            # this could be a list of images
-            for service in services:
-                job.stdout.write("create docker service : {}".format(service))
-                assert ":" in service["name"]
-                image = service["name"]
-                name = service["name"].split(":", 1)[0]
-                aliases = [name]
-                if "alias" in service:
-                    aliases.append(service["alias"])
-                try:
-                    pull = subprocess.Popen(["docker", "pull", image],
-                                            stdin=None,
-                                            stdout=subprocess.PIPE,
-                                            stderr=subprocess.STDOUT)
-                    job.check_communicate(pull)
-                except subprocess.CalledProcessError:
-                    warning("could not pull {}".format(image))
-                docker_cmdline = ["docker", "run", "-d", "--rm"]
-                if not is_windows():
-                    docker_cmdline.append("--privileged")
-
-                for envname in vars:
-                    docker_cmdline.extend(
-                        ["-e", "{}={}".format(envname, vars[envname])])
-
-                docker_cmdline.append(image)
-                info("creating docker service {}".format(name))
-                info("cmdline: {}".format(" ".join(docker_cmdline)))
-                container = subprocess.check_output(docker_cmdline).strip()
-                info("service {} is container {}".format(name, container))
-                containers.append(container)
-
-                network_cmd = ["docker", "network", "connect"]
-                for alias in aliases:
-                    info("adding docker service alias {}".format(alias))
-                    network_cmd.extend(["--alias", alias])
-                network_cmd.append(network)
-                network_cmd.append(container)
-                subprocess.check_call(network_cmd)
-        yield network
-    finally:
-        for container in containers:
-            info("clean up docker service {}".format(container))
-            subprocess.call(["docker", "kill", container])
-        if network:
-            info("clean up docker network {}".format(network))
-            subprocess.call(["docker", "network", "rm", network])
 
 
 class DockerJob(Job):
@@ -381,15 +337,14 @@ class DockerJob(Job):
         info("pulling docker image {}".format(self.image))
         try:
             self.stdout.write("Pulling {}...".format(self.image))
-            pull = self.docker.pull()
-            self.check_communicate(pull)
+            self.docker.pull()
         except subprocess.CalledProcessError:
             warning("could not pull docker image {}".format(self.image))
 
         environ = self.get_envs()
         with docker_services(self, environ) as network:
             if network:
-                self.docker.network = network
+                self.docker.network = network.name
             for envname in environ:
                 self.docker.env[envname] = environ[envname]
 
@@ -477,8 +432,78 @@ def get_services(config, jobname):
 
 
 def has_docker() -> bool:
+    """
+    Return True if this system can run docker containers
+    :return:
+    """
+    if docker:
+        # noinspection PyBroadException
+        try:
+            client = docker.DockerClient()
+            client.info()
+            return True
+        except Exception:
+            pass
+    return False
+
+
+@contextmanager
+def docker_services(job: DockerJob, variables: Dict[str, str]):
+    """
+    Setup docker services required by the given job
+    :param job:
+    :param variables: dict of env vars to set in the service container
+    :return:
+    """
+    services = job.services
+    service_network = None
+    containers = []
     try:
-        subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT)
-        return True
-    except Exception as err:
-        return err is None
+        if services:
+            client = docker.DockerClient()
+            # create a network, start each service attached
+            network = "gitlabemu-services-{}".format(str(uuid.uuid4())[0:4])
+            info("create docker services network")
+            service_network = client.networks.create(
+                network,
+                driver="bridge",
+                ipam=docker.types.IPAMConfig(
+                        pool_configs=[
+                            docker.types.IPAMPool(subnet="192.168.94.0/24")
+                        ]
+                    )
+                )
+            # this could be a list of images
+            for service in services:
+                assert ":" in service["name"]
+                image = service["name"]
+                name = service["name"].split(":", 1)[0]
+                aliases = [name]
+                job.stdout.write(f"create docker service : {name}\n")
+                if "alias" in service:
+                    aliases.append(service["alias"])
+                try:
+                    client.images.pull(image)
+                except docker.errors.ImageNotFound:
+                    fatal(f"No such image {image}")
+                priv = not is_windows()
+                container = client.containers.run(
+                    image,
+                    privileged=priv,
+                    environment=dict(variables),
+                    remove=True, detach=True)
+                info(f"creating docker service {name}")
+                info(f"service {name} is container {container.id}")
+                containers.append(container)
+                info(f"connect {name} to service network")
+                service_network.connect(container=container,
+                                        aliases=aliases)
+
+        yield service_network
+    finally:
+        for container in containers:
+            info(f"clean up docker service {container.id}")
+            container.kill()
+        if service_network:
+            info(f"clean up docker network {service_network.name}")
+            service_network.remove()
