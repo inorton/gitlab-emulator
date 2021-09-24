@@ -7,6 +7,7 @@ import signal
 import sys
 import platform
 import subprocess
+import tempfile
 import threading
 import time
 from .logmsg import info, fatal
