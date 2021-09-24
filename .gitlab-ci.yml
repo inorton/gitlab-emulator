@@ -37,6 +37,20 @@ emulator-linux-test:
       junit:
         - emulator/test-results.xml
 
+emulator-apple-test:
+  tags: [ shared-macos-amd64 ]
+  image: macos-11-xcode-12
+  stage: build
+  script:
+    - pip install -r test_requirements.txt
+    - cd emulator
+    - pip install -e .
+    - python3 -m pytest . --cov gitlabemu --cov-fail-under=58 --junit-xml=test-results.xml
+  artifacts:
+    reports:
+      junit:
+        - emulator/test-results.xml
+
 emulator-linux-run:
   variables:
     DOCKER_HOST: tcp://docker:2375/
@@ -80,21 +94,6 @@ emulator-windows-test:
     - cd emulator
     - c:\python38\python -m pip install -e .
     - c:\python38\python -m pytest . --cov gitlabemu
-
-
-emulator-apple-test:
-  stage: build
-  rules:
-    - if: '$ENABLE_SHARED_RUNNERS =~ /apple/'
-
-  tags:
-    - shared-macos-amd64
-  image: macos-11-xcode-12
-  script:
-    - python3 -m pip install -r test_requirements.txt
-    - cd emulator
-    - python3 -m pip install -e .
-    - python3 -m pytest . --cov gitlabemu
 
 runner-python3-linux-test:
   image: python:3.7
