@@ -19,7 +19,8 @@ def test_run_needs_no_stages(in_tests, envs, capsys):
     if os.path.exists("stageless-start"):
         os.rmdir("stageless-start")
     try:
-        runner.run(["--config", "needs.yml", "--full", "finish"])
+        cfgfile = os.path.join(in_tests, "settings", "gitlab-defaults.yml")
+        runner.run(["--settings", cfgfile, "--config", "needs.yml", "--full", "finish"])
         stdout, stderr = capsys.readouterr()
     finally:
         if os.path.exists("stageless-start"):
