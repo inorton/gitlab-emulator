@@ -31,7 +31,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest . --cov gitlabemu --cov-fail-under=80 --junit-xml=test-results.xml
+    - python3 -m pytest . --cov gitlabemu --cov-fail-under=77 --junit-xml=test-results.xml
   artifacts:
     reports:
       junit:
