@@ -33,7 +33,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest . --cov gitlabemu --cov-fail-under=77 --junit-xml=test-results.xml
+    - python3 -m pytest .
   artifacts:
     reports:
       junit:
@@ -47,7 +47,7 @@ emulator-apple-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest . --cov gitlabemu --cov-fail-under=57 --junit-xml=test-results.xml
+    - python3 -m pytest . --cov-config .coveragerc.apple
   artifacts:
     reports:
       junit:
@@ -94,7 +94,7 @@ emulator-windows-test:
     - c:\python38\python -m pip install -r test_requirements.txt
     - cd emulator
     - c:\python38\python -m pip install -e .
-    - c:\python38\python -m pytest . --cov gitlabemu
+    - c:\python38\python -m pytest . --cov-config .coveragerc.windows
 
 runner-python3-linux-test:
   image: python:3.7
@@ -105,7 +105,7 @@ runner-python3-linux-test:
     - cd runner
     - pip install -e .
     - gitlab-runner.py --help
-    - python -m pytest . --junit-xml=test-results.xml
+    - python -m pytest .
   artifacts:
     reports:
       junit:
