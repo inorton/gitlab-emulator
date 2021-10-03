@@ -1,0 +1,5 @@
+hidden-job-1:
+  image: alpine:latest
+  stage: build
+  script:
+    - date

@@ -2,18 +2,23 @@
 Load a .gitlab-ci.yml file
 """
 import os
-from typing import Dict
+import re
+from typing import Dict, Optional, List
 
 import yaml
 
 from .errors import GitlabEmulatorError
 from .gitlab.types import RESERVED_TOP_KEYS
+from .configtypes.job import ConfigJob
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
 from .userconfig import load_user_config, get_user_config_value
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
+
+CURLY_NAME = re.compile(r"\${([A-Za-z0-9_]+)}")
+SIMPLE_NAME = re.compile(r"\$([A-Za-z0-9_]+)")
 
 
 class ConfigLoaderError(GitlabEmulatorError):
@@ -51,7 +56,6 @@ def check_unsupported(config):
     :param config:
     :return:
     """
-
     for childname in config:
         # if this is a dict, it is probably a job
         child = config[childname]
@@ -59,74 +63,6 @@ def check_unsupported(config):
             for bad in ["parallel"]:
                 if bad in config[childname]:
                     raise FeatureNotSupportedError(bad)
-
-
-def do_single_include(baseobj, yamldir, inc, handle_read=None):
-    """
-    Load a single included file and return it's object graph
-    :param handle_read:
-    :param baseobj: previously loaded and included objects
-    :param yamldir: folder to search
-    :param inc: file to read
-    :return:
-    """
-    if handle_read is None:
-        handle_read = read
-    include = None
-    if isinstance(inc, str):
-        include = inc
-    elif isinstance(inc, dict):
-        include = inc.get("local", None)
-        if not include:
-            raise FeatureNotSupportedError("We only support local includes right now")
-
-    include = include.lstrip("/\\")
-
-    if include in baseobj["include"]:
-        BadSyntaxError("The file {} has already been included".format(include))
-    baseobj["include"].append(include)
-
-    # make this work on windows
-    if os.sep != "/":
-        include = include.replace("/", os.sep)
-
-    return handle_read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
-
-
-def do_includes(baseobj, yamldir, incs, handle_include=do_single_include):
-    """
-    Deep process include directives
-    :param handle_include:
-    :param baseobj:
-    :param yamldir: load include files relative to here
-    :param incs: files to load
-    :return:
-    """
-    # include can be an array or a map.
-    #
-    # include: "/templates/scripts.yaml"
-    #
-    # include:
-    #   - "/templates/scripts.yaml"
-    #   - "/templates/windows-jobs.yaml"
-    #
-    # include:
-    #   local: "/templates/scripts.yaml"
-    #
-    # include:
-    #    - local: "/templates/scripts.yaml"
-    #    - local: "/templates/after.yaml"
-    #    "/templates/windows-jobs.yaml"
-    if incs:
-        if isinstance(incs, list):
-            includes = incs
-        else:
-            includes = [incs]
-        for filename in includes:
-            obj = handle_include(baseobj, yamldir, filename)
-            for item in obj:
-                if item != "include":
-                    baseobj[item] = obj[item]
 
 
 def strict_needs_stages() -> bool:
@@ -143,93 +79,6 @@ def strict_needs_stages() -> bool:
     return False
 
 
-def validate(config):
-    """
-    Validate the jobs in the loaded config map
-    """
-    jobs = get_jobs(config)
-    stages = get_stages(config)
-
-    for name in jobs:
-        if name.startswith("."):
-            continue
-
-        job = get_job(config, name)
-
-        # check that the stage exists
-        if job["stage"] not in stages:
-            raise ConfigLoaderError("job {} has stage {} does not exist".format(name, job["stage"]))
-
-        # check needs
-        needs = job.get("needs", [])
-        for need in needs:
-            # check the needed job exists
-            if need not in jobs:
-                raise ConfigLoaderError("job {} needs job {} which does not exist".format(name, need))
-
-            # check the needed job in in an earlier stage if running in <14.2 mode
-            if strict_needs_stages():
-                needed = get_job(config, need)
-                stage_order = stages.index(job["stage"])
-                need_stage_order = stages.index(needed["stage"])
-                if not need_stage_order < stage_order:
-                    raise ConfigLoaderError("job {} needs {} that is not in an earlier stage".format(name, need))
-
-        if "artifacts" in job:
-            if "paths" in job["artifacts"]:
-                if not isinstance(job["artifacts"]["paths"], list):
-                    raise ConfigLoaderError("artifacts->paths must be a list")
-            if "reports" in job["artifacts"]:
-                if not isinstance(job["artifacts"]["reports"], dict):
-                    raise ConfigLoaderError("artifacts->reports must be a map")
-
-
-def do_single_extends(basename: str, baseobj: dict, job: str) -> Dict[str, dict]:
-    baseclass = baseobj.get(basename, None)
-    if baseclass is None:
-        raise BadSyntaxError("job {} extends {} which cannot be found".format(job, basename))
-    copy = dict(baseobj[job])
-    newbase = dict(baseclass)
-    for item in copy:
-        newbase[item] = copy[item]
-    baseobj[job] = newbase
-    return dict(newbase)
-
-
-def do_extends(baseobj: dict, handle_extend=do_single_extends):
-    """
-    Process extends directives
-    :param handle_extend:
-    :param baseobj:
-    :return:
-    """
-    default_image = baseobj.get("image", None)
-    default_job = baseobj.get("default", None)
-    default_services = baseobj.get("services", None)
-
-    if not default_job:
-        baseobj["default"] = {}
-        if default_image:
-            baseobj["image"] = default_image
-            del baseobj["image"]
-        if default_services:
-            baseobj["services"] = default_services
-            del baseobj["services"]
-
-    for job in baseobj:
-        if job == "default":
-            continue
-        if isinstance(baseobj[job], dict):
-            extends = baseobj[job].get("extends", "default")
-            if extends is not None:
-                if type(extends) == str:
-                    bases = [extends]
-                else:
-                    bases = extends
-                for basename in bases:
-                    handle_extend(basename, baseobj, job)
-
-
 def get_stages(config):
     """
     Return a list of stages
@@ -237,73 +86,6 @@ def get_stages(config):
     :return:
     """
     return config.get("stages", [".pre", "build", "test", "deploy", ".post"])
-
-
-def get_jobs(config):
-    """
-    Return a list of job names from the given configuration
-    :param config:
-    :return:
-    """
-    jobs = []
-    for name in config:
-        if name in RESERVED_TOP_KEYS:
-            continue
-        child = config[name]
-        if isinstance(child, (dict,)):
-            jobs.append(name)
-    return jobs
-
-
-def get_job(config, name):
-    """
-    Get the job
-    :param config:
-    :param name:
-    :return:
-    """
-    assert name in get_jobs(config)
-
-    job = config.get(name)
-
-    # set some implied defaults
-    if "stage" not in job:
-        job["stage"] = "test"
-
-    return job
-
-
-def job_docker_image(config, name):
-    """
-    Return a docker image if a job is configured for it
-    :param config:
-    :param name:
-    :return:
-    """
-    if config.get("hide_docker"):
-        return None
-    return config[name].get("image")
-
-
-def load_job(config, name):
-    """
-    Load a job from the configuration
-    :param config:
-    :param name:
-    :return:
-    """
-    jobs = get_jobs(config)
-    if name not in jobs:
-        raise NoSuchJob(name)
-    image = job_docker_image(config, name)
-    if image:
-        job = DockerJob()
-    else:
-        job = Job()
-
-    job.load(name, config)
-
-    return job
 
 
 def do_variables(baseobj, yamlfile):
@@ -322,62 +104,6 @@ def do_variables(baseobj, yamlfile):
             baseobj["variables"][name] = os.environ[name]
 
 
-def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=None,
-         handle_include=do_includes,
-         handle_extends=do_extends,
-         handle_validate=validate,
-         handle_variables=do_variables
-         ):
-    """
-    Read a .gitlab-ci.yml file into python types
-    :param handle_variables:
-    :param handle_validate:
-    :param handle_extends:
-    :param handle_include:
-    :param yamlfile:
-    :param validate_jobs: if True, reject jobs with bad configuration (yet valid yaml)
-    :param variables: if True, inject a variables map (valid for top level only)
-    :param topdir: the root directory to search for include files
-    :param baseobj: the document tree loaded so far.
-    :return:
-    """
-    parent = False
-    if topdir is None:
-        topdir = os.path.dirname(yamlfile)
-    else:
-        yamlfile = os.path.join(topdir, yamlfile)
-    with open(yamlfile, "r") as yamlobj:
-        loaded = yamlloader.ordered_load(yamlobj, Loader=yaml.FullLoader)
-
-    if not baseobj:
-        parent = True
-        baseobj = {"include": []}
-
-    for item in loaded:
-        if item != "include":
-            baseobj[item] = loaded[item]
-
-    handle_include(baseobj, topdir, loaded.get("include", []))
-    baseobj["include"].append(yamlfile)
-
-    if parent:
-        # now do extends
-        handle_extends(baseobj)
-
-    check_unsupported(baseobj)
-
-    if validate_jobs:
-        if strict_needs_stages():
-            if "stages" not in baseobj:
-                baseobj["stages"] = ["test"]
-        handle_validate(baseobj)
-
-    if variables:
-        handle_variables(baseobj, yamlfile)
-
-    return baseobj
-
-
 class Loader(object):
     """
     A configuration loader for gitlab pipelines
@@ -386,152 +112,191 @@ class Loader(object):
     def __init__(self):
         self.filename = None
         self.rootdir = None
-
-        self.config = {}
-        self.included_files = []
-
+        self.included_files = {}
+        self._predefined = {}
+        self._pipeline_defined = {}
         self._begun = False
         self._done = False
-        self._current_file = None
         self._job_sources = {}
-        self._job_classes = {}
+        self._jobs = {}
+        self._default_job = None
 
-    def get_docker_image(self, jobname):
-        return job_docker_image(self.config, jobname)
-
-    def do_includes(self, baseobj, yamldir, incs):
+    def get_variable(self, name, predefined_only=False, default=None) -> Optional[str]:
         """
-        Process the list of include files
-        :param baseobj:
-        :param yamldir:
-        :param incs:
+        Get the value of a variable, or a default
+        :param default:
+        :param name:
+        :param predefined_only:
         :return:
         """
-        return do_includes(baseobj, yamldir, incs, handle_include=self.do_single_include)
+        value = self._predefined.get(name, default)
+        if not predefined_only:
+            value = self._pipeline_defined.get(name, value)
+        return value
 
-    def do_single_include(self, baseobj, yamldir, inc):
-        """
-        Include a single file and process it
-        :param baseobj:
-        :param yamldir:
-        :param inc:
-        :return:
-        """
-        return do_single_include(baseobj, yamldir, inc, handle_read=self._read)
-
-    def do_extends(self, baseobj):
-        """
-        Process all the defined extends directives in all loaded jobs
-        :param baseobj:
-        :return:
-        """
-        return do_extends(baseobj, handle_extend=self.do_single_extends)
-
-    def do_single_extends(self, basename, baseobj, newjob):
-        """
-        Process the extends information for a job
-        :param basename:
-        :param baseobj:
-        :param newjob:
-        :return:
-        """
-        if newjob not in self._job_classes:
-            self._job_classes[newjob] = []
-        self._job_classes[newjob].append(basename)
-        return do_single_extends(basename, baseobj, newjob)
-
-    def do_validate(self, baseobj):
+    def do_validate(self) -> bool:
         """
         Validate the pipeline is defined legally
         :param baseobj:
         :return:
         """
-        return validate(baseobj)
+        return False
 
-    def do_variables(self, baseobj, yamlfile):
+    def set_predefined_default(self, name, default_value):
         """
-        Process the variables top level section
-        :param baseobj:
-        :param yamlfile:
-        :return:
-        """
-        return do_variables(baseobj, yamlfile)
-
-    def get_jobs(self):
-        """
-        Get the names of all jobs in the pipeline
-        :return:
-        """
-        return get_jobs(self.config)
-
-    def get_job(self, name):
-        """
-        Get a named job from the pipeline
+        Set a pre-defined pipeline variable
         :param name:
+        :param default_value:
         :return:
         """
-        return get_job(self.config, name)
+        self._predefined[name] = os.getenv(name, str(default_value))
 
-    def get_stages(self):
+    def set_variable(self, name, value):
         """
-        Get the list of stages
+        Set a pipeline defined variable
         :return:
         """
-        return get_stages(self.config)
+        assert value is not None
+        self._pipeline_defined[name] = str(value)
 
-    def _read(self, filename, baseobj=None, **kwargs):
-        relative_filename = "unknown"
-        if filename:
-            self._current_file = filename
-            # child triggered pipelines don't really have a file, so we should be parsing the real files here
-            if not self.included_files:
-                # first file
-                filename = os.path.abspath(filename)
-                self.rootdir = os.path.dirname(filename)
-                self.filename = os.path.basename(filename)
-                self._current_file = self.filename
+    def rule_test(self, rule: str, when: Optional[str] = None, predefined_only: Optional[bool] = False) -> bool:
+        """
+        Evaluate a rule against the pipeline variables
+        :param when:
+        :param rule:
+        :param predefined_only:
+        :return:
+        """
+        if when is None:
+            when = "always"
+        words = re.split(r"\s+", rule)
+        if len(words) > 2:
+            # glue the RHS back together
+            lhs, operator, rhs = words[0], words[1], " ".join(words[2:])
+            if self.test_expression(lhs, operator, rhs, predefined_only=predefined_only):
+                return when
 
-            relative_filename = self._current_file
-            self.included_files.append(relative_filename)
+    def expand_variable(self, text, predefined_only=False) -> str:
+        """
+        Expand a ${NAME} or $NAME variable
+        :param text:
+        :param predefined_only:
+        :return:
+        """
+        # search for ${NAME} variables
+        for patt in [CURLY_NAME, SIMPLE_NAME]:
+            found = patt.search(text)
+            if found:
+                # replace
+                varname = found.group(1)
+                value = self.get_variable(varname, default="", predefined_only=predefined_only)
+                text = text.replace(found.group(0), value)
+                break
 
-        if baseobj is None:
-            before = {}
-        else:
-            before = dict(baseobj)
+        return text
 
-        objdata = read(filename, **kwargs,
-                       baseobj=baseobj,
-                       handle_include=self.do_includes,
-                       handle_extends=self.do_extends,
-                       handle_validate=self.do_validate,
-                       handle_variables=self.do_variables,
-                       )
+    def test_expression(self, lhs, operator, rhs, predefined_only=False):
+        """
+        Evaluate a rule expression as True
+        """
+        rule_matched = False
+        lhs = self.expand_variable(lhs, predefined_only=predefined_only)
+        rhs = self.expand_variable(rhs, predefined_only=predefined_only)
+        if operator == "==":
+            rule_matched = lhs == rhs
+        if operator == "!=":
+            rule_matched = lhs != rhs
+        if operator == "=~":
+            rule_matched = re.search(rhs, lhs)
+        return rule_matched
 
-        new_keys = (x for x in objdata if x not in before)
-        new_keys = [x for x in new_keys if x not in RESERVED_TOP_KEYS]
-        self._job_sources[relative_filename] = new_keys
-
-        return objdata
-
-    def load(self, filename):
+    def load(self, filename: str, predefined: Optional[Dict[str, str]] = None):
         """
         Load a pipeline configuration from disk
-        :param filename:
+        :param filename: top level file to load
+        :param predefined: a dict of env vars set before the pipeline is started
         :return:
         """
         assert not self._done, "load() called more than once"
-        self.config = self._read(filename)
         self._done = True
+        if not predefined:
+            self.set_predefined_default("CI_PIPELINE_ID", 0)
+            self.set_predefined_default("CI_COMMIT_REF_SLUG", "offline-build")
+            self.set_predefined_default("CI_COMMIT_SHA", "00" * 20)
+            for name in os.environ:
+                if name.startswith("CI_"):
+                    self.set_predefined_default(name, os.environ[name])
+        else:
+            self._predefined = dict(predefined)
+        self.add_file(filename)
 
-    def get_job_bases(self, jobname):
+    def can_include(self, entry) -> Optional[str]:
         """
-        Get the extends values for a job.
-        :param jobname:
+        Process an `include` entry, if allowed, return the filename to include
+        :param entry:
         :return:
         """
-        return list(self._job_classes.get(jobname, []))
+        if entry:
+            if isinstance(entry, str):
+                return entry
+            if isinstance(entry, dict):
+                if "project" in entry:
+                    raise FeatureNotSupportedError("include: project: not yet supported")
+                rules = entry.get("rules", [])
+                if "local" not in entry:
+                    raise ConfigLoaderError("include rule has no local key")
+                if not rules:
+                    return entry["local"]
+                for rule in rules:
+                    if "if" not in rule:
+                        raise ConfigLoaderError("rule contains no if condition")
+                    if self.rule_test(rule["if"], predefined_only=True):
+                        return entry["local"]
 
-    def get_job_filename(self, jobname):
+    def add_file(self, filename, parent_filename: Optional[str] = None):
+        """
+        Include a file (depth first)
+        :param filename:
+        :param parent_filename: name of the file including this file
+        :return:
+        """
+        if filename:
+            if self.rootdir:
+                filename = os.path.join(self.rootdir, filename)
+            elif not self.rootdir:
+                self.rootdir = os.path.dirname(os.path.abspath(filename))
+
+            if filename in self.included_files:
+                if self.included_files[filename] is None:
+                    raise ConfigLoaderError(f"file {parent_filename} cannot include the top level CI file")
+                raise ConfigLoaderError(f"file {filename} was already included from {self.included_files[filename]}")
+            self.included_files[filename] = parent_filename
+            with open(filename, "r") as datafile:
+                data = yamlloader.ordered_load(datafile)
+            includes = data.get("include", [])
+            for item in includes:
+                nextfile = self.can_include(item)
+                self.add_file(nextfile, filename)
+
+            # what jobs are defined in this current file
+            file_jobs = [name for name in data.keys() if name not in RESERVED_TOP_KEYS]
+            for name in file_jobs:
+                if name in self._jobs:
+                    raise ConfigLoaderError(f"Job {name} is redefined in {filename}")
+                # create a job, everything that it extends should have been defined already
+                job = ConfigJob(self, name, extends=data.get[name].get("extends", []))
+                self._jobs[name] = job
+
+            assert True
+
+    def get_job_names(self) -> List[str]:
+        """
+        Get the list of jobs defined in the pipeline
+        :return:
+        """
+        return []
+
+    def get_job_filename(self, jobname: str) -> str:
         """
         Get the filename of for where the job is defined
         :param jobname:
@@ -545,31 +310,8 @@ class Loader(object):
                 break
         return jobfile
 
-    def get_overridden_keys(self, jobname):
-        """
-        Get the keys in a job that were not set in bases
-        """
-        bases = self.get_job_bases(jobname)
-        job = self.get_job(jobname)
-        merged_bases = dict()
-        overridden = {}
 
-        for base in bases:
-            basejob = self.get_job(base)
-            for name in basejob:
-                merged_bases[name] = basejob[name]
-
-        for key, value in job.items():
-            if key == "extends":
-                continue
-            basevalue = merged_bases.get(key, None)
-            if value != basevalue:
-                overridden[key] = value
-
-        return overridden
-
-
-def find_ci_config(path):
+def find_ci_config(path: str) -> Optional[str]:
     """
     Starting in path go upwards looking for a .gitlab-ci.yml file
     :param path:
