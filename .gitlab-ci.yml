@@ -2,6 +2,10 @@ include:
   - local: ci-includes/alpine-image.yml
   - local: ci-includes/subdir/jobs.yml
 
+variables:
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+
 stages:
 - build
 - test
@@ -18,9 +22,7 @@ emulator-linux-test:
     name: docker:stable-dind
     entrypoint: [""]
   stage: build
-  variables:
-    DOCKER_DRIVER: overlay2
-    DOCKER_TLS_CERTDIR: ""
+
   before_script:
     - nohup dockerd-entrypoint.sh 2>&1 &
   script:
@@ -31,7 +33,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest . --cov gitlabemu --cov-fail-under=77 --junit-xml=test-results.xml
+    - python3 -m pytest .
   artifacts:
     reports:
       junit:
@@ -45,7 +47,7 @@ emulator-apple-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest . --cov gitlabemu --cov-fail-under=57 --junit-xml=test-results.xml
+    - python3 -m pytest . --cov-config .coveragerc.apple
   artifacts:
     reports:
       junit:
@@ -54,7 +56,6 @@ emulator-apple-test:
 emulator-linux-run:
   variables:
     DOCKER_HOST: tcp://docker:2375/
-    DOCKER_DRIVER: overlay2
   services:
     - docker:dind
   stage: build
@@ -66,10 +67,10 @@ emulator-linux-run:
     - apk add py3-pip py3-yaml
     - pip install -e .
   script:
-    - locallab.py -c ../test-ci.yml --full linux-build-later
-    - locallab.py -c ../test-ci.yml linux-docker-job
+    - gle -c ../test-ci.yml --full linux-build-later
+    - gle -c ../test-ci.yml linux-docker-job
     - HERE=$(pwd)
-    - cd /tmp && locallab.py -c ${HERE}/../test-ci.yml linux-shell-job
+    - cd /tmp && gle -c ${HERE}/../test-ci.yml linux-shell-job
 
 emulator-windows-run:
   stage: build
@@ -93,7 +94,7 @@ emulator-windows-test:
     - c:\python38\python -m pip install -r test_requirements.txt
     - cd emulator
     - c:\python38\python -m pip install -e .
-    - c:\python38\python -m pytest . --cov gitlabemu
+    - c:\python38\python -m pytest . --cov-config .coveragerc.windows
 
 runner-python3-linux-test:
   image: python:3.7
@@ -104,7 +105,7 @@ runner-python3-linux-test:
     - cd runner
     - pip install -e .
     - gitlab-runner.py --help
-    - python -m pytest . --junit-xml=test-results.xml
+    - python -m pytest .
   artifacts:
     reports:
       junit:

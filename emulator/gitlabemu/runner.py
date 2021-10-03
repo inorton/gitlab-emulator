@@ -4,7 +4,9 @@ import os
 import argparse
 
 from . import configloader
-from .helpers import has_docker, is_linux, is_windows, restore_path_ownership, git_worktree
+from .docker import has_docker
+from .localfiles import restore_path_ownership
+from .helpers import is_linux, is_windows, git_worktree
 from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
