@@ -24,7 +24,7 @@ def test_run_userconfig(top_dir, envs, linux_docker, capfd):
     pipeline = os.path.join(top_dir, "emulator", "tests", "basic.yml")
 
     # create a temp dir that will be in our bound volume
-    tempdir = tempfile.mkdtemp()
+    tempdir = tempfile.mkdtemp(dir="/tmp")
     try:
         runner.run(["-c", pipeline, "vars-job"])
         stdout, stderr = capfd.readouterr()
