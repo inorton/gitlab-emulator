@@ -9,9 +9,12 @@ TOPDIR = os.path.dirname(os.path.dirname(HERE))
 
 
 def test_loading_ci():
+    """
+    Test loading the standard top level file
+    :return:
+    """
     loader = configloader.Loader()
     loader.load(os.path.join(TOPDIR, ".gitlab-ci.yml"))
-    assert loader.config
 
 
 def test_load_extends():
