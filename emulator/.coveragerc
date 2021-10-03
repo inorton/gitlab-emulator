@@ -2,6 +2,7 @@
 # .coveragerc to control coverage.py
 [run]
 branch = True
+source = gitlabemu
 
 [report]
 fail_under = 75

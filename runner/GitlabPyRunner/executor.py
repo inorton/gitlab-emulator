@@ -243,7 +243,7 @@ def run(runner, job, docker):
             # support 'file' variables
             if 'file' in var.keys() and var["file"]:
                 filevar = tempfile.NamedTemporaryFile(dir=tempdir, delete=False )
-                filevar.write( str.encode(var["value"]))
+                filevar.write(str.encode(var["value"]))
                 name = var["key"]
                 config["variables"][name] = filevar.name
                 filevar.close()

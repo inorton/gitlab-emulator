@@ -2,11 +2,14 @@
 # .coveragerc to control coverage.py
 [run]
 branch = True
+source = gitlabemu
 
 [report]
 fail_under = 70
 
 omit =
+    gitlabemu/docker.py
+    gitlabemu/dockersupport.py
     gitlabemu/gitlab/types.py
 
 # Regexes for lines to exclude from consideration
