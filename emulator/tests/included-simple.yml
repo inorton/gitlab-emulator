@@ -1,0 +1,4 @@
+.template-basic:
+  image: busybox:latest
+  after_script:
+    - echo template-basic after_script

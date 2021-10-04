@@ -2,6 +2,8 @@
 Load a .gitlab-ci.yml file
 """
 import os
+import copy
+from collections import OrderedDict
 from typing import Dict
 
 import yaml
@@ -184,50 +186,51 @@ def validate(config):
                     raise ConfigLoaderError("artifacts->reports must be a map")
 
 
-def do_single_extends(basename: str, baseobj: dict, job: str) -> Dict[str, dict]:
-    baseclass = baseobj.get(basename, None)
-    if baseclass is None:
-        raise BadSyntaxError("job {} extends {} which cannot be found".format(job, basename))
-    copy = dict(baseobj[job])
-    newbase = dict(baseclass)
-    for item in copy:
-        newbase[item] = copy[item]
-    baseobj[job] = newbase
-    return dict(newbase)
-
-
-def do_extends(baseobj: dict, handle_extend=do_single_extends):
+def do_extends(alljobs: dict):
     """
-    Process extends directives
-    :param handle_extend:
-    :param baseobj:
+    Process all the extends directives recursively
     :return:
     """
-    default_image = baseobj.get("image", None)
-    default_job = baseobj.get("default", None)
-    default_services = baseobj.get("services", None)
+    default_image = alljobs.get("image", None)
+    default_job = alljobs.get("default", None)
+    default_services = alljobs.get("services", None)
 
     if not default_job:
-        baseobj["default"] = {}
+        alljobs["default"] = {}
         if default_image:
-            baseobj["image"] = default_image
-            del baseobj["image"]
+            alljobs["image"] = default_image
+            del alljobs["image"]
         if default_services:
-            baseobj["services"] = default_services
-            del baseobj["services"]
+            alljobs["services"] = default_services
+            del alljobs["services"]
 
-    for job in baseobj:
-        if job == "default":
-            continue
-        if isinstance(baseobj[job], dict):
-            extends = baseobj[job].get("extends", "default")
-            if extends is not None:
-                if type(extends) == str:
-                    bases = [extends]
-                else:
-                    bases = extends
-                for basename in bases:
-                    handle_extend(basename, baseobj, job)
+    jobnames = [x for x in alljobs.keys() if x not in RESERVED_TOP_KEYS]
+    resolved = set()
+    resolved.add("default")
+
+    while len(resolved) < 1 + len(jobnames):
+        for name in jobnames:
+            if name not in resolved:
+                if isinstance(alljobs[name], dict):
+                    extends = alljobs[name].get("extends", ["default"])
+                    if type(extends) == str:
+                        bases = [extends]
+                    else:
+                        bases = extends
+
+                    unresolved = [base for base in bases if base not in resolved]
+                    if unresolved:
+                        # still need to resolve one of the bases, come back later..
+                        continue
+
+                    # do the extends work
+                    new_obj = OrderedDict()
+                    for base in bases + [name]:
+                        baseobj = copy.deepcopy(alljobs[base])
+                        for item in baseobj:
+                            new_obj[item] = baseobj[item]
+                    alljobs[name] = new_obj
+                    resolved.add(name)
 
 
 def get_stages(config):
@@ -425,20 +428,7 @@ class Loader(object):
         :param baseobj:
         :return:
         """
-        return do_extends(baseobj, handle_extend=self.do_single_extends)
-
-    def do_single_extends(self, basename, baseobj, newjob):
-        """
-        Process the extends information for a job
-        :param basename:
-        :param baseobj:
-        :param newjob:
-        :return:
-        """
-        if newjob not in self._job_classes:
-            self._job_classes[newjob] = []
-        self._job_classes[newjob].append(basename)
-        return do_single_extends(basename, baseobj, newjob)
+        return do_extends(baseobj)
 
     def do_validate(self, baseobj):
         """
@@ -523,14 +513,6 @@ class Loader(object):
         self.config = self._read(filename)
         self._done = True
 
-    def get_job_bases(self, jobname):
-        """
-        Get the extends values for a job.
-        :param jobname:
-        :return:
-        """
-        return list(self._job_classes.get(jobname, []))
-
     def get_job_filename(self, jobname):
         """
         Get the filename of for where the job is defined
@@ -544,30 +526,6 @@ class Loader(object):
                 jobfile = filename.replace("\\", "/")
                 break
         return jobfile
-
-    def get_overridden_keys(self, jobname):
-        """
-        Get the keys in a job that were not set in bases
-        """
-        bases = self.get_job_bases(jobname)
-        job = self.get_job(jobname)
-        merged_bases = dict()
-        overridden = {}
-
-        for base in bases:
-            basejob = self.get_job(base)
-            for name in basejob:
-                merged_bases[name] = basejob[name]
-
-        for key, value in job.items():
-            if key == "extends":
-                continue
-            basevalue = merged_bases.get(key, None)
-            if value != basevalue:
-                overridden[key] = value
-
-        return overridden
-
 
 def find_ci_config(path):
     """
