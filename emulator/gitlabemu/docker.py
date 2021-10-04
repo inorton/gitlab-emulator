@@ -186,7 +186,10 @@ class DockerJob(Job):
         super(DockerJob, self).load(name, config)
         all_images = config.get("image", None)
         self.image = config[name].get("image", all_images)
-        self.configure_job_variable("CI_JOB_IMAGE", self.image)
+        image_source = self.image
+        if isinstance(self.image, dict):
+            image_source = self.image.get("name")
+        self.configure_job_variable("CI_JOB_IMAGE", image_source)
         self.services = get_services(config, name)
 
     def abort(self):
@@ -478,7 +481,8 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
                 assert ":" in service["name"]
                 image = service["name"]
                 name = service["name"].split(":", 1)[0]
-                aliases = [name]
+                aliases = []
+                aliases.append(name.replace("/", "-")) 
                 job.stdout.write(f"create docker service : {name}\n")
                 if "alias" in service:
                     aliases.append(service["alias"])
