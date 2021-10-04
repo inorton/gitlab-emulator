@@ -27,16 +27,16 @@ emulator-linux-test:
     - nohup dockerd-entrypoint.sh 2>&1 &
   script:
     - apk add py3-pip py3-yaml git
-    - python3 -m venv venv
-    - . venv/bin/activate
+    - python3 -m venv /tmp/venv
+    - . /tmp/venv/bin/activate
     - ps -ef
     - sleep 5
     - docker info
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest .
-    - python3 -m build
+    - python -m pytest .
+    - python -m build
   artifacts:
     reports:
       junit:
@@ -69,6 +69,8 @@ emulator-linux-run:
     - cd emulator
     - apk add python3
     - apk add py3-pip py3-yaml
+    - python3 -m venv /tmp/venv
+    - . /tmp/venv/bin/activate
     - pip install -e .
   script:
     - gle -c ../test-ci.yml --full linux-build-later
@@ -107,8 +109,8 @@ runner-python3-linux-test:
     - pip install -r test_requirements.txt
     - pip install -e emulator
     - cd runner
-    - python3 -m venv venv
-    - . venv/bin/activate
+    - python3 -m venv /tmp/venv
+    - . /tmp/venv/bin/activate
     - pip install -e .
     - gitlab-runner.py --help
     - python3 -m pytest .
