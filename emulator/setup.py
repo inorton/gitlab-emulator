@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.8.2"
+VERSION = "0.8.3"
 
 setup(
     name="gitlab-emulator",
@@ -9,7 +9,10 @@ setup(
     author="Ian Norton",
     author_email="inorton@gmail.com",
     url="https://gitlab.com/cunity/gitlab-emulator",
-    packages=["gitlabemu"],
+    packages=[
+        "gitlabemu",
+        "gitlabemu.gitlab",
+    ],
     scripts=["locallab.py"],
     install_requires=[
         "pyyaml>=3.13",
