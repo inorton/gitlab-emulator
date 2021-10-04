@@ -3,5 +3,5 @@
 set -e
 
 rm -rf dist
-python setup.py sdist
-twine upload dist/*.tar.gz
+python setup.py bdist_wheel
+twine upload dist/*.whl
