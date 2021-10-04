@@ -27,6 +27,8 @@ emulator-linux-test:
     - nohup dockerd-entrypoint.sh 2>&1 &
   script:
     - apk add py3-pip py3-yaml git
+    - python3 -m venv venv
+    - . venv/bin/activate
     - ps -ef
     - sleep 5
     - docker info
@@ -105,6 +107,8 @@ runner-python3-linux-test:
     - pip install -r test_requirements.txt
     - pip install -e emulator
     - cd runner
+    - python3 -m venv venv
+    - . venv/bin/activate
     - pip install -e .
     - gitlab-runner.py --help
     - python3 -m pytest .
