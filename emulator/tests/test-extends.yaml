@@ -1,3 +1,6 @@
+include:
+  - local: included-simple.yml
+
 .base1:
   image: base1:image
 
@@ -44,3 +47,4 @@ top:
 last:
   extends:
     - top
+    - .template-basic
