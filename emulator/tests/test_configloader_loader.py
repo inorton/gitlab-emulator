@@ -29,10 +29,3 @@ def test_load_callbacks(top_dir):
     assert loader.get_job_filename("check-alpine") == "ci-includes/subdir/jobs.yml"
     assert loader.get_job_filename(".alpine-image") == "ci-includes/alpine-image.yml"
     assert loader.get_job_filename(".fail-job") == ".gitlab-ci.yml"
-
-    assert loader.get_job_bases("check-alpine") == [".alpine-image"]
-
-    overrides = loader.get_overridden_keys("check-alpine")
-    assert "script" in overrides
-    assert overrides["script"] == ["env|sort|grep PATH"]
-    assert True

@@ -25,3 +25,17 @@ def test_load_extends():
     job2 = loader.get_job("job2")
     assert "image" not in job2
     assert job2["before_script"][0] == "base2"
+
+    top = loader.get_job("top")
+
+    assert top["image"] == "baseimage:image"
+    assert top["before_script"][0] == "middle before_script"
+    assert top["script"][0] == "top script"
+
+    last = loader.get_job("last")
+
+    assert last["image"] == "busybox:latest"
+    assert last["after_script"] == ["echo template-basic after_script"]
+    assert last["before_script"] == top["before_script"]
+    assert last["script"] == top["script"]
+
