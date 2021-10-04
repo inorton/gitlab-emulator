@@ -481,7 +481,8 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
                 assert ":" in service["name"]
                 image = service["name"]
                 name = service["name"].split(":", 1)[0]
-                aliases = [name]
+                aliases = []
+                aliases.append(name.replace("/", "-")) 
                 job.stdout.write(f"create docker service : {name}\n")
                 if "alias" in service:
                     aliases.append(service["alias"])
