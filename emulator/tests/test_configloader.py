@@ -35,7 +35,7 @@ def test_load_extends():
     last = loader.get_job("last")
 
     assert last["image"] == "busybox:latest"
-    assert last["after_script"] == "echo template-basic after_script"
+    assert last["after_script"] == ["echo template-basic after_script"]
     assert last["before_script"] == top["before_script"]
     assert last["script"] == top["script"]
 
