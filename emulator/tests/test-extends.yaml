@@ -12,3 +12,35 @@ job1:
 
 job2:
   extends: .base2
+
+baseimage:
+  image: baseimage:image
+  variables:
+    BASE: baseimage
+
+basebefore:
+  before_script:
+    - basebefore before_script
+  script:
+    - basebefore script
+
+middle:
+  extends:
+    - basebefore
+    - baseimage
+  before_script:
+    - middle before_script
+
+top:
+  extends:
+    - middle
+  # should set BASE=baseimage
+  # should inherit middle: before_script
+  # should inherit baseimage: image
+  script:
+    # should override basebefore: script
+    - top script
+
+last:
+  extends:
+    - top
