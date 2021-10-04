@@ -34,10 +34,12 @@ emulator-linux-test:
     - cd emulator
     - pip install -e .
     - python3 -m pytest .
+    - python3 -m build
   artifacts:
     reports:
       junit:
         - emulator/test-results.xml
+        - emulator/*.whl
 
 emulator-apple-test:
   tags: [ shared-macos-amd64 ]
@@ -105,11 +107,13 @@ runner-python3-linux-test:
     - cd runner
     - pip install -e .
     - gitlab-runner.py --help
-    - python -m pytest .
+    - python3 -m pytest .
+    - python3 -m build
   artifacts:
     reports:
       junit:
         - runner/test-results.xml
+        - runner/dist/*.whl
 
 runner-child-generator:
   stage: build
