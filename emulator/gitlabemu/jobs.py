@@ -58,6 +58,10 @@ class Job(object):
         self.monitor_thread = None
         self.exit_monitor = False
 
+    def interactive_mode(self):
+        """Return True if in interactive mode"""
+        return self.enter_shell or self.before_script_enter_shell
+
     def __str__(self):
         return "job {}".format(self.name)
 
@@ -174,7 +178,6 @@ class Job(object):
             return os.path.exists("/bin/bash")
         return False
 
-
     def get_envs(self):
         """
         Get environment variable dict for the job
@@ -255,15 +258,16 @@ class Job(object):
         :return:
         """
         self.started_time = time.time()
-        self.monitor_thread = threading.Thread(target=self.monitor_thread_loop, daemon=True)
-        try:
-            if self.timeout_seconds:
-                self.monitor_thread.start()
-        except RuntimeError as err:
-            info("could not create a monitor thread, job timeouts may not work: {}".format(err))
-            self.monitor_thread = None
+        self.monitor_thread = None
 
-        if self.timeout_seconds:
+        if self.timeout_seconds and not self.interactive_mode():
+            self.monitor_thread = threading.Thread(target=self.monitor_thread_loop, daemon=True)
+            try:
+                self.monitor_thread.start()
+            except RuntimeError as err:
+                info("could not create a monitor thread, job timeouts may not work: {}".format(err))
+                self.monitor_thread = None
+
             info("job {} timeout set to {} mins".format(self.name, int(self.timeout_seconds/60)))
             if not self.monitor_thread:
                 def alarm_handler(x, y):
