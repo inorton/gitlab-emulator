@@ -138,6 +138,10 @@ def is_linux():
     return platform.system() == "Linux"
 
 
+def is_apple():
+    return platform.system() == "Darwin"
+
+
 def parse_timeout(text):
     """
     Decode a human readable time to seconds.

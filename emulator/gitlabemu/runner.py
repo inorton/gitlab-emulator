@@ -6,7 +6,7 @@ import argparse
 from . import configloader
 from .docker import has_docker
 from .localfiles import restore_path_ownership
-from .helpers import is_linux, is_windows, git_worktree
+from .helpers import is_apple, is_linux, is_windows, git_worktree
 from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
@@ -203,8 +203,9 @@ def run(args=None):
             execute_job(loader.config, jobname, seen=executed_jobs, recurse=options.FULL)
         finally:
             if has_docker() and fix_ownership:
-                if is_linux():
-                    print("Fixing up local file ownerships..")
-                    restore_path_ownership(os.getcwd())
-                    print("finished")
+                if is_linux() or is_apple():
+                    if os.getuid() > 0:
+                        print("Fixing up local file ownerships..")
+                        restore_path_ownership(os.getcwd())
+                        print("finished")
         print("Build complete!")

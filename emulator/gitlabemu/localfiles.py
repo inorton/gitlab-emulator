@@ -15,14 +15,12 @@ def restore_path_ownership(path):
             dt.name = f"gitlabemu-chowner-{os.getpid()}"
             dt.image = "python:3.8-slim"
             dt.add_volume(path, path)
-            dt.add_env("CHOWN", str(os.getuid()))
-            dt.add_env("CHGRP", str(os.getgid()))
             dt.entrypoint = ["/bin/sh"]
             dt.pull()
             dt.run()
             try:
                 dt.add_file(chowner, "/tmp")
-                dt.check_call(path, ["python", "/tmp/chown.py"])
+                dt.check_call(path, ["python", "/tmp/chown.py", str(os.getuid()), str(os.getgid())])
             finally:
                 dt.kill()
 
