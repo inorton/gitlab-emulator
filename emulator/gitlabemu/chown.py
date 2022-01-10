@@ -14,7 +14,7 @@ def run():
     # run find and get it to do all the heavy work
     started = time.time()
     # find files here not owned by the given user and group
-    cmdline = ["find", ".", "!", "-user", str(opts.UID), "-a", "-group", str(opts.GID)]
+    cmdline = ["find", ".", "!", "-user", str(opts.UID), "-a", "!", "-group", str(opts.GID)]
     # and chown them
     cmdline.extend(["-exec", "chown", f"{str(opts.UID)}.{str(opts.GID)}", '{}', ';'])
     print(f"Restoring ownership of {os.getcwd()} to {str(opts.UID)}.{str(opts.GID)}..")
