@@ -207,7 +207,7 @@ def do_extends(alljobs: dict):
     resolved = set()
     resolved.add("default")
 
-    while len(resolved) < 1 + len(jobnames):
+    while len(resolved) < len(jobnames):
         for name in jobnames:
             if name not in resolved:
                 if isinstance(alljobs[name], dict):
