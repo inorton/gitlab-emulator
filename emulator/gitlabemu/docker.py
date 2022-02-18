@@ -34,12 +34,11 @@ class DockerTool(object):
         self.entrypoint = None
         self.pulled = None
         self.network = None
-        server = os.getenv("DOCKER_HOST", server)
         errors = 0
         from docker.errors import DockerException
         while True:
             try:
-                self.client = docker.DockerClient(base_url=server)
+                self.client = docker.from_env()
                 return
             except DockerException as err:
                 errors += 1
