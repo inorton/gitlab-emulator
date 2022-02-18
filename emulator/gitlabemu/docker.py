@@ -9,8 +9,6 @@ import tarfile
 from contextlib import contextmanager
 from typing import Dict, Optional
 
-from docker.errors import DockerException
-
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 from .helpers import communicate as comm, is_windows
@@ -38,6 +36,7 @@ class DockerTool(object):
         self.network = None
         server = os.getenv("DOCKER_HOST", server)
         errors = 0
+        from docker.errors import DockerException
         while True:
             try:
                 self.client = docker.DockerClient(base_url=server)
