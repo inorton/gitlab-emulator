@@ -1,0 +1,8 @@
+job1:
+  script:
+    - echo hello
+
+job2:
+  extends:
+    - job1
+    - thing

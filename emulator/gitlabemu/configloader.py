@@ -4,7 +4,6 @@ Load a .gitlab-ci.yml file
 import os
 import copy
 from collections import OrderedDict
-from typing import Dict
 
 import yaml
 
@@ -204,11 +203,11 @@ def do_extends(alljobs: dict):
             alljobs["services"] = default_services
             del alljobs["services"]
 
-    jobnames = [x for x in alljobs.keys() if x not in RESERVED_TOP_KEYS]
+    jobnames = [x for x in alljobs.keys() if x not in RESERVED_TOP_KEYS] + ["default"]
     resolved = set()
     resolved.add("default")
 
-    while len(resolved) < 1 + len(jobnames):
+    while len(resolved) < len(jobnames):
         for name in jobnames:
             if name not in resolved:
                 if isinstance(alljobs[name], dict):
@@ -218,7 +217,11 @@ def do_extends(alljobs: dict):
                     else:
                         bases = extends
 
-                    unresolved = [base for base in bases if base not in resolved]
+                    for basename in bases:
+                        if basename not in jobnames:
+                            raise BadSyntaxError("Job '{}' extends '{}' which does not exist".format(name, basename))
+
+                    unresolved = set([base for base in bases if base not in resolved])
                     if unresolved:
                         # still need to resolve one of the bases, come back later..
                         continue
