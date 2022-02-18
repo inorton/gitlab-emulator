@@ -294,12 +294,16 @@ class DockerJob(Job):
                 if try_bash:
                     cmdline = ["bash"]
 
-        # set a prompt
+        
         if not is_windows():
+            # set a prompt
             image_base = self.docker.image
             if "/" in image_base:
                 image_base = image_base.split("/")[-1].split("@")[0]
             self.docker.add_env("PS1", f"{cmdline} `whoami`@{image_base}:$PWD $ ")
+        else:
+            # make interactive shells work on windows
+            uid = ""
 
         print("Running interactive-shell..", flush=True)
         try:
