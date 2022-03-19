@@ -56,6 +56,10 @@ def linux_docker():
 @pytest.fixture()
 def envs():
     envs = dict(os.environ)
+    # strip out CI_ env vars
+    for name in envs:
+        if name.startswith("CI_"):
+            del os.environ[name]
     yield
     for item in envs:
         os.environ[item] = envs[item]
