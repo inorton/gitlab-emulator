@@ -4,7 +4,7 @@ Test that the timeout keyword works
 import time
 
 import pytest
-from gitlabemu import runner, helpers
+from .. import runner, helpers
 
 
 def test_timeout_set_but_ample(caplog, posix_only, in_tests):

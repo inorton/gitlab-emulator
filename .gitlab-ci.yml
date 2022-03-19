@@ -38,10 +38,12 @@ emulator-linux-test:
     - python -m pytest .
     - python -m build
   artifacts:
+    when: always
     reports:
       junit:
         - emulator/test-results.xml
-        - emulator/*.whl
+    paths:
+      - emulator/*.whl
 
 emulator-apple-test:
   tags: [ shared-macos-amd64 ]

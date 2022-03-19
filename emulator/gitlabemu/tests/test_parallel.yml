@@ -1,0 +1,11 @@
+normaljob:
+  image: alpine:3.14
+  script:
+    - env|grep CI_|sort
+
+jobname:
+  parallel: 2
+  extends:
+    - normaljob
+
+

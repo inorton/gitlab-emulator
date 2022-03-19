@@ -4,7 +4,7 @@ Test tollerance of binary data in stdout and stderr from builds
 import os
 import sys
 
-from gitlabemu import runner
+from .. import runner
 
 
 HERE = os.path.dirname(__file__)

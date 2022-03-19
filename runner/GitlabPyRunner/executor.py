@@ -194,6 +194,10 @@ def run(runner, job, docker):
     """
     from gitlabemu import logmsg, configloader, errors
 
+    configloader.UNSUPPORTED_KEYWORDS.clear()
+    configloader.UNSUPPORTED_KEYWORDS.extend(configloader.DEFAULT_UNSUPPORTED_KEYWORDS)
+    configloader.UNSUPPORTED_KEYWORDS.append("parallel")
+
     trace = TraceProxy(runner, job)
 
     logmsg.FATAL_EXIT = False

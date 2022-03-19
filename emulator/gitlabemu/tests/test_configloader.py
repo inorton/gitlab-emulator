@@ -4,10 +4,10 @@ Test the configloader
 import os
 
 import pytest
-from gitlabemu import configloader
+from .. import configloader
 
 HERE = os.path.dirname(__file__)
-TOPDIR = os.path.dirname(os.path.dirname(HERE))
+TOPDIR = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
 
 def test_loading_ci():
