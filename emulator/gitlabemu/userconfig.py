@@ -13,7 +13,7 @@ def reset_user_config():
     _userconfig.clear()
 
 
-def load_user_config() -> str:
+def load_user_config() -> dict:
     """
     Load user configuration
     :return:
