@@ -53,7 +53,7 @@ def linux_docker():
         pytest.skip("could not run docker info " + str(err))
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def envs():
     envs = dict(os.environ)
     # strip out CI_ env vars

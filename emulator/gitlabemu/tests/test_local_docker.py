@@ -108,7 +108,7 @@ def test_services(linux_docker, capsys):
     assert "Welcome to nginx!" in out
 
 
-def test_additional_volumes(linux_docker, capsys, envs):
+def test_additional_volumes(linux_docker, capsys):
     """
     Test GLE_DOCKER_VOLUMES
     :param linux_docker:
@@ -154,7 +154,7 @@ def test_additional_volumes(linux_docker, capsys, envs):
         shutil.rmtree(tmpdir2)
 
 
-def test_git_worktree(linux_docker, envs, top_dir):
+def test_git_worktree(linux_docker, top_dir):
     """
     Test support for repos that use "git worktree"
     :param linux_docker:
