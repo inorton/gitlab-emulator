@@ -1,10 +1,10 @@
 import pytest
 import os
 
-from gitlabemu import runner
+from .. import runner
 
 
-def test_run_needs_stages(in_tests, envs, capsys):
+def test_run_needs_stages(in_tests, capsys):
     runner.run(["--config", "needs-stages.yml", "--full", "finish"])
     stdout, stderr = capsys.readouterr()
     assert "the-start" in stdout
@@ -13,7 +13,7 @@ def test_run_needs_stages(in_tests, envs, capsys):
     assert "Build complete!" in stdout
 
 
-def test_run_needs_no_stages(in_tests, envs, capsys):
+def test_run_needs_no_stages(in_tests, capsys):
     # job creates a "stageless-start" folder to ensure start1 only gets
     # run once,
     if os.path.exists("stageless-start"):
@@ -33,7 +33,7 @@ def test_run_needs_no_stages(in_tests, envs, capsys):
     assert "Build complete!" in stdout
 
 
-def test_illegal_needs_early(in_tests, capsys, envs):
+def test_illegal_needs_early(in_tests, capsys):
     cfgfile = os.path.join(in_tests, "settings", "gitlab-14.1.yml")
     with pytest.raises(SystemExit):
         runner.run([
@@ -46,7 +46,7 @@ def test_illegal_needs_early(in_tests, capsys, envs):
     assert "job job1 needs job2 that is not in an earlier stage" in stderr
 
 
-def test_illegal_needs_same(in_tests, capsys, envs):
+def test_illegal_needs_same(in_tests, capsys):
     cfgfile = os.path.join(in_tests, "settings", "gitlab-14.1.yml")
     with pytest.raises(SystemExit):
         runner.run([

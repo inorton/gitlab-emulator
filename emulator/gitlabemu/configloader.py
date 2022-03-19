@@ -16,6 +16,9 @@ from .userconfig import load_user_config, get_user_config_value
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
+DEFAULT_UNSUPPORTED_KEYWORDS = []
+UNSUPPORTED_KEYWORDS = list(DEFAULT_UNSUPPORTED_KEYWORDS)
+
 
 class ConfigLoaderError(GitlabEmulatorError):
     """
@@ -57,7 +60,7 @@ def check_unsupported(config):
         # if this is a dict, it is probably a job
         child = config[childname]
         if isinstance(child, dict):
-            for bad in ["parallel"]:
+            for bad in UNSUPPORTED_KEYWORDS:
                 if bad in config[childname]:
                     raise FeatureNotSupportedError(bad)
 

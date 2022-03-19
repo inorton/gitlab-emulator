@@ -10,13 +10,13 @@ import pytest
 import uuid
 import os
 
-from gitlabemu.helpers import ProcessLineProxyThread
-from gitlabemu.runner import run
-from gitlabemu.errors import DockerExecError
-from gitlabemu.docker import DockerJob
+from ..helpers import ProcessLineProxyThread
+from ..runner import run
+from ..errors import DockerExecError
+from ..docker import DockerJob
 
-TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-TEST_DIR = os.path.join(TOPDIR, "emulator", "tests")
+TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+TEST_DIR = os.path.join(TOPDIR, "emulator", "gitlabemu", "tests")
 
 
 def test_variables_var(linux_docker, capsys):
@@ -108,7 +108,7 @@ def test_services(linux_docker, capsys):
     assert "Welcome to nginx!" in out
 
 
-def test_additional_volumes(linux_docker, capsys, envs):
+def test_additional_volumes(linux_docker, capsys):
     """
     Test GLE_DOCKER_VOLUMES
     :param linux_docker:
@@ -154,7 +154,7 @@ def test_additional_volumes(linux_docker, capsys, envs):
         shutil.rmtree(tmpdir2)
 
 
-def test_git_worktree(linux_docker, envs):
+def test_git_worktree(linux_docker, top_dir):
     """
     Test support for repos that use "git worktree"
     :param linux_docker:
@@ -168,7 +168,7 @@ def test_git_worktree(linux_docker, envs):
     try:
         # clone ourself
         subprocess.check_output(["git", "clone",
-                                 os.path.dirname(os.path.dirname(workdir)),
+                                 top_dir,
                                  tmpdir1], cwd=workdir)
         # make a worktree
         subprocess.check_output(["git", "worktree", "add", tmpdir2], cwd=tmpdir1)

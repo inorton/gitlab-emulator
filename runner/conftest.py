@@ -8,6 +8,16 @@ from GitlabPyRunner.runner import Runner
 GITLAB = "https://gitlab.com"
 
 
+def clean_envs():
+    """Strip out gitlab env vars to keep tests clean"""
+    for name in os.environ.keys():
+        if name.startswith("CI_"):
+            del os.environ[name]
+
+
+clean_envs()
+
+
 @pytest.fixture()
 def random_runner():
     instance = register_runner()

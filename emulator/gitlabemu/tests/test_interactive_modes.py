@@ -6,10 +6,10 @@ import sys
 
 import pytest
 
-from gitlabemu import runner
+from .. import runner
 
 HERE = os.path.dirname(__file__)
-TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(HERE)))
+TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(HERE))))
 TOPCFG = os.path.join(TOPDIR, ".gitlab-ci.yml")
 
 
