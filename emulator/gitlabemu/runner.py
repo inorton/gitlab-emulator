@@ -49,9 +49,17 @@ parser.add_argument("--var", dest="var", type=str, default=[], action="append",
 parser.add_argument("--revar", dest="revars", metavar="REGEX", type=str, default=[], action="append",
                     help="Set pipeline variables that match the given regex")
 
+parser.add_argument("--parallel", type=str,
+                    help="Run JOB as one part of a parallel axis (eg 2/4 runs job 2 in a 4 parallel matrix)")
+
 parser.add_argument("JOB", type=str, default=None,
                     nargs="?",
                     help="Run this named job")
+
+def die(msg):
+    """print an error and exit"""
+    print("error: " + str(msg), file=sys.stderr)
+    sys.exit(1)
 
 
 def apply_user_config(loader: configloader.Loader, cfg: dict, is_docker: bool):
@@ -103,8 +111,7 @@ def run(args=None):
 
     if options.chdir:
         if not os.path.exists(options.chdir):
-            print(f"Cannot change to {options.chdir}, no such directory", file=sys.stderr)
-            sys.exit(1)
+            die(f"Cannot change to {options.chdir}, no such directory")
         os.chdir(options.chdir)
 
     if not os.path.exists(yamlfile):
@@ -113,7 +120,7 @@ def run(args=None):
         if find:
             topdir = os.path.abspath(os.path.dirname(find))
             print(f"Found config: {find}", file=sys.stderr)
-            print(f"Please re-run from {topdir}", file=sys.stderr)
+            die(f"Please re-run from {topdir}")
         sys.exit(1)
 
     if options.USER_SETTINGS:
@@ -126,10 +133,12 @@ def run(args=None):
         os.chdir(rootdir)
         loader.load(fullpath)
     except configloader.ConfigLoaderError as err:
-        print("Config error: " + str(err), file=sys.stderr)
-        sys.exit()
+        die("Config error: " + str(err))
 
     hide_dot_jobs = not options.hidden
+
+    if options.FULL and options.parallel:
+        die("--full and --parallel cannot be used together")
 
     if options.LIST:
         for jobname in sorted(loader.get_jobs()):
@@ -142,8 +151,24 @@ def run(args=None):
     else:
         jobs = sorted(loader.get_jobs())
         if jobname not in jobs:
-            print(f"No such job {jobname}", file=sys.stderr)
-            sys.exit(1)
+            die(f"No such job {jobname}")
+
+        if options.parallel:
+            if loader.config[jobname].get("parallel", None) is None:
+                die(f"Job {jobname} is not a parallel enabled job")
+
+            pindex, ptotal = options.parallel.split("/", 1)
+            pindex = int(pindex)
+            ptotal = int(ptotal)
+            if pindex < 1:
+                die("CI_NODE_INDEX must be > 0")
+            if ptotal < 1:
+                die("CI_NODE_TOTAL must be > 1")
+            if pindex > ptotal:
+                die("CI_NODE_INDEX must be <= CI_NODE_TOTAL, (got {}/{})".format(pindex, ptotal))
+
+            loader.config[".gitlabemu-parallel-index"] = pindex
+            loader.config[".gitlabemu-parallel-total"] = ptotal
 
         fix_ownership = has_docker()
         if options.no_docker:

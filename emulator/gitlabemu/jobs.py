@@ -122,7 +122,20 @@ class Job(object):
             self.timeout_seconds = parse_timeout(config[self.name].get("timeout"))
 
         self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
-        self.configure_job_variable("CI_JOB_NAME", self.name)
+
+        jobname = self.name
+        parallel = config[self.name].get("parallel", None)
+        if parallel is not None:
+            pindex = config.get(".gitlabemu-parallel-index", 1)
+            ptotal = config.get(".gitlabemu-parallel-total", 1)
+            # set 1 parallel job
+            jobname += " {}/{}".format(pindex, ptotal)
+            self.configure_job_variable("CI_NODE_INDEX", str(pindex))
+            self.configure_job_variable("CI_NODE_TOTAL", str(ptotal))
+
+        self.configure_job_variable("CI_JOB_NAME", jobname)
+
+
         self.configure_job_variable("CI_JOB_STAGE", self.stage)
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
         self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
