@@ -2,7 +2,7 @@
 Test the object based loader interface
 """
 import os
-from gitlabemu import configloader
+from .. import configloader
 
 HERE = os.path.dirname(__file__)
 

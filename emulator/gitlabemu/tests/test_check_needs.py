@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from gitlabemu import runner
+from .. import runner
 
 
 def test_run_needs_stages(in_tests, envs, capsys):

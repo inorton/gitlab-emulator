@@ -3,11 +3,11 @@ import pytest
 import subprocess
 import platform
 import sys
-from gitlabemu.userconfig import reset_user_config
+
+from ..userconfig import reset_user_config
 
 TESTS_DIR = os.path.abspath(os.path.dirname(__file__))
-EMULATOR_DIR = os.path.dirname(TESTS_DIR)
-sys.path.insert(0, EMULATOR_DIR)
+EMULATOR_DIR = os.path.dirname(os.path.dirname(TESTS_DIR))
 
 
 @pytest.fixture(scope="session")
