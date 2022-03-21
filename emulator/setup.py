@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 
 setup(
     name="gitlab-emulator",
@@ -19,7 +19,8 @@ setup(
         "docker>=5.0.2; platform_system=='Linux'",
         "docker>=5.0.2; platform_system=='Darwin'",
         "docker>=5.0.2; platform_system=='Windows'",
-        "python-gitlab>=3.2.0"
+        "python-gitlab>=3.2.0; python_version>='3.7'",
+        "python-gitlab==2.10.1; python_version<='3.6'",
     ],
     platforms=["any"],
     license="License :: OSI Approved :: MIT License",
