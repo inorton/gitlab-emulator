@@ -2,7 +2,6 @@ import zipfile
 from typing import List
 
 from .. import stream_response
-from ..runner import die
 from ..userconfig import get_user_config_value
 
 try:
@@ -12,24 +11,30 @@ except ImportError:
     gitlab = None
 
 
+class GitlabSupportError(Exception):
+    """Error with gitlab client support"""
+    def __init__(self, msg):
+        self.msg = msg
+
+
 def gitlab_api(cfg: dict, alias: str, secure=True) -> "Gitlab":
     """Create a Gitlab API client"""
     if not gitlab:
-        die("Gitlab support not available on this python")
+        raise GitlabSupportError("Gitlab support not available on this python")
     servers = get_user_config_value(cfg, "gitlab", name="servers", default=[])
     for item in servers:
         if item.get("name") == alias:
             server = item.get("server")
             token = item.get("token")
             if not server:
-                die(f"no server address for alias {alias}")
+                raise GitlabSupportError(f"no server address for alias {alias}")
             if not token:
-                die(f"no api-token for alias {alias} ({server})")
+                raise GitlabSupportError(f"no api-token for alias {alias} ({server})")
             client = Gitlab(url=server, private_token=token, ssl_verify=secure)
 
             return client
 
-    die(f"Cannot find local configuration for server {alias}")
+    raise GitlabSupportError(f"Cannot find local configuration for server {alias}")
 
 
 def gitlab_download_artifacts(cfg, pipeline_str: str, jobnames: List[str], insecure=False):

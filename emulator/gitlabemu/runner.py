@@ -5,7 +5,7 @@ import argparse
 
 from . import configloader
 from .docker import has_docker
-from .gitlab.client import gitlab_download_artifacts
+from .gitlab.client import gitlab_download_artifacts, GitlabSupportError
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree
 from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
@@ -218,8 +218,11 @@ def run(args=None):
                 loader.config["variables"][name] = value
 
         if options.FROM:
-            jobobj = configloader.load_job(loader.config, jobname)
-            gitlab_download_artifacts(cfg, options.FROM, jobobj.dependencies, insecure=options.insecure)
+            try:
+                jobobj = configloader.load_job(loader.config, jobname)
+                gitlab_download_artifacts(cfg, options.FROM, jobobj.dependencies, insecure=options.insecure)
+            except GitlabSupportError as err:
+                die(err.msg)
 
         if options.enter_shell:
             if options.FULL:
