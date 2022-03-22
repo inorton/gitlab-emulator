@@ -177,7 +177,7 @@ class DockerJob(Job):
         self.image = None
         self.services = []
         self.container = None
-        self.entrypoint = None        
+        self.entrypoint = None
         self.docker = DockerTool()
 
     def load(self, name, config):
@@ -274,16 +274,16 @@ class DockerJob(Job):
 
     def run_shell(self, cmdline=None, run_before=False):
         uid = 0
-
-        try_bash = False
-
         if cmdline is str:
             cmdline = [cmdline]
 
         # set the defaults
         if cmdline is None:
             if is_windows():
-                cmdline = ["powershell.exe"]
+                if self.is_powershell():
+                    cmdline = ["powershell.exe"]
+                else:
+                    cmdline = ["cmd.exe"]
             else:
                 try_bash = self.has_bash()
                 if self.shell_is_user:
@@ -291,7 +291,6 @@ class DockerJob(Job):
                 cmdline = ["/bin/sh"]
                 if try_bash:
                     cmdline = ["bash"]
-
         
         if not is_windows():
             # set a prompt
@@ -381,14 +380,14 @@ class DockerJob(Job):
                     print("Exiting shell")
                     return
 
-                self.build_process = self.run_script(make_script(self.before_script + self.script))
+                self.build_process = self.run_script(make_script(self.before_script + self.script, powershell=self.is_powershell()))
             finally:
                 try:
                     if self.error_shell:
                         if not self.build_process or self.build_process.returncode:
                             self.shell_on_error()
 
-                    self.run_script(make_script(self.after_script))
+                    self.run_script(make_script(self.after_script, powershell=self.is_powershell()))
                 except subprocess.CalledProcessError:
                     pass
                 finally:

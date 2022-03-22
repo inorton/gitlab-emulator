@@ -32,12 +32,11 @@ windows-shell-job:
   tags:
     - cunity-windows-2019-docker
   script:
-    - echo %PATH%
-    - echo %NUMBER_OF_PROCESSORS%
-    - echo %OS%
-    - echo %CD%
+    - echo $env:PATH
+    - echo $env:NUMBER_OF_PROCESSORS
+    - echo $env:OS
     - echo sleeping..
-    - powershell -c "Start-Sleep -s 5"
+    - Start-Sleep -s 5
     - echo done
 
 linux-shell-job:

@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/gitlab-emulator.iml" filepath="$PROJECT_DIR$/.idea/gitlab-emulator.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../gitlab-python-runner/.idea/gitlab-python-runner.iml" filepath="$PROJECT_DIR$/../gitlab-python-runner/.idea/gitlab-python-runner.iml" />
     </modules>
   </component>
 </project>
