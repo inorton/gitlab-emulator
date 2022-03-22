@@ -170,7 +170,7 @@ def run(args=None):
     except configloader.ConfigLoaderError as err:
         die("Config error: " + str(err))
 
-    windows_docker = get_user_config_value(cfg, "docker", name="windows", default={})
+    options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
     if options.cmd_shell:
         loader.config[".gitlabemu-windows-shell"] = "cmd.exe"
 
