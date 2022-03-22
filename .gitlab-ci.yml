@@ -18,6 +18,7 @@ stages:
     - /bin/false
 
 emulator-linux-ubuntu1804-install:
+  stage: build
   image: ubuntu:18.04
   before_script:
     - apt-get update
@@ -29,6 +30,7 @@ emulator-linux-ubuntu1804-install:
     - gle -l
 
 emulator-linux-py3.5-install:
+  stage: build
   image: python:3.5-slim
   script:
     - cd emulator
