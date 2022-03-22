@@ -28,6 +28,14 @@ emulator-linux-ubuntu1804-install:
     - cd ..
     - gle -l
 
+emulator-linux-py3.5-install:
+  image: python:3.5-slim
+  script:
+    - cd emulator
+    - pip3 install .
+    - cd ..
+    - gle -l
+
 emulator-linux-test:
   image:
     name: docker:stable-dind
