@@ -177,7 +177,7 @@ class DockerJob(Job):
         self.image = None
         self.services = []
         self.container = None
-        self.entrypoint = None
+        self.entrypoint = None        
         self.docker = DockerTool()
 
     def load(self, name, config):
@@ -283,7 +283,7 @@ class DockerJob(Job):
         # set the defaults
         if cmdline is None:
             if is_windows():
-                cmdline = ["cmd.exe"]
+                cmdline = ["powershell.exe"]
             else:
                 try_bash = self.has_bash()
                 if self.shell_is_user:
