@@ -13,6 +13,7 @@ def test_run_needs_stages(in_tests, capsys):
     assert "Build complete!" in stdout
 
 
+@pytest.mark.usefixtures("posix_only")
 def test_run_needs_no_stages(in_tests, capsys):
     # job creates a "stageless-start" folder to ensure start1 only gets
     # run once,

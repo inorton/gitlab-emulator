@@ -46,7 +46,11 @@ class Job(object):
         self.variables = {}
         self.dependencies = []
         if platform.system() == "Windows":
-            self.shell = [os.getenv("COMSPEC", "C:\\WINDOWS\\system32\\cmd.exe")]
+            self.shell = ["powershell.exe",
+                          "-NoProfile",
+                          "-NonInteractive",
+                          "-ExecutionPolicy",
+                          "Bypass"]
         else:
             self.shell = ["/bin/sh"]
         self.workspace = None
@@ -91,6 +95,9 @@ class Job(object):
             self.monitor_thread_loop_once()
             time.sleep(2)
 
+    def is_powershell(self) -> bool:
+        return "powershell.exe" in self.shell
+
     def load(self, name, config):
         """
         Load a job from a dictionary
@@ -101,6 +108,7 @@ class Job(object):
         self.workspace = config[".gitlab-emulator-workspace"]
         self.name = name
         job = config[name]
+        self.shell = config.get(".gitlabemu-windows-shell", self.shell)
         self.error_shell = config.get("error_shell", [])
         self.enter_shell = config.get("enter_shell", [])
         self.before_script_enter_shell = config.get("before_script_enter_shell", False)
@@ -134,8 +142,6 @@ class Job(object):
             self.configure_job_variable("CI_NODE_TOTAL", str(ptotal))
 
         self.configure_job_variable("CI_JOB_NAME", jobname)
-
-
         self.configure_job_variable("CI_JOB_STAGE", self.stage)
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
         self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
@@ -212,7 +218,7 @@ class Job(object):
         """
         envs = self.get_envs()
         envs["PWD"] = os.path.abspath(self.workspace)
-        script = make_script(lines)
+        script = make_script(lines, powershell=self.is_powershell())
         opened = subprocess.Popen(self.shell,
                                   env=envs,
                                   cwd=self.workspace,
@@ -234,7 +240,10 @@ class Job(object):
             env = self.get_envs()
             prog = ["/bin/sh"]
             if is_windows():
-                prog = ["cmd"]
+                if "powershell.exe" in self.shell:
+                    prog = ["powershell"]
+                else:
+                    prog = ["cmd.exe"]
 
             if run_before:
                 print("Running before_script..", flush=True)
@@ -315,7 +324,7 @@ class Job(object):
             fatal("Shell job {} failed".format(self.name))
 
 
-def make_script(lines):
+def make_script(lines, powershell=False):
     """
     Join lines together to make a script
     :param lines:
@@ -324,6 +333,13 @@ def make_script(lines):
     extra = []
     if platform.system() == "Linux":
         extra = ["set -e"]
+
+    if powershell:
+        if platform.system() == "Windows":
+            extra = [
+                '$ErrorActionPreference = "Continue"',
+                'echo "Running on $([Environment]::MachineName)..."'
+            ]
 
     content = os.linesep.join(extra + lines)
 

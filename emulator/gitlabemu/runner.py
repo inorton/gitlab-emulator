@@ -43,6 +43,9 @@ parser.add_argument("--before-script", "-b", dest="before_script_enter_shell", d
 parser.add_argument("--user", "-u", dest="shell_is_user", default=False, action="store_true",
                     help="Run the interactive shell as the current user instead of root")
 
+parser.add_argument("--cmd", default=False, action="store_true", dest="cmd_shell",
+                    help="Force use of legacy cmd.exe instead of powershell on windows")
+
 parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
                     help="If a docker job fails, execute this process (can be a shell)")
 
@@ -166,6 +169,10 @@ def run(args=None):
         loader.load(fullpath)
     except configloader.ConfigLoaderError as err:
         die("Config error: " + str(err))
+
+    options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
+    if options.cmd_shell:
+        loader.config[".gitlabemu-windows-shell"] = "cmd.exe"
 
     hide_dot_jobs = not options.hidden
 
