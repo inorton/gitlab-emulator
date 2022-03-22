@@ -18,7 +18,8 @@ setup(
     scripts=["locallab.py"],
     install_requires=[
         "pyyaml>=3.13",
-        "docker>=5.0.2; " + primary_platforms,
+        "docker>=5.0.2; python_version>='3.6' and ({})".format(primary_platforms),
+        "docker>=4.4.4; python_version=='3.5' and ({})".format(primary_platforms),
         "python-gitlab>=3.2.0; python_version>='3.7' and ({})".format(primary_platforms),
         "python-gitlab==2.10.1; python_version=='3.6' and ({})".format(primary_platforms),
     ],
