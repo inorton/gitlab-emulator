@@ -2,19 +2,13 @@ import re
 import sys
 import os
 import argparse
-import zipfile
-from typing import Optional, List
-
-from gitlab.v4.objects import ProjectPipeline, ProjectPipelineJob
 
 from . import configloader
-from . import stream_response
 from .docker import has_docker
+from .gitlab.client import gitlab_download_artifacts, GitlabSupportError
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree
 from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
-
-from gitlab import Gitlab
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -115,24 +109,6 @@ def execute_job(config, jobname, seen=None, recurse=False):
                 execute_job(config, need, seen=seen, recurse=True)
         jobobj.run()
         seen.add(jobname)
-
-
-def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
-    """Create a Gitlab API client"""
-    servers = get_user_config_value(cfg, "gitlab", name="servers", default=[])
-    for item in servers:
-        if item.get("name") == alias:
-            server = item.get("server")
-            token = item.get("token")
-            if not server:
-                die(f"no server address for alias {alias}")
-            if not token:
-                die(f"no api-token for alias {alias} ({server})")
-            client = Gitlab(url=server, private_token=token, ssl_verify=secure)
-
-            return client
-
-    die(f"Cannot find local configuration for server {alias}")
 
 
 def run(args=None):
@@ -242,31 +218,11 @@ def run(args=None):
                 loader.config["variables"][name] = value
 
         if options.FROM:
-            server, extra = options.FROM.split("/", 1)
-            project_path, pipeline_id = extra.rsplit("/", 1)
-            gitlab = gitlab_api(cfg, server, secure=not options.insecure)
-            # get project
-            project = gitlab.projects.get(project_path)
-            # get pipeline
-            pipeline = project.pipelines.get(int(pipeline_id))
-            pipeline_jobs = pipeline.jobs.list(all=True)
-
-            jobobj = configloader.load_job(loader.config, jobname)
-
-            # download what we need
-            upsteam_jobs: List[ProjectPipelineJob] = [x for x in pipeline_jobs if x.name in jobobj.dependencies]
-            for upstream in upsteam_jobs:
-                print(f"Fetching {upstream.name} artifacts from {options.FROM}..")
-                artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/artifacts"
-
-                # stream it into zipfile
-                resp = gitlab.session.get(artifact_url, headers={"PRIVATE-TOKEN": gitlab.private_token}, stream=True)
-                resp.raise_for_status()
-                seekable = stream_response.ResponseStream(resp.iter_content(4096))
-                with zipfile.ZipFile(seekable) as zf:
-                    for item in zf.infolist():
-                        print(f"Unpacking {item.filename} ..")
-                        zf.extract(item)
+            try:
+                jobobj = configloader.load_job(loader.config, jobname)
+                gitlab_download_artifacts(cfg, options.FROM, jobobj.dependencies, insecure=options.insecure)
+            except GitlabSupportError as err:
+                die(err.msg)
 
         if options.enter_shell:
             if options.FULL:
@@ -293,3 +249,5 @@ def run(args=None):
                         restore_path_ownership(os.getcwd())
                         print("finished")
         print("Build complete!")
+
+
