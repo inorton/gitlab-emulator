@@ -1,6 +1,8 @@
 from distutils.core import setup
 
-VERSION = "0.9.2"
+VERSION = "0.9.3"
+
+primary_platforms = "platform_system=='Linux' or platform_system=='Darwin' or platform_system=='Windows'"
 
 setup(
     name="gitlab-emulator",
@@ -16,11 +18,9 @@ setup(
     scripts=["locallab.py"],
     install_requires=[
         "pyyaml>=3.13",
-        "docker>=5.0.2; platform_system=='Linux'",
-        "docker>=5.0.2; platform_system=='Darwin'",
-        "docker>=5.0.2; platform_system=='Windows'",
-        "python-gitlab>=3.2.0; python_version>='3.7'",
-        "python-gitlab==2.10.1; python_version<='3.6'",
+        f"docker>=5.0.2; {primary_platforms}",
+        f"python-gitlab>=3.2.0; python_version>='3.7' and ({primary_platforms})",
+        f"python-gitlab==2.10.1; python_version=='3.6' and ({primary_platforms})",
     ],
     platforms=["any"],
     license="License :: OSI Approved :: MIT License",
