@@ -66,6 +66,9 @@ parser.add_argument("--from", type=str, dest="FROM",
                     metavar="SERVER/PROJECT/PIPELINE",
                     help="Fetch needed artifacts for the current job from the given pipeline, eg nc/321/41881")
 
+parser.add_argument("--download", default=False, action="store_true",
+                    help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
+
 parser.add_argument("--insecure", "-k", dest="insecure", default=False, action="store_true",
                     help="Ignore TLS certificate errors when fetching from remote servers")
 
@@ -248,6 +251,9 @@ def run(args=None):
             if value is not None:
                 loader.config["variables"][name] = value
 
+        if options.download and not options.FROM:
+            die("--download requires --from PIPELINE")
+
         if options.FROM:
             server, extra = options.FROM.split("/", 1)
             project_path, pipeline_id = extra.rsplit("/", 1)
@@ -258,10 +264,14 @@ def run(args=None):
             pipeline = project.pipelines.get(int(pipeline_id))
             pipeline_jobs = pipeline.jobs.list(all=True)
 
-            jobobj = configloader.load_job(loader.config, jobname)
+            if options.download:
+                download_from_jobs = [jobname]
+            else:
+                jobobj = configloader.load_job(loader.config, jobname)
+                download_from_jobs = jobobj.dependencies
 
             # download what we need
-            upsteam_jobs: List[ProjectPipelineJob] = [x for x in pipeline_jobs if x.name in jobobj.dependencies]
+            upsteam_jobs: List[ProjectPipelineJob] = [x for x in pipeline_jobs if x.name in download_from_jobs]
             for upstream in upsteam_jobs:
                 print(f"Fetching {upstream.name} artifacts from {options.FROM}..")
                 artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/artifacts"
@@ -272,8 +282,10 @@ def run(args=None):
                 seekable = stream_response.ResponseStream(resp.iter_content(4096))
                 with zipfile.ZipFile(seekable) as zf:
                     for item in zf.infolist():
-                        print(f"Unpacking {item.filename} ..")
+                        print(f"Saving {item.filename} ..")
                         zf.extract(item)
+            if options.download:
+                sys.exit(0)
 
         if options.enter_shell:
             if options.FULL:
