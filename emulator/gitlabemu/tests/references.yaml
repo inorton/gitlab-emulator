@@ -1,0 +1,23 @@
+.template:
+  variables:
+    COLOR: red
+    SHAPE: triangle
+
+.base:
+  script:
+    - date
+    - df -h
+
+job1:
+  variables:
+    COLOR: !reference [.template, variables, COLOR]
+
+  script:
+    - uname -a
+    - !reference [.base, script]
+    - pwd
+
+job2:
+  variables: !reference [.template, variables]
+  script:
+    - ps -ef

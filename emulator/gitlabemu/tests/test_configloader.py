@@ -10,6 +10,25 @@ HERE = os.path.dirname(__file__)
 TOPDIR = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
 
+def test_references():
+    loader = configloader.Loader()
+    loader.load(os.path.join(HERE, "references.yaml"))
+    assert loader.config
+
+    assert loader.config["job1"]["variables"]["COLOR"] == "red"
+    assert loader.config["job1"]["script"] == [
+        "uname -a",
+        "date",
+        "df -h",
+        "pwd"
+    ]
+
+    assert loader.config["job2"]["variables"] == {
+        "COLOR": "red",
+        "SHAPE": "triangle"
+    }
+
+
 def test_loading_ci():
     loader = configloader.Loader()
     loader.load(os.path.join(TOPDIR, ".gitlab-ci.yml"))
