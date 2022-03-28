@@ -1,4 +1,5 @@
 import re
+import shutil
 import sys
 import os
 import argparse
@@ -11,7 +12,7 @@ from . import configloader
 from . import stream_response
 from .docker import has_docker
 from .localfiles import restore_path_ownership
-from .helpers import is_apple, is_linux, is_windows, git_worktree
+from .helpers import is_apple, is_linux, is_windows, git_worktree, make_path_slug
 from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
 
 from gitlab import Gitlab
@@ -70,7 +71,7 @@ parser.add_argument("--download", default=False, action="store_true",
                     help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
 
 parser.add_argument("--export", default=False, action="store_true", dest="export",
-                    help="Download JOB logs and junit reports (requires --from)")
+                    help="Download JOB logs and artifacts to export/JOBNAME (requires --from)")
 
 parser.add_argument("--completed", default=False, action="store_true",
                     help="List (implies --list) all currently completed jobs in the --from pipeline")
@@ -86,6 +87,11 @@ def die(msg):
     """print an error and exit"""
     print("error: " + str(msg), file=sys.stderr)
     sys.exit(1)
+
+
+def note(msg):
+    """Print to stderr"""
+    print(msg, file=sys.stderr)
 
 
 def apply_user_config(loader: configloader.Loader, cfg: dict, is_docker: bool):
@@ -144,11 +150,27 @@ def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
                 die(f"no api-token for alias {alias} ({server})")
             break
 
-    job_token = os.getenv("CI_JOB_TOKEN", None)
-    if not token:
-        pass
+    if not server:
+        note(f"using {alias} as server hostname")
+        server = alias
 
-    if job_token or (server and token):
+    job_token = os.getenv("CI_JOB_TOKEN", None)
+    if job_token and "00000000000000" not in job_token:
+        note("Using CI_JOB_TOKEN")
+        token = None
+    else:
+        job_token = None
+
+    ca_cert = os.getenv("CI_SERVER_TLS_CA_FILE", None)
+    if ca_cert is not None:
+        note("Using CI_SERVER_TLS_CA_FILE CA cert")
+        os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
+        secure = True
+
+    if not job_token and not token:
+        die(f"Could not find a CI_JOB_TOKEN or configured token for {alias}")
+
+    if server and (job_token or token):
         client = Gitlab(url=server, job_token=job_token, private_token=token, ssl_verify=secure)
         return client
 
@@ -167,6 +189,77 @@ def get_pipeline(cfg, fromline, secure: Optional[bool] = True):
     return gitlab, project, pipeline
 
 
+def do_gitlab_from(options: argparse.Namespace, cfg, loader):
+    """Perform actions using a gitlab server"""
+    if options.download and not options.FROM:
+        die("--download requires --from PIPELINE")
+
+    if options.FROM:
+        gitlab, project, pipeline = get_pipeline(cfg, options.FROM, secure=not options.insecure)
+        pipeline_jobs = pipeline.jobs.list(all=True)
+
+        if options.LIST:
+            # print the jobs in the pipeline
+
+            jobs = list(pipeline_jobs)
+            if options.completed:
+                jobs = [x for x in jobs if x.status == "success"]
+                note(f"Listing completed jobs in {options.FROM}")
+            else:
+                note(f"Listing jobs in {options.FROM}")
+            names = sorted([x.name for x in jobs])
+            for name in names:
+                print(name)
+            return
+        outdir = os.getcwd()
+        if options.download:
+            # download a job
+            download_from_jobs = [options.JOB]
+            if options.export:
+                # export the job
+                slug = make_path_slug(options.JOB)
+                outdir = os.path.join(os.getcwd(), "export", slug)
+                os.makedirs(outdir, exist_ok=True)
+        else:
+            # download jobs needed by a job
+            jobobj = configloader.load_job(loader.config, options.JOB)
+            download_from_jobs = jobobj.dependencies
+
+        # download what we need
+        mode = "Fetching"
+        if options.export:
+            mode = "Exporting"
+        upsteam_jobs: List[ProjectPipelineJob] = [x for x in pipeline_jobs if x.name in download_from_jobs]
+        for upstream in upsteam_jobs:
+            note(f"{mode} {upstream.name} artifacts from {options.FROM}..")
+            artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/artifacts"
+
+            # stream it into zipfile
+            headers = {}
+            if gitlab.private_token:
+                headers = {"PRIVATE-TOKEN": gitlab.private_token}
+            if gitlab.job_token:
+                headers = {"JOB-TOKEN": gitlab.job_token}
+            resp = gitlab.session.get(artifact_url, headers=headers, stream=True)
+            resp.raise_for_status()
+            seekable = stream_response.ResponseStream(resp.iter_content(4096))
+            reldir = os.path.relpath(outdir, os.getcwd())
+            with zipfile.ZipFile(seekable) as zf:
+                for item in zf.infolist():
+                    note(f"Saving {reldir}/{item.filename} ..")
+                    zf.extract(item, path=outdir)
+
+            if options.export:
+                # also get the trace and junit reports
+                logfile = os.path.join(outdir, "trace.log")
+                note(f"Saving log to {reldir}/trace.log")
+                trace_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/trace"
+                with open(logfile, "wb") as logdata:
+                    resp = gitlab.session.get(trace_url, headers=headers, stream=True)
+                    resp.raise_for_status()
+                    shutil.copyfileobj(resp.raw, logdata)
+
+
 def run(args=None):
     options = parser.parse_args(args)
     loader = configloader.Loader()
@@ -179,11 +272,11 @@ def run(args=None):
         os.chdir(options.chdir)
 
     if not os.path.exists(yamlfile):
-        print(f"{configloader.DEFAULT_CI_FILE} not found.", file=sys.stderr)
+        note(f"{configloader.DEFAULT_CI_FILE} not found.")
         find = configloader.find_ci_config(os.getcwd())
         if find:
             topdir = os.path.abspath(os.path.dirname(find))
-            print(f"Found config: {find}", file=sys.stderr)
+            note(f"Found config: {find}")
             die(f"Please re-run from {topdir}")
         sys.exit(1)
 
@@ -208,15 +301,15 @@ def run(args=None):
     if options.FULL and options.parallel:
         die("--full and --parallel cannot be used together")
 
+    if options.FROM:
+        do_gitlab_from(options, cfg, loader)
+        return
+
     if options.LIST:
-        if options.completed:
-            if not options.FROM:
-                die("--completed requires --from PIPELINE")
-        else:
-            for jobname in sorted(loader.get_jobs()):
-                if jobname.startswith(".") and hide_dot_jobs:
-                    continue
-                print(jobname)
+        for jobname in sorted(loader.get_jobs()):
+            if jobname.startswith(".") and hide_dot_jobs:
+                continue
+            print(jobname)
     elif not jobname:
         parser.print_usage()
         sys.exit(1)
@@ -251,7 +344,7 @@ def run(args=None):
         if docker_job:
             gwt = git_worktree(rootdir)
             if gwt:
-                print(f"f{rootdir} is a git worktree, adding {gwt} as a docker volume.")
+                note(f"f{rootdir} is a git worktree, adding {gwt} as a docker volume.")
                 # add the real git repo as a docker volume
                 volumes = get_user_config_value(cfg, "docker", name="volumes", default=[])
                 volumes.append(f"{gwt}:{gwt}:ro")
@@ -281,47 +374,15 @@ def run(args=None):
             if value is not None:
                 loader.config["variables"][name] = value
 
-        if options.download and not options.FROM:
-            die("--download requires --from PIPELINE")
-
-        if options.FROM:
-            gitlab, project, pipeline = get_pipeline(cfg, options.FROM, secure=not options.insecure)
-            pipeline_jobs = pipeline.jobs.list(all=True)
-
-            if options.download:
-                download_from_jobs = [jobname]
-            else:
-                jobobj = configloader.load_job(loader.config, jobname)
-                download_from_jobs = jobobj.dependencies
-
-            # download what we need
-            upsteam_jobs: List[ProjectPipelineJob] = [x for x in pipeline_jobs if x.name in download_from_jobs]
-            for upstream in upsteam_jobs:
-                print(f"Fetching {upstream.name} artifacts from {options.FROM}..")
-                artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/artifacts"
-
-                # stream it into zipfile
-                resp = gitlab.session.get(artifact_url, headers={"PRIVATE-TOKEN": gitlab.private_token}, stream=True)
-                resp.raise_for_status()
-                seekable = stream_response.ResponseStream(resp.iter_content(4096))
-                with zipfile.ZipFile(seekable) as zf:
-                    for item in zf.infolist():
-                        print(f"Saving {item.filename} ..")
-                        zf.extract(item)
-            if options.download:
-                sys.exit(0)
-
         if options.enter_shell:
             if options.FULL:
-                print("-i is not compatible with --full", file=sys.stderr)
-                sys.exit(1)
+                die("-i is not compatible with --full")
         loader.config["enter_shell"] = options.enter_shell
         loader.config["before_script_enter_shell"] = options.before_script_enter_shell
         loader.config["shell_is_user"] = options.shell_is_user
 
         if options.before_script_enter_shell and is_windows():
-            print("--before-script is not yet supported on windows", file=sys.stderr)
-            sys.exit(1)
+            die("--before-script is not yet supported on windows")
 
         if options.error_shell:
             loader.config["error_shell"] = [options.error_shell]
@@ -332,7 +393,7 @@ def run(args=None):
             if has_docker() and fix_ownership:
                 if is_linux() or is_apple():
                     if os.getuid() > 0:
-                        print("Fixing up local file ownerships..")
+                        note("Fixing up local file ownerships..")
                         restore_path_ownership(os.getcwd())
-                        print("finished")
+                        note("finished")
         print("Build complete!")
