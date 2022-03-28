@@ -5,8 +5,8 @@ import os
 import argparse
 import zipfile
 from typing import Optional, List
-
-from gitlab.v4.objects import ProjectPipeline, ProjectPipelineJob
+from gitlab.v4.objects import ProjectPipelineJob
+from urllib3.exceptions import InsecureRequestWarning
 
 from . import configloader
 from . import stream_response
@@ -14,7 +14,7 @@ from .docker import has_docker
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, make_path_slug
 from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
-
+import requests
 from gitlab import Gitlab
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
@@ -181,6 +181,9 @@ def get_pipeline(cfg, fromline, secure: Optional[bool] = True):
     """Get a pipeline"""
     server, extra = fromline.split("/", 1)
     project_path, pipeline_id = extra.rsplit("/", 1)
+    if not secure:
+        note("TLS server validation disabled by --insecure")
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
     gitlab = gitlab_api(cfg, server, secure=secure)
     # get project
     project = gitlab.projects.get(project_path)
@@ -193,10 +196,14 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
     """Perform actions using a gitlab server"""
     if options.download and not options.FROM:
         die("--download requires --from PIPELINE")
-
     if options.FROM:
         gitlab, project, pipeline = get_pipeline(cfg, options.FROM, secure=not options.insecure)
+        if options.insecure:
+            gitlab.session.verify = False
         pipeline_jobs = pipeline.jobs.list(all=True)
+
+        if options.export:
+            options.download = True
 
         if options.LIST:
             # print the jobs in the pipeline
@@ -211,6 +218,7 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             for name in names:
                 print(name)
             return
+
         outdir = os.getcwd()
         if options.download:
             # download a job
@@ -233,7 +241,7 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
         for upstream in upsteam_jobs:
             note(f"{mode} {upstream.name} artifacts from {options.FROM}..")
             artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/artifacts"
-
+            reldir = os.path.relpath(outdir, os.getcwd())
             # stream it into zipfile
             headers = {}
             if gitlab.private_token:
@@ -241,13 +249,15 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             if gitlab.job_token:
                 headers = {"JOB-TOKEN": gitlab.job_token}
             resp = gitlab.session.get(artifact_url, headers=headers, stream=True)
-            resp.raise_for_status()
-            seekable = stream_response.ResponseStream(resp.iter_content(4096))
-            reldir = os.path.relpath(outdir, os.getcwd())
-            with zipfile.ZipFile(seekable) as zf:
-                for item in zf.infolist():
-                    note(f"Saving {reldir}/{item.filename} ..")
-                    zf.extract(item, path=outdir)
+            if resp.status_code == 404:
+                note(f"Job {upstream.name} has no artifacts")
+            else:
+                resp.raise_for_status()
+                seekable = stream_response.ResponseStream(resp.iter_content(4096))
+                with zipfile.ZipFile(seekable) as zf:
+                    for item in zf.infolist():
+                        note(f"Saving {reldir}/{item.filename} ..")
+                        zf.extract(item, path=outdir)
 
             if options.export:
                 # also get the trace and junit reports
