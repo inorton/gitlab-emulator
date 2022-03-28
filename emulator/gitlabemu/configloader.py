@@ -190,7 +190,7 @@ def validate(config):
 
 def do_extends(alljobs: dict):
     """
-    Process all the extends directives recursively
+    Process all the extends and !reference directives recursively
     :return:
     """
     default_image = alljobs.get("image", None)
@@ -237,6 +237,38 @@ def do_extends(alljobs: dict):
                             new_obj[item] = baseobj[item]
                     alljobs[name] = new_obj
                     resolved.add(name)
+
+        for name in alljobs:
+            if name not in RESERVED_TOP_KEYS:
+                job = alljobs[name]
+                variables = job.get("variables", {})
+                if "!reference" in variables:
+                    ref = variables["!reference"]
+                    alljobs[name]["variables"] = alljobs[ref["job"]][ref["element"]]
+                variables = job.get("variables", {})
+                for varname in variables:
+                    if "!reference" in variables[varname]:
+                        ref = variables[varname]["!reference"]
+                        alljobs[name]["variables"][varname] = alljobs[ref["job"]][ref["element"]][ref["value"]]
+                for varname in variables:
+                    if "!reference" in variables[varname]:
+                        raise BadSyntaxError("Only one level of !reference is allowed")
+
+                for scriptpart in ["before_script", "script", "after_script"]:
+                    if scriptpart in job:
+                        scriptlines = alljobs[name][scriptpart]
+                        newlines = []
+                        for line in scriptlines:
+                            if "!reference" in line:
+                                ref = line['!reference']
+                                newlines.extend(alljobs[ref["job"]][ref["element"]])
+                            else:
+                                newlines.append(line)
+                        # check for more than one level of nesting
+                        for line in newlines:
+                            if "!reference" in line:
+                                raise BadSyntaxError("Only one level of !reference is allowed")
+                        alljobs[name][scriptpart] = list(newlines)
 
 
 def get_stages(config):
