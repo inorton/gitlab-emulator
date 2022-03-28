@@ -189,3 +189,7 @@ runner-child-runner:
     paths:
       - runner/runner/*.trace
 
+envs:
+  image: alpine:3.14
+  script:
+    - env|grep ^CI_|sort

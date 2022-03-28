@@ -69,6 +69,12 @@ parser.add_argument("--from", type=str, dest="FROM",
 parser.add_argument("--download", default=False, action="store_true",
                     help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
 
+parser.add_argument("--export", default=False, action="store_true", dest="export",
+                    help="Download JOB logs and junit reports (requires --from)")
+
+parser.add_argument("--completed", default=False, action="store_true",
+                    help="List (implies --list) all currently completed jobs in the --from pipeline")
+
 parser.add_argument("--insecure", "-k", dest="insecure", default=False, action="store_true",
                     help="Ignore TLS certificate errors when fetching from remote servers")
 
@@ -126,6 +132,8 @@ def execute_job(config, jobname, seen=None, recurse=False):
 def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
     """Create a Gitlab API client"""
     servers = get_user_config_value(cfg, "gitlab", name="servers", default=[])
+    server = None
+    token = None
     for item in servers:
         if item.get("name") == alias:
             server = item.get("server")
@@ -134,11 +142,29 @@ def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
                 die(f"no server address for alias {alias}")
             if not token:
                 die(f"no api-token for alias {alias} ({server})")
-            client = Gitlab(url=server, private_token=token, ssl_verify=secure)
+            break
 
-            return client
+    job_token = os.getenv("CI_JOB_TOKEN", None)
+    if not token:
+        pass
+
+    if job_token or (server and token):
+        client = Gitlab(url=server, job_token=job_token, private_token=token, ssl_verify=secure)
+        return client
 
     die(f"Cannot find local configuration for server {alias}")
+
+
+def get_pipeline(cfg, fromline, secure: Optional[bool] = True):
+    """Get a pipeline"""
+    server, extra = fromline.split("/", 1)
+    project_path, pipeline_id = extra.rsplit("/", 1)
+    gitlab = gitlab_api(cfg, server, secure=secure)
+    # get project
+    project = gitlab.projects.get(project_path)
+    # get pipeline
+    pipeline = project.pipelines.get(int(pipeline_id))
+    return gitlab, project, pipeline
 
 
 def run(args=None):
@@ -183,10 +209,14 @@ def run(args=None):
         die("--full and --parallel cannot be used together")
 
     if options.LIST:
-        for jobname in sorted(loader.get_jobs()):
-            if jobname.startswith(".") and hide_dot_jobs:
-                continue
-            print(jobname)
+        if options.completed:
+            if not options.FROM:
+                die("--completed requires --from PIPELINE")
+        else:
+            for jobname in sorted(loader.get_jobs()):
+                if jobname.startswith(".") and hide_dot_jobs:
+                    continue
+                print(jobname)
     elif not jobname:
         parser.print_usage()
         sys.exit(1)
@@ -255,13 +285,7 @@ def run(args=None):
             die("--download requires --from PIPELINE")
 
         if options.FROM:
-            server, extra = options.FROM.split("/", 1)
-            project_path, pipeline_id = extra.rsplit("/", 1)
-            gitlab = gitlab_api(cfg, server, secure=not options.insecure)
-            # get project
-            project = gitlab.projects.get(project_path)
-            # get pipeline
-            pipeline = project.pipelines.get(int(pipeline_id))
+            gitlab, project, pipeline = get_pipeline(cfg, options.FROM, secure=not options.insecure)
             pipeline_jobs = pipeline.jobs.list(all=True)
 
             if options.download:
