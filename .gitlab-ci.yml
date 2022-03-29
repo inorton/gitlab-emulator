@@ -190,6 +190,21 @@ runner-child-runner:
       - runner/runner/*.trace
 
 envs:
+  stage: build
   image: alpine:3.14
   script:
     - env|grep ^CI_|sort
+
+from-gitlab:
+  stage: test
+  image: python:3.7
+  before_script:
+    - python3 -m venv /tmp/venv
+    - . /tmp/venv/bin/activate
+    - pip install -e emulator
+  script:
+    - echo " == listing complted jobs in current pipeline ${CI_PROJECT_PATH}/${CI_PIPELINE_ID} .. "
+    - gle --list --completed --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} |tee completed.txt
+    - echo " == exporting completed jobs .. "
+    - cat completed.txt |xargs -n1 -r -I {} gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export {}
+    - find export -type f
