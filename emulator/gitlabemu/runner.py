@@ -153,6 +153,8 @@ def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
     if not server:
         note(f"using {alias} as server hostname")
         server = alias
+        if "://" not in server:
+            server = f"https://{server}"
 
     job_token = os.getenv("CI_JOB_TOKEN", None)
     if job_token and "00000000000000" not in job_token:
