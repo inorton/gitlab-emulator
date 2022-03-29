@@ -156,24 +156,22 @@ def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
         if "://" not in server:
             server = f"https://{server}"
 
-    job_token = os.getenv("CI_JOB_TOKEN", None)
-    if job_token and "00000000000000" not in job_token:
-        note("Using CI_JOB_TOKEN")
-        token = None
-    else:
-        job_token = None
-
     ca_cert = os.getenv("CI_SERVER_TLS_CA_FILE", None)
     if ca_cert is not None:
         note("Using CI_SERVER_TLS_CA_FILE CA cert")
         os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
         secure = True
 
-    if not job_token and not token:
-        die(f"Could not find a CI_JOB_TOKEN or configured token for {alias}")
+    if not token:
+        token = os.getenv("GITLAB_PRIVATE_TOKEN", None)
+        if token:
+            note("Using GITLAB_PRIVATE_TOKEN for authentication")
 
-    if server and (job_token or token):
-        client = Gitlab(url=server, job_token=job_token, private_token=token, ssl_verify=secure)
+    if not token:
+        die(f"Could not find a configured token for {alias} or GITLAB_PRIVATE_TOKEN not set")
+
+    if server and token:
+        client = Gitlab(url=server, private_token=token, ssl_verify=secure)
         return client
 
     die(f"Cannot find local configuration for server {alias}")
@@ -248,8 +246,6 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             headers = {}
             if gitlab.private_token:
                 headers = {"PRIVATE-TOKEN": gitlab.private_token}
-            if gitlab.job_token:
-                headers = {"JOB-TOKEN": gitlab.job_token}
             resp = gitlab.session.get(artifact_url, headers=headers, stream=True)
             if resp.status_code == 404:
                 note(f"Job {upstream.name} has no artifacts")
