@@ -13,6 +13,7 @@ from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
 from .userconfig import load_user_config, get_user_config_value
+from .yamlloader import GitlabReference
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -240,33 +241,40 @@ def do_extends(alljobs: dict):
 
         for name in alljobs:
             if name not in RESERVED_TOP_KEYS:
-                job = alljobs[name]
-                variables = job.get("variables", {})
-                if "!reference" in variables:
-                    ref = variables["!reference"]
-                    alljobs[name]["variables"] = alljobs[ref["job"]][ref["element"]]
-                variables = job.get("variables", {})
+                variables = alljobs[name].get("variables", {})
+                if isinstance(variables, GitlabReference):
+                    ref: GitlabReference = variables
+                    variables = dict(alljobs[ref.job].get(ref.element, {}))
+
                 for varname in variables:
-                    if "!reference" in variables[varname]:
-                        ref = variables[varname]["!reference"]
-                        alljobs[name]["variables"][varname] = alljobs[ref["job"]][ref["element"]][ref["value"]]
+                    if isinstance(variables[varname], GitlabReference):
+                        ref = variables[varname]
+                        # get a variable from another job
+                        if not ref.value:
+                            raise BadSyntaxError("reference {} does not specify a variable name to copy".format(ref))
+                        variables[varname] = alljobs[ref.job].get(ref.element, {})[ref.value]
+
                 for varname in variables:
-                    if "!reference" in variables[varname]:
+                    if isinstance(variables[varname], GitlabReference):
                         raise BadSyntaxError("Only one level of !reference is allowed")
 
+                alljobs[name]["variables"] = dict(variables)
                 for scriptpart in ["before_script", "script", "after_script"]:
-                    if scriptpart in job:
+                    if scriptpart in alljobs[name]:
                         scriptlines = alljobs[name][scriptpart]
                         newlines = []
                         for line in scriptlines:
-                            if "!reference" in line:
-                                ref = line['!reference']
-                                newlines.extend(alljobs[ref["job"]][ref["element"]])
+                            if isinstance(line, bool):
+                                print(f"warning, line: {line} in job {name} evaluates to a yaml boolean, you probably want to quote \"true\" or \"false\"")
+                                line = str(line).lower()
+                            if isinstance(line, GitlabReference):
+                                ref: GitlabReference = line
+                                newlines.extend(alljobs[ref.job].get(ref.element, []))
                             else:
                                 newlines.append(line)
                         # check for more than one level of nesting
                         for line in newlines:
-                            if "!reference" in line:
+                            if isinstance(line, GitlabReference):
                                 raise BadSyntaxError("Only one level of !reference is allowed")
                         alljobs[name][scriptpart] = list(newlines)
 
