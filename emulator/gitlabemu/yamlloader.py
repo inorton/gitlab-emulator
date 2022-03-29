@@ -6,6 +6,21 @@ from collections import OrderedDict
 from yaml.resolver import BaseResolver
 
 
+class GitlabReference:
+    def __init__(self, job, element, value):
+        self.job = job
+        self.element = element
+        self.value = value
+
+    def __repr__(self):
+        if self.value:
+            return "!reference [{}, {}, {}]".format(self.job, self.element, self.value)
+        return "!reference [{}, {}]".format(self.job, self.element)
+
+    def __str__(self):
+        return repr(self)
+
+
 def reference_constructor(loader, node):
     address = []
     for item in node.value:
@@ -16,14 +31,7 @@ def reference_constructor(loader, node):
     elementvalue = None
     if len(address) > 2:
         elementvalue = address[2]
-    return {
-        "!reference": {
-            "job": jobname,
-            "element": jobelement,
-            "value": elementvalue
-        }
-    }
-
+    return GitlabReference(jobname, jobelement, elementvalue)
 
 yaml.add_constructor(u"!reference", reference_constructor)
 

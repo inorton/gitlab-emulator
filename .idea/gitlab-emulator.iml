@@ -4,7 +4,6 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/designer" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/runner" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/emulator" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/emulator/build" />
       <excludeFolder url="file://$MODULE_DIR$/emulator/dist" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />

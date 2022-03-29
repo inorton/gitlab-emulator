@@ -11,6 +11,7 @@
 job1:
   variables:
     COLOR: !reference [.template, variables, COLOR]
+    KUBERENETES_CPU_REQUEST: 3
 
   script:
     - uname -a

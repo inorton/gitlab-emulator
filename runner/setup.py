@@ -14,7 +14,7 @@ setup(
     install_requires=[
         "pyyaml>=5.1",
         "requests>=2.23.0",
-        "gitlab-emulator>=0.9.6",
+        "gitlab-emulator>=0.9.7",
         "requests-toolbelt>=0.9.1", 
         "unidecode>=1.1.1"],
     platforms=["any"],
