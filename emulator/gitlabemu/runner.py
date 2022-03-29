@@ -233,6 +233,17 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             jobobj = configloader.load_job(loader.config, options.JOB)
             download_from_jobs = jobobj.dependencies
 
+        def gitlab_session_get(geturl, **kwargs):
+            try:
+                return gitlab.session.get(geturl, **kwargs)
+            except requests.exceptions.SSLError:
+                # validation was requested but cert was invalid,
+                # tty again without the gitlab-supplied CA cert and try the system ca certs
+                if "REQUESTS_CA_BUNDLE" in os.environ:
+                    del os.environ["REQUESTS_CA_BUNDLE"]
+                    return gitlab.session.get(geturl, **kwargs)
+                raise
+
         # download what we need
         mode = "Fetching"
         if options.export:
@@ -246,7 +257,7 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             headers = {}
             if gitlab.private_token:
                 headers = {"PRIVATE-TOKEN": gitlab.private_token}
-            resp = gitlab.session.get(artifact_url, headers=headers, stream=True)
+            resp = gitlab_session_get(artifact_url, headers=headers, stream=True)
             if resp.status_code == 404:
                 note(f"Job {upstream.name} has no artifacts")
             else:
