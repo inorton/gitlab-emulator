@@ -208,3 +208,8 @@ def git_worktree(path: str) -> str:
                         if os.path.isdir(gitdir):
                             return gitdir
     return None
+
+
+def make_path_slug(text: str) -> str:
+    """Convert a string into one suitable for a folder basename"""
+    return re.sub(r"[^a-zA-Z0-9\-\.]", "_", text)
