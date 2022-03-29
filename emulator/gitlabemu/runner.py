@@ -234,12 +234,14 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             download_from_jobs = jobobj.dependencies
 
         def gitlab_session_get(geturl, **kwargs):
+            """Get using requests and retry TLS errors"""
             try:
                 return gitlab.session.get(geturl, **kwargs)
             except requests.exceptions.SSLError:
                 # validation was requested but cert was invalid,
                 # tty again without the gitlab-supplied CA cert and try the system ca certs
                 if "REQUESTS_CA_BUNDLE" in os.environ:
+                    note(f"warning: Encountered TLS/SSL error getting {geturl}), retrying with system ca certs")
                     del os.environ["REQUESTS_CA_BUNDLE"]
                     return gitlab.session.get(geturl, **kwargs)
                 raise
