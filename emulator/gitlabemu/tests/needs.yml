@@ -12,7 +12,7 @@ start2:
 middle:
   needs:
     - start1
-    - start2
+    - job: start2
   script:
     - echo stageless-middle
 

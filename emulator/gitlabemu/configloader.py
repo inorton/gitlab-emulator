@@ -169,6 +169,8 @@ def validate(config):
         needs = job.get("needs", [])
         for need in needs:
             # check the needed job exists
+            if isinstance(need, dict):
+                need = need["job"]
             if need not in jobs:
                 raise ConfigLoaderError("job {} needs job {} which does not exist".format(name, need))
 
