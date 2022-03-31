@@ -124,7 +124,14 @@ class Job(object):
             self.variables[varname] = job_vars[varname]
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
-        self.dependencies = job.get("needs", job.get("dependencies", []))
+        needed = job.get("needs", job.get("dependencies", []))
+        self.dependencies = []
+        for item in needed:
+            if isinstance(item, dict):
+                self.dependencies.append(item.get("job"))
+            else:
+                self.dependencies.append(item)
+        self.dependencies = list(set(self.dependencies))
 
         if "timeout" in config[self.name]:
             self.timeout_seconds = parse_timeout(config[self.name].get("timeout"))
