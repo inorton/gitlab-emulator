@@ -219,3 +219,24 @@ from-gitlab-export:
     - echo " == exporting completed jobs .. "
     - cat completed.txt |xargs -n1 -r -I {} gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export {}
     - find export -type f
+
+quick:
+  image: alpine:3.14
+  stage: build
+  script:
+    - date > date.txt
+  artifacts:
+    paths:
+      - date.txt
+
+needs-no-artifacts:
+  image: alpine:3.14
+  stage: test
+  needs:
+    - job: quick
+      artifacts: false
+  script:
+    - if [ ls -l date.txt ]
+    - then
+    -   exit 1
+    - fi
