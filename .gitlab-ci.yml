@@ -236,7 +236,4 @@ needs-no-artifacts:
     - job: quick
       artifacts: false
   script:
-    - if [ ls -l date.txt ]
-    - then
-    -   exit 1
-    - fi
+    - ls date.txt && exit 1
