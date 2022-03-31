@@ -236,4 +236,4 @@ needs-no-artifacts:
     - job: quick
       artifacts: false
   script:
-    - ls date.txt && exit 1
+    - mkdir date.txt # will fail if date.txt was fetched from the quick job
