@@ -45,6 +45,7 @@ class Job(object):
         self.stage = "test"
         self.variables = {}
         self.dependencies = []
+        self.needed_artifacts = []
         if platform.system() == "Windows":
             self.shell = ["powershell.exe",
                           "-NoProfile",
@@ -129,8 +130,11 @@ class Job(object):
         for item in needed:
             if isinstance(item, dict):
                 self.dependencies.append(item.get("job"))
+                if item.get("artifacts", False):
+                    self.needed_artifacts.append(item.get("job"))
             else:
                 self.dependencies.append(item)
+                self.needed_artifacts.append(item)
         self.dependencies = list(set(self.dependencies))
 
         if "timeout" in config[self.name]:
