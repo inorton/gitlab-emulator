@@ -1,4 +1,6 @@
 import os
+import sys
+
 import yaml
 
 
@@ -26,7 +28,7 @@ def load_user_config() -> dict:
         cfg = USER_CFG_DEFAULT
     data = {}
     if os.path.exists(cfg):
-        print(f"Reading gle config from {cfg}")
+        print(f"Reading gle config from {cfg}", file=sys.stderr)
         with open(cfg, "r") as ycfg:
             data = yaml.safe_load(ycfg)
 

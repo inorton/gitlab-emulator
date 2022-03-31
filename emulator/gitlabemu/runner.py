@@ -70,8 +70,8 @@ parser.add_argument("--from", type=str, dest="FROM",
 parser.add_argument("--download", default=False, action="store_true",
                     help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
 
-parser.add_argument("--export", default=False, action="store_true", dest="export",
-                    help="Download JOB logs and artifacts to export/JOBNAME (requires --from)")
+parser.add_argument("--export", type=str, dest="export", metavar="EXPORT",
+                    help="Download JOB logs and artifacts to EXPORT/JOBNAME (requires --from)")
 
 parser.add_argument("--completed", default=False, action="store_true",
                     help="List (implies --list) all currently completed jobs in the --from pipeline")
@@ -226,7 +226,7 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             if options.export:
                 # export the job
                 slug = make_path_slug(options.JOB)
-                outdir = os.path.join(os.getcwd(), "export", slug)
+                outdir = os.path.join(options.export, slug)
                 os.makedirs(outdir, exist_ok=True)
         else:
             # download jobs needed by a job
