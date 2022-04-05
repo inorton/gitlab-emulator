@@ -225,10 +225,14 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
             download_from_jobs = [options.JOB]
             if options.export:
                 # export the job
+                note(f"Export '{options.JOB}'")
                 slug = make_path_slug(options.JOB)
                 outdir = os.path.join(options.export, slug)
                 os.makedirs(outdir, exist_ok=True)
+            else:
+                note(f"Download '{options.JOB}' artifacts")
         else:
+            note(f"Download artifacts required by '{options.JOB}'")
             # download jobs needed by a job
             jobobj = configloader.load_job(loader.config, options.JOB)
             download_from_jobs = jobobj.dependencies
