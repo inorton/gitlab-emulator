@@ -13,7 +13,7 @@ def restore_path_ownership(path):
         if has_docker():
             dt = DockerTool()
             dt.name = f"gitlabemu-chowner-{os.getpid()}"
-            dt.image = "python:3.8-slim"
+            dt.image = "python:3.9-alpine3.14"
             dt.add_volume(path, path)
             dt.entrypoint = ["/bin/sh"]
             dt.pull()
