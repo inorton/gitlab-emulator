@@ -25,7 +25,7 @@ def test_load_callbacks(top_dir):
     assert loader.config
     assert loader.filename == ".gitlab-ci.yml"
     assert len(loader.included_files) == 3
-    assert loader.get_stages() == ["build", "test"]
+    assert loader.get_stages() == ["build", "test", "last"]
     assert loader.get_job_filename("check-alpine") == "ci-includes/subdir/jobs.yml"
     assert loader.get_job_filename(".alpine-image") == "ci-includes/alpine-image.yml"
     assert loader.get_job_filename(".fail-job") == ".gitlab-ci.yml"
