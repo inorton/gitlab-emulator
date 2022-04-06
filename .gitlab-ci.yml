@@ -225,7 +225,7 @@ from-gitlab-export:
     - gle --list --completed --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
     - echo " == exporting  emulator-linux-test completed job .. "
     - gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export archive  emulator-linux-test
-    - find archiv -type f
+    - find archive -type f
 
 quick:
   image: alpine:3.14
