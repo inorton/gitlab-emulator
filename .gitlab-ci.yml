@@ -217,7 +217,7 @@ from-gitlab-export:
     - echo " == listing complted jobs in current pipeline ${CI_PROJECT_PATH}/${CI_PIPELINE_ID} .. "
     - gle --list --completed --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} |tee completed.txt
     - echo " == exporting completed jobs .. "
-    - cat completed.txt |xargs -n1 gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export
+    - cat completed.txt |xargs -I{} gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export {}
     - find export -type f
 
 quick:
