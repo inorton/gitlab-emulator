@@ -27,7 +27,7 @@ def test_run_userconfig(top_dir, linux_docker, capfd):
     try:
         runner.run(["-c", pipeline, "vars-job"])
         stdout, stderr = capfd.readouterr()
-        assert "Reading gle config from " in stdout
+        assert "Reading gle config from " in stderr
         tempname = os.path.basename(tempdir)
         assert tempname in stdout
     finally:
