@@ -9,6 +9,7 @@ variables:
 stages:
 - build
 - test
+- last
 
 .fail-job:
   stage: build
@@ -196,7 +197,7 @@ envs:
     - env|grep ^CI_|sort
 
 from-gitlab-list:
-  stage: build
+  stage: last
   image: python:3.7
   needs:
     - job: emulator-linux-test
@@ -210,7 +211,7 @@ from-gitlab-list:
     - gle --list --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
 
 from-gitlab-export:
-  stage: test
+  stage: last
   image: python:3.7
   needs:
     - job: emulator-linux-test
@@ -223,8 +224,8 @@ from-gitlab-export:
     - echo " == listing complted jobs in current pipeline ${CI_PROJECT_PATH}/${CI_PIPELINE_ID} .. "
     - gle --list --completed --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
     - echo " == exporting  emulator-linux-test completed job .. "
-    - gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export  emulator-linux-test
-    - find export -type f
+    - gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export archive  emulator-linux-test
+    - find archiv -type f
 
 quick:
   image: alpine:3.14
