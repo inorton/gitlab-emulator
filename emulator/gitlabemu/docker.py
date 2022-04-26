@@ -219,19 +219,35 @@ class DockerJob(Job):
 
     def _run_script(self, lines, attempts=2, user=None):
         task = None
-        while attempts > 0:
-            try:
-                task = self.docker.exec(self.workspace, self.shell, user=user)
-                self.communicate(task, script=lines.encode())
-                break
-            except DockerExecError:
-                self.stdout.write("Warning: docker exec error - https://gitlab.com/cunity/gitlab-emulator/-/issues/10")
-                attempts -= 1
-                if attempts == 0:
-                    raise
-                else:
-                    time.sleep(2)
-        return task
+        temp = tempfile.mktemp()
+        try:
+            filename = "generated-gitlab-script" + self.get_script_fileext()
+            with open(filename, "w") as fd:
+                for line in lines:
+                    print(line, file=fd)
+            # copy it to the container
+            dest = "/tmp"
+            if is_windows():
+                dest = "c:\\windows\\temp"
+            target_script = os.path.join(dest, os.path.basename(filename))
+            self.docker.add_file(filename, target_script)
+
+            while attempts > 0:
+                try:
+                    cmdline = self.shell + [target_script]
+                    task = self.docker.exec(self.workspace, cmdline, user=user)
+                    self.communicate(task, script=None)
+                    break
+                except DockerExecError:
+                    self.stdout.write("Warning: docker exec error - https://gitlab.com/cunity/gitlab-emulator/-/issues/10")
+                    attempts -= 1
+                    if attempts == 0:
+                        raise
+                    else:
+                        time.sleep(2)
+            return task
+        finally:
+            os.unlink(temp)
 
     def check_docker_exec_failed(self, line):
         """
