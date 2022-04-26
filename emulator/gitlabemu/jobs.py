@@ -391,7 +391,7 @@ def make_script(lines, powershell=False):
             content += "echo '$ {}'".format(line.replace("'", "\\'")) + os.linesep
 
             if powershell:
-                content += "&" + line + os.linesep
+                content += "& " + line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
             else:
                 content += line + os.linesep

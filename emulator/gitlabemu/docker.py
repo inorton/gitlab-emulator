@@ -223,8 +223,7 @@ class DockerJob(Job):
         temp = os.path.join(tempfile.gettempdir(), filename)
         try:
             with open(temp, "w") as fd:
-                for line in lines:
-                    print(line, file=fd)
+                print(lines, file=fd)
             # copy it to the container
             dest = "/tmp"
             if is_windows():
