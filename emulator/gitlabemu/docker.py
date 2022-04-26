@@ -219,9 +219,9 @@ class DockerJob(Job):
 
     def _run_script(self, lines, attempts=2, user=None):
         task = None
-        temp = tempfile.mktemp()
+        filename = "generated-gitlab-script" + self.get_script_fileext()
+        temp = os.path.join(tempfile.gettempdir(), filename)
         try:
-            filename = "generated-gitlab-script" + self.get_script_fileext()
             with open(temp, "w") as fd:
                 for line in lines:
                     print(line, file=fd)
