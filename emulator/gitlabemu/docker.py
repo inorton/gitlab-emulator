@@ -222,7 +222,7 @@ class DockerJob(Job):
         temp = tempfile.mktemp()
         try:
             filename = "generated-gitlab-script" + self.get_script_fileext()
-            with open(filename, "w") as fd:
+            with open(temp, "w") as fd:
                 for line in lines:
                     print(line, file=fd)
             # copy it to the container
@@ -230,7 +230,7 @@ class DockerJob(Job):
             if is_windows():
                 dest = "c:\\windows\\temp"
             target_script = os.path.join(dest, os.path.basename(filename))
-            self.docker.add_file(filename, target_script)
+            self.docker.add_file(temp, target_script)
 
             while attempts > 0:
                 try:
