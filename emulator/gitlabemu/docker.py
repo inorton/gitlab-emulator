@@ -229,8 +229,9 @@ class DockerJob(Job):
             dest = "/tmp"
             if is_windows():
                 dest = "c:\\windows\\temp"
-            target_script = os.path.join(dest, os.path.basename(filename))
-            self.docker.add_file(temp, target_script)
+            target_script = os.path.join(dest, filename)
+            info("Copying {} to container as {} ..".format(temp, target_script))
+            self.docker.add_file(temp, dest)
 
             while attempts > 0:
                 try:
@@ -239,7 +240,8 @@ class DockerJob(Job):
                     self.communicate(task, script=None)
                     break
                 except DockerExecError:
-                    self.stdout.write("Warning: docker exec error - https://gitlab.com/cunity/gitlab-emulator/-/issues/10")
+                    self.stdout.write(
+                        "Warning: docker exec error - https://gitlab.com/cunity/gitlab-emulator/-/issues/10")
                     attempts -= 1
                     if attempts == 0:
                         raise
