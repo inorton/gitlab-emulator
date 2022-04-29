@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.9.16"
+VERSION = "0.9.17"
 
 setup(
     name="gitlab-emulator",
@@ -15,7 +15,9 @@ setup(
     ],
     scripts=["locallab.py"],
     install_requires=[
-        "pyyaml>=3.13",
+        "pyyaml>=5.1",
+        "requests>=2.23.0",
+        "requests-toolbelt>=0.9.1",
         "docker>=5.0.2; platform_system=='Linux'",
         "docker>=5.0.2; platform_system=='Darwin'",
         "docker>=5.0.2; platform_system=='Windows'",

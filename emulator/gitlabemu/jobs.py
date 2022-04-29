@@ -13,7 +13,7 @@ import threading
 import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
-from .helpers import communicate as comm, is_windows
+from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print
 from .helpers import parse_timeout
 
 
@@ -47,7 +47,8 @@ class Job(object):
         self.variables = {}
         self.dependencies = []
         self.needed_artifacts = []
-        if platform.system() == "Windows":
+        if is_windows():
+            # default to powershell
             self.shell = ["powershell.exe",
                           "-NoProfile",
                           "-NonInteractive",
@@ -110,7 +111,11 @@ class Job(object):
         self.workspace = config[".gitlab-emulator-workspace"]
         self.name = name
         job = config[name]
-        self.shell = config.get(".gitlabemu-windows-shell", self.shell)
+        set_shell = config.get(".gitlabemu-windows-shell", None)
+        if set_shell is not None:
+            if set_shell == "cmd":
+                self.shell = ["cmd"]
+            # else powershell is the default
         self.error_shell = config.get("error_shell", [])
         self.enter_shell = config.get("enter_shell", [])
         self.before_script_enter_shell = config.get("before_script_enter_shell", False)
@@ -249,12 +254,17 @@ class Job(object):
             shell_args = [generated]
             if is_windows():
                 if self.is_powershell():
-                    shell_args = ["-Command", generated]
-            cmdline = self.shell + shell_args
+                    cmdline = self.shell + ["-Command", generated]
+                else:
+                    cmdline = ["powershell", "-Command ", "& cmd /Q /C " + generated]
+            else:
+                cmdline = self.shell + shell_args
+            debug_print("cmdline: {}".format(cmdline))
             opened = subprocess.Popen(cmdline,
                                       env=envs,
+                                      shell=False,
                                       cwd=self.workspace,
-                                      stdin=subprocess.PIPE,
+                                      stdin=subprocess.DEVNULL,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
             self.build_process = opened
@@ -366,11 +376,11 @@ def make_script(lines, powershell=False):
     """
     extra = []
     tail = []
-    if platform.system() == "Linux":
+    if is_linux() or is_apple():
         extra = ["set -e"]
 
-    if powershell:
-        if platform.system() == "Windows":
+    if is_windows():
+        if powershell:
             extra = [
                 '$ErrorActionPreference = "Stop"',
                 'echo "Running on $([Environment]::MachineName)..."',
@@ -381,15 +391,28 @@ def make_script(lines, powershell=False):
                 'if(!$?) { Exit $LASTEXITCODE }',
             ]
         else:
-            powershell = False
+            extra = [
+                '@echo off',
+                'setlocal enableextensions',
+                'setlocal enableDelayedExpansion',
+                'set nl=^',
+                'echo Running on %COMPUTERNAME%...',
+                'call :buildscript',
+                'if !errorlevel! NEQ 0 exit /b !errorlevel!',
+                'goto :EOF',
+                ':buildscript',
+            ]
+            tail = [
+                'goto :EOF',
+            ]
+    else:
+        powershell = False
 
     content = os.linesep.join(extra) + os.linesep
     for line in lines:
         if "\n" in line:
             content += line
         else:
-            content += "echo '$ {}'".format(line.replace("'", "\\'")) + os.linesep
-
             if powershell:
                 content += "& " + line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep

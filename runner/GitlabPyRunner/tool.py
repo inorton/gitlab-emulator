@@ -11,8 +11,14 @@ import sys
 import time
 import yaml
 from requests.exceptions import ConnectionError, HTTPError
+
+from gitlabemu.helpers import is_windows
 from . import consts, runner, executor, common, service
 from gitlabemu import logmsg
+
+default_shell = "/bin/sh"
+if is_windows():
+    default_shell = "powershell"
 
 
 parser = argparse.ArgumentParser(prog="{} -m GitlabPyRunner".format(sys.executable))
@@ -32,7 +38,7 @@ parser.add_argument("--type", type=str,
                     default="shell",
                     help="Set the runner executor eg(shell, docker)")
 
-parser.add_argument("--shell", type=str,
+parser.add_argument("--shell", type=str, default=default_shell,
                     help="Set the executor shell")
 
 parser.add_argument("--desc", type=str,
@@ -86,9 +92,6 @@ def run():
 
         if not opts.regtoken:
             raise RuntimeError("missing required --regtoken")
-
-        if not opts.shell:
-            opts.shell = os.getenv("COMSPEC", "/bin/sh")
 
         instance = runner.Runner(opts.register, None)
         if opts.shell:
@@ -148,7 +151,8 @@ def run():
                 raise RuntimeError("unsupported executor type '{}'".format(extype))
 
             try:
-                instance.shell = config["shell"]
+                if "shell" in config:
+                    instance.shell = config["shell"]
                 while True:
                     exitstatus = 1
                     result = None

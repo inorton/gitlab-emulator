@@ -2,14 +2,12 @@
 Various functions shared between the other modules
 """
 import socket
-import platform
 import zipfile
 import os
 import yaml
 import json
-import time
 from yaml.constructor import ConstructorError
-
+from gitlabemu.helpers import is_windows
 
 _trace_http = False
 _trace_file = os.path.join(os.getcwd(), "http.trace")
@@ -70,10 +68,6 @@ def gethostname():
         return "unknown-hostname"
 
 
-def iswindows():
-    return platform.system() == "Windows"
-
-
 def parse_config(configfile):
     with open(configfile, "r") as infile:
         try:
@@ -116,7 +110,7 @@ class ZipFileEx(zipfile.ZipFile):
         if not isinstance(member, zipfile.ZipInfo):
             member = self.getinfo(member)
         ret_val = super(ZipFileEx, self)._extract_member(member, targetpath, pwd)
-        if not iswindows():
+        if not is_windows():
             attr = member.external_attr >> 16
             os.chmod(ret_val, attr | 0o600)
         return ret_val
@@ -130,7 +124,7 @@ def generate_config(polled):
     """
     global_config = dict()
     job_config = dict()
-    stage = polled["job_info"]["stage"]
+    stage = polled["job_info"].get("stage", "test")
     global_config["stages"] = [stage]
     job_config["stage"] = stage
     image = polled["image"]
