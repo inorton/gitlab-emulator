@@ -1,5 +1,6 @@
 import re
 import shutil
+import subprocess
 import sys
 import os
 import argparse
@@ -23,6 +24,7 @@ parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(
 parser.add_argument("--list", "-l", dest="LIST", default=False,
                     action="store_true",
                     help="List runnable jobs")
+parser.add_argument("--version", default=False, action="store_true")
 parser.add_argument("--hidden", default=False, action="store_true",
                     help="Show hidden jobs in --list(those that start with '.')")
 parser.add_argument("--full", "-r", dest="FULL", default=False,
@@ -285,11 +287,31 @@ def do_gitlab_from(options: argparse.Namespace, cfg, loader):
                     shutil.copyfileobj(resp.raw, logdata)
 
 
+def do_version():
+    """Print the current package version"""
+    try:
+        ver = subprocess.check_output([sys.executable, "-m", "pip", "show", "gitlab-emulator"],
+                                      encoding="utf-8",
+                                      stderr=subprocess.STDOUT)
+        for line in ver.splitlines(keepends=False):
+            if "Version:" in line:
+                words = line.split(":", 1)
+                ver = words[1]
+                break
+    except subprocess.CalledProcessError:
+        ver = "unknown"
+    print(ver.strip())
+    sys.exit(0)
+
+
 def run(args=None):
     options = parser.parse_args(args)
     loader = configloader.Loader()
     yamlfile = options.CONFIG
     jobname = options.JOB
+
+    if options.version:
+        do_version()
 
     if options.chdir:
         if not os.path.exists(options.chdir):
