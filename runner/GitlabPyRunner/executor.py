@@ -15,8 +15,8 @@ import requests
 import zipfile
 
 import yaml
-
-from .common import gethostname, iswindows, generate_config
+from gitlabemu.helpers import is_windows
+from .common import gethostname, generate_config
 from .trace import TraceProxy
 from .consts import NAME, VERSION
 from unidecode import unidecode
@@ -125,7 +125,7 @@ def clean(trace, folder, docker, attempts=10):
 
     logmsg.info("Cleaning build {}".format(folder))
     # make everything deletable on windows
-    if iswindows():
+    if is_windows():
         for root, dirs, files in os.walk(folder):
             for item in files + dirs:
                 path = os.path.join(root, item)
@@ -141,7 +141,7 @@ def clean(trace, folder, docker, attempts=10):
             # failed, if we have docker, try to use that
             if docker:
                 from gitlabemu import logmsg
-                if iswindows():
+                if is_windows():
                     logmsg.fatal("unable to clean {}".format(folder))
                 else:
                     # try to use a busybox
