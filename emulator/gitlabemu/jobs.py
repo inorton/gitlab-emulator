@@ -2,6 +2,7 @@
 Represent a gitlab job
 """
 import os
+import shutil
 import signal
 
 import sys
@@ -186,7 +187,7 @@ class Job(object):
         """
         Process STDIO for a build process but raise an exception on error
         :param process: child started by POpen
-        :param script: script (eg bytezs) to pipe into stdin
+        :param script: script (eg bytes) to pipe into stdin
         :return:
         """
         comm(process, stdout=self.stdout, script=script, throw=True)
@@ -221,6 +222,15 @@ class Job(object):
             envs[name] = str(value)
         return envs
 
+    def get_script_fileext(self):
+        ext = ".sh"
+        if is_windows():
+            if self.is_powershell():
+                ext = ".ps1"
+            else:
+                ext = ".bat"
+        return ext
+
     def run_script(self, lines):
         """
         Execute a script
@@ -230,14 +240,27 @@ class Job(object):
         envs = self.get_envs()
         envs["PWD"] = os.path.abspath(self.workspace)
         script = make_script(lines, powershell=self.is_powershell())
-        opened = subprocess.Popen(self.shell,
-                                  env=envs,
-                                  cwd=self.workspace,
-                                  stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT)
-        self.build_process = opened
-        self.communicate(opened, script=script.encode())
+        temp = tempfile.mkdtemp()
+        try:
+            ext = self.get_script_fileext()
+            generated = os.path.join(temp, "generated-gitlab-script" + ext)
+            with open(generated, "w") as fd:
+                print(script, file=fd)
+            shell_args = [generated]
+            if is_windows():
+                if self.is_powershell():
+                    shell_args = ["-Command", generated]
+            cmdline = self.shell + shell_args
+            opened = subprocess.Popen(cmdline,
+                                      env=envs,
+                                      cwd=self.workspace,
+                                      stdin=subprocess.PIPE,
+                                      stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT)
+            self.build_process = opened
+            self.communicate(opened, script=None)
+        finally:
+            shutil.rmtree(temp)
 
         return opened.returncode
 
@@ -342,17 +365,38 @@ def make_script(lines, powershell=False):
     :return:
     """
     extra = []
+    tail = []
     if platform.system() == "Linux":
         extra = ["set -e"]
 
     if powershell:
         if platform.system() == "Windows":
             extra = [
-                '$ErrorActionPreference = "Continue"',
-                'echo "Running on $([Environment]::MachineName)..."'
+                '$ErrorActionPreference = "Stop"',
+                'echo "Running on $([Environment]::MachineName)..."',
+                '& {',
             ]
+            tail = [
+                '}',
+                'if(!$?) { Exit $LASTEXITCODE }',
+            ]
+        else:
+            powershell = False
 
-    content = os.linesep.join(extra + lines)
+    content = os.linesep.join(extra) + os.linesep
+    for line in lines:
+        if "\n" in line:
+            content += line
+        else:
+            content += "echo '$ {}'".format(line.replace("'", "\\'")) + os.linesep
+
+            if powershell:
+                content += "& " + line + os.linesep
+                content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
+            else:
+                content += line + os.linesep
+    for line in tail:
+        content += line
 
     if platform.system() == "Windows":
         content += os.linesep

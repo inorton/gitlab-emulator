@@ -100,8 +100,8 @@ emulator-windows-run:
     - cunity-windows-2019-docker
   script:
     - cd emulator
-    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job || exit /b
-    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-shell-job || exit /b
+    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job
+    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-shell-job
 
 emulator-windows-test:
   stage: build
