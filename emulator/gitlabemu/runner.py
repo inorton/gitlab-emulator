@@ -344,11 +344,12 @@ def run(args=None):
     except configloader.ConfigLoaderError as err:
         die("Config error: " + str(err))
 
-    options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
-    if options.cmd_shell:
-        loader.config[".gitlabemu-windows-shell"] = "cmd"
-    else:
-        loader.config[".gitlabemu-windows-shell"] = "powershell"
+    if is_windows():
+        options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
+        if options.cmd_shell:
+            loader.config[".gitlabemu-windows-shell"] = "cmd"
+        else:
+            loader.config[".gitlabemu-windows-shell"] = "powershell"
 
     hide_dot_jobs = not options.hidden
 
