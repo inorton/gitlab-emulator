@@ -47,15 +47,13 @@ class Job(object):
         self.variables = {}
         self.dependencies = []
         self.needed_artifacts = []
+        self._shell = None
+
         if is_windows():
-            # default to powershell
-            self.shell = ["powershell.exe",
-                          "-NoProfile",
-                          "-NonInteractive",
-                          "-ExecutionPolicy",
-                          "Bypass"]
+            self._shell = "powershell"
         else:
-            self.shell = ["/bin/sh"]
+            self._shell = "sh"
+
         self.workspace = None
         self.stderr = sys.stderr
         self.stdout = sys.stdout
@@ -99,7 +97,33 @@ class Job(object):
             time.sleep(2)
 
     def is_powershell(self) -> bool:
-        return "powershell.exe" in self.shell
+        return "powershell" == self.shell
+
+    @property
+    def shell(self):
+        return self._shell
+
+    @shell.setter
+    def shell(self, value):
+        if value not in ["cmd", "powershell", "sh"]:
+            raise NotImplementedError("Unsupported shell type " + value)
+        self._shell = value
+
+    def shell_command(self, scriptfile):
+        if is_windows():
+            if self.shell == "powershell":
+                return ["powershell.exe",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-ExecutionPolicy", "Bypass",
+                        "-Command", scriptfile]
+            return ["powershell",
+                    "-Command ", "& cmd /Q /C " + scriptfile]
+        # else unix/linux
+        interp = "/bin/sh"
+        if self.has_bash():
+            interp = "/bin/bash"
+        return [interp, scriptfile]
 
     def load(self, name, config):
         """
@@ -111,11 +135,8 @@ class Job(object):
         self.workspace = config[".gitlab-emulator-workspace"]
         self.name = name
         job = config[name]
-        set_shell = config.get(".gitlabemu-windows-shell", None)
-        if set_shell is not None:
-            if set_shell == "cmd":
-                self.shell = ["cmd"]
-            # else powershell is the default
+        self.shell = config.get(".gitlabemu-windows-shell", self.shell)
+
         self.error_shell = config.get("error_shell", [])
         self.enter_shell = config.get("enter_shell", [])
         self.before_script_enter_shell = config.get("before_script_enter_shell", False)
@@ -251,14 +272,7 @@ class Job(object):
             generated = os.path.join(temp, "generated-gitlab-script" + ext)
             with open(generated, "w") as fd:
                 print(script, file=fd)
-            shell_args = [generated]
-            if is_windows():
-                if self.is_powershell():
-                    cmdline = self.shell + ["-Command", generated]
-                else:
-                    cmdline = ["powershell", "-Command ", "& cmd /Q /C " + generated]
-            else:
-                cmdline = self.shell + shell_args
+            cmdline = self.shell_command(generated)
             debug_print("cmdline: {}".format(cmdline))
             opened = subprocess.Popen(cmdline,
                                       env=envs,

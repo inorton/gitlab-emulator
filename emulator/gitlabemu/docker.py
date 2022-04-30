@@ -234,13 +234,7 @@ class DockerJob(Job):
 
             while attempts > 0:
                 try:
-                    if is_windows():
-                        if self.is_powershell():
-                            cmdline = self.shell + ["-Command", target_script]
-                        else:
-                            cmdline = ["powershell", "-Command", "& cmd /Q /C " + target_script]
-                    else:
-                        cmdline = self.shell + [target_script]
+                    cmdline = self.shell_command(target_script)
                     task = self.docker.exec(self.workspace, cmdline, user=user)
                     self.communicate(task, script=None)
                     break

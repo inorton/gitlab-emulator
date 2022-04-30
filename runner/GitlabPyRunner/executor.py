@@ -242,7 +242,7 @@ def run(runner, job, docker):
 
         if is_windows():
             if runner.shell == "cmd":
-                config[".gitlabemu-windows-shell"] = ["cmd"]
+                config[".gitlabemu-windows-shell"] = "cmd"
             elif runner.shell == "powershell":
                 # emulator default is powershell so leave it alone
                 pass
