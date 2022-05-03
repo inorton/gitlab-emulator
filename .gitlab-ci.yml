@@ -47,7 +47,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python -m pytest .
+    - python -m pytest -vv .
     - python -m build
   artifacts:
     when: always
@@ -65,7 +65,7 @@ emulator-apple-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest . --cov-config .coveragerc.apple
+    - python3 -m pytest -vv . --cov-config .coveragerc.apple
   artifacts:
     reports:
       junit:
@@ -114,7 +114,23 @@ emulator-windows-test:
     - c:\python38\python -m pip install -r test_requirements.txt
     - cd emulator
     - c:\python38\python -m pip install -e .
-    - c:\python38\python -m pytest . --cov-config .coveragerc.windows
+    - c:\python38\python -m pytest -vv . --cov-config .coveragerc.windows
+
+runner-windows-test:
+  stage: build
+  tags:
+    - shared-windows
+    - windows
+    - windows-1809
+  script:
+    - choco install -y python --version=3.8.0
+    - c:\python38\python -m pip install -r test_requirements.txt
+    - cd emulator
+    - c:\python38\python -m pip install -e .
+    - cd ..
+    - cd runner
+    - c:\python38\python -m pip install -e .
+    - c:\python38\python -m pytest -s -vv .
 
 runner-python3-linux-test:
   image: python:3.7
@@ -244,3 +260,8 @@ needs-no-artifacts:
       artifacts: false
   script:
     - mkdir date.txt # will fail if date.txt was fetched from the quick job
+
+.echo:
+  stage: test
+  script:
+    - echo

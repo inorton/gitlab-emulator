@@ -15,7 +15,8 @@ import requests
 import zipfile
 
 import yaml
-from gitlabemu.helpers import is_windows
+
+from gitlabemu.helpers import is_windows, debug_enabled
 from .common import gethostname, generate_config
 from .trace import TraceProxy
 from .consts import NAME, VERSION
@@ -239,6 +240,15 @@ def run(runner, job, docker):
         jobname = job["job_info"]["name"]
         config, derived_config = load_pipeline_config(trace, tempdir, build_dir_abs, job, jobname)
 
+        if is_windows():
+            if runner.shell == "cmd":
+                config[".gitlabemu-windows-shell"] = "cmd"
+            elif runner.shell == "powershell":
+                # emulator default is powershell so leave it alone
+                pass
+            else:
+                trace.writeline("Unknown runner shell {}, choosing powershell".format(runner.shell))
+
         if derived_config:
             trace.writeline("Dervied work folder is {}".format(build_dir_abs))
 
@@ -315,17 +325,16 @@ def load_pipeline_config(trace, tempdir, build_dir_abs, job, jobname):
 
     if not ci_cfg or jobname not in loader.get_jobs():
         with trace.section("child-job", "Execute child job"):
-            trace.writeline("Warning: CI_CONFIG_PATH is empty or unset")
-            trace.writeline("Warning: gitlab-python-runner child-pipeline support is experimental")
             trace.writeline("Computing child job steps..")
 
             new_config = generate_config(job)
             ci_cfg = os.path.join(tempdir, "child-job.yml")
             with(open(ci_cfg, "w")) as new_config_fh:
                 yaml.safe_dump(new_config, stream=new_config_fh)
-            with(open(ci_cfg, "r")) as new_config_fh:
-                for line in new_config_fh:
-                    trace.writeline("#" + line)
+            if debug_enabled():
+                with(open(ci_cfg, "r")) as new_config_fh:
+                    for line in new_config_fh:
+                        trace.writeline("#" + line)
         config = configloader.read(ci_cfg, topdir=build_dir_abs)
         config["variables"]["CI_PROJECT_DIR"] = build_dir_abs
         config[".gitlab-emulator-workspace"] = build_dir_abs

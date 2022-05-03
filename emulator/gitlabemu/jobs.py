@@ -13,7 +13,7 @@ import threading
 import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
-from .helpers import communicate as comm, is_windows
+from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print
 from .helpers import parse_timeout
 
 
@@ -47,14 +47,13 @@ class Job(object):
         self.variables = {}
         self.dependencies = []
         self.needed_artifacts = []
-        if platform.system() == "Windows":
-            self.shell = ["powershell.exe",
-                          "-NoProfile",
-                          "-NonInteractive",
-                          "-ExecutionPolicy",
-                          "Bypass"]
+        self._shell = None
+
+        if is_windows():
+            self._shell = "powershell"
         else:
-            self.shell = ["/bin/sh"]
+            self._shell = "sh"
+
         self.workspace = None
         self.stderr = sys.stderr
         self.stdout = sys.stdout
@@ -98,7 +97,33 @@ class Job(object):
             time.sleep(2)
 
     def is_powershell(self) -> bool:
-        return "powershell.exe" in self.shell
+        return "powershell" == self.shell
+
+    @property
+    def shell(self):
+        return self._shell
+
+    @shell.setter
+    def shell(self, value):
+        if value not in ["cmd", "powershell", "sh"]:
+            raise NotImplementedError("Unsupported shell type " + value)
+        self._shell = value
+
+    def shell_command(self, scriptfile):
+        if is_windows():
+            if self.shell == "powershell":
+                return ["powershell.exe",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-ExecutionPolicy", "Bypass",
+                        "-Command", scriptfile]
+            return ["powershell",
+                    "-Command ", "& cmd /Q /C " + scriptfile]
+        # else unix/linux
+        interp = "/bin/sh"
+        if self.has_bash():
+            interp = "/bin/bash"
+        return [interp, scriptfile]
 
     def load(self, name, config):
         """
@@ -111,6 +136,7 @@ class Job(object):
         self.name = name
         job = config[name]
         self.shell = config.get(".gitlabemu-windows-shell", self.shell)
+
         self.error_shell = config.get("error_shell", [])
         self.enter_shell = config.get("enter_shell", [])
         self.before_script_enter_shell = config.get("before_script_enter_shell", False)
@@ -246,15 +272,13 @@ class Job(object):
             generated = os.path.join(temp, "generated-gitlab-script" + ext)
             with open(generated, "w") as fd:
                 print(script, file=fd)
-            shell_args = [generated]
-            if is_windows():
-                if self.is_powershell():
-                    shell_args = ["-Command", generated]
-            cmdline = self.shell + shell_args
+            cmdline = self.shell_command(generated)
+            debug_print("cmdline: {}".format(cmdline))
             opened = subprocess.Popen(cmdline,
                                       env=envs,
+                                      shell=False,
                                       cwd=self.workspace,
-                                      stdin=subprocess.PIPE,
+                                      stdin=subprocess.DEVNULL,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
             self.build_process = opened
@@ -366,11 +390,11 @@ def make_script(lines, powershell=False):
     """
     extra = []
     tail = []
-    if platform.system() == "Linux":
+    if is_linux() or is_apple():
         extra = ["set -e"]
 
-    if powershell:
-        if platform.system() == "Windows":
+    if is_windows():
+        if powershell:
             extra = [
                 '$ErrorActionPreference = "Stop"',
                 'echo "Running on $([Environment]::MachineName)..."',
@@ -381,15 +405,28 @@ def make_script(lines, powershell=False):
                 'if(!$?) { Exit $LASTEXITCODE }',
             ]
         else:
-            powershell = False
+            extra = [
+                '@echo off',
+                'setlocal enableextensions',
+                'setlocal enableDelayedExpansion',
+                'set nl=^',
+                'echo Running on %COMPUTERNAME%...',
+                'call :buildscript',
+                'if !errorlevel! NEQ 0 exit /b !errorlevel!',
+                'goto :EOF',
+                ':buildscript',
+            ]
+            tail = [
+                'goto :EOF',
+            ]
+    else:
+        powershell = False
 
     content = os.linesep.join(extra) + os.linesep
     for line in lines:
         if "\n" in line:
             content += line
         else:
-            content += "echo '$ {}'".format(line.replace("'", "\\'")) + os.linesep
-
             if powershell:
                 content += "& " + line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep

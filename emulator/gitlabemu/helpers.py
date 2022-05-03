@@ -213,3 +213,12 @@ def git_worktree(path: str) -> str:
 def make_path_slug(text: str) -> str:
     """Convert a string into one suitable for a folder basename"""
     return re.sub(r"[^a-zA-Z0-9\-\.]", "_", text)
+
+
+def debug_enabled():
+    return os.environ.get("GITLAB_EMULATOR_DEBUG", "no") in ["1", "y", "yes"]
+
+
+def debug_print(msg):
+    if debug_enabled():
+        print("GLE DEBUG: {}".format(msg))

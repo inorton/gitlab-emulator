@@ -234,7 +234,7 @@ class DockerJob(Job):
 
             while attempts > 0:
                 try:
-                    cmdline = self.shell + [target_script]
+                    cmdline = self.shell_command(target_script)
                     task = self.docker.exec(self.workspace, cmdline, user=user)
                     self.communicate(task, script=None)
                     break

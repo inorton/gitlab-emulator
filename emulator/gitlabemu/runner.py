@@ -46,9 +46,6 @@ parser.add_argument("--before-script", "-b", dest="before_script_enter_shell", d
 parser.add_argument("--user", "-u", dest="shell_is_user", default=False, action="store_true",
                     help="Run the interactive shell as the current user instead of root")
 
-parser.add_argument("--cmd", default=False, action="store_true", dest="cmd_shell",
-                    help="Force use of legacy cmd.exe instead of powershell on windows")
-
 parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
                     help="If a docker job fails, execute this process (can be a shell)")
 
@@ -81,9 +78,17 @@ parser.add_argument("--completed", default=False, action="store_true",
 parser.add_argument("--insecure", "-k", dest="insecure", default=False, action="store_true",
                     help="Ignore TLS certificate errors when fetching from remote servers")
 
+if is_windows():
+    shellgrp = parser.add_mutually_exclusive_group()
+    shellgrp.add_argument("--powershell", default=False, action="store_true",
+                          help="Force use of powershell for windows jobs")
+    shellgrp.add_argument("--cmd", default=False, action="store_true", dest="cmd_shell",
+                          help="Force use of cmd for windows jobs")
+
 parser.add_argument("JOB", type=str, default=None,
                     nargs="?",
                     help="Run this named job")
+
 
 def die(msg):
     """print an error and exit"""
@@ -339,9 +344,12 @@ def run(args=None):
     except configloader.ConfigLoaderError as err:
         die("Config error: " + str(err))
 
-    options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
-    if options.cmd_shell:
-        loader.config[".gitlabemu-windows-shell"] = "cmd.exe"
+    if is_windows():
+        options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
+        if options.cmd_shell:
+            loader.config[".gitlabemu-windows-shell"] = "cmd"
+        else:
+            loader.config[".gitlabemu-windows-shell"] = "powershell"
 
     hide_dot_jobs = not options.hidden
 

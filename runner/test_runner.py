@@ -32,3 +32,5 @@ def test_poll_manual(playground_runner):
     assert job
     assert run(playground_runner, job, False)
     playground_runner.success(job)
+
+

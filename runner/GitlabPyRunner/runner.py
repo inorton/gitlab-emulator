@@ -30,7 +30,7 @@ class Runner(Session):
         self.executor = "shell"
         self.shell = "bash"
         if platform.system() == "Windows":
-            self.shell = "cmd"
+            self.shell = "powershell"
 
         self.image = False
         self.services = False
