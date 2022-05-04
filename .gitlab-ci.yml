@@ -97,7 +97,7 @@ emulator-windows-run:
   when: manual
   allow_failure: true
   tags:
-    - cunity-windows-2019-docker
+    - cunity-windows-2019-docker-shell
   script:
     - cd emulator
     - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job
