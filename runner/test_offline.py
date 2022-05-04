@@ -148,10 +148,13 @@ class SimpleTrace(TraceProxy):
 @pytest.mark.timeout(60)
 def test_runner_run_offline():
     # test the default shell
+    ls = "ls"
+    if platform.system() == "Windows":
+        ls = "dir"
     runner = Runner(None, None)
     trace = SimpleTrace()
     runner.trace = trace.trace
-    job = compute_server_job(script=["dir", "echo hello"])
+    job = compute_server_job(script=[ls, "echo hello"])
     result = run(runner, job, False)
 
     trace.assert_contains("README.md")
@@ -218,6 +221,8 @@ def test_runner_run_fail_cmd():
 
 @pytest.mark.timeout(60)
 def test_runner_run_offline_fail_powershell():
+    if not platform.system() == "Windows":
+        pytest.skip("Windows only")
     runner = Runner(None, None)
     runner.shell = "powershell"
     trace = SimpleTrace()
