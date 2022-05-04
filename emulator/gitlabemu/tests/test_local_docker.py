@@ -179,3 +179,17 @@ def test_git_worktree(linux_docker, top_dir):
         shutil.rmtree(tmpdir1)
         shutil.rmtree(tmpdir2)
         subprocess.call(["git", "worktree", "prune"], cwd=os.path.dirname(__file__))
+
+
+def test_windows_docker(windows_docker, top_dir):
+    """Test we can launch a windows container job"""
+    # emulator/gitlabemu/tests/test-powershell-fail.yml
+    folder = os.path.join(top_dir, "emulator", "gitlabemu", "tests")
+    os.chdir(folder)
+    run(["-c", "test-powershell-fail.yml", "windows-powershell-ok", "--powershell"])
+    run(["-c", "test-powershell-fail.yml", "windows-cmd-ok", "--cmd"])
+
+    with pytest.raises(SystemExit):
+        run(["-c", "test-powershell-fail.yml", "windows-powershell-fail", "--powershell"])
+    with pytest.raises(SystemExit):
+        run(["-c", "test-powershell-fail.yml", "windows-cmd-fail", "--cmd"])

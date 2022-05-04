@@ -403,8 +403,9 @@ class DockerJob(Job):
                     if self.error_shell:
                         if not self.build_process or self.build_process.returncode:
                             self.shell_on_error()
-
-                    self.run_script(make_script(self.after_script, powershell=self.is_powershell()))
+                    if self.after_script:
+                        info("Running after_script..")
+                        self.run_script(make_script(self.after_script, powershell=self.is_powershell()))
                 except subprocess.CalledProcessError:
                     pass
                 finally:

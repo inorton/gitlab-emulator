@@ -117,8 +117,7 @@ class Job(object):
                         "-NonInteractive",
                         "-ExecutionPolicy", "Bypass",
                         "-Command", scriptfile]
-            return ["powershell",
-                    "-Command ", "& cmd /Q /C " + scriptfile]
+            return ["powershell", "-Command", "& cmd /Q /C " + scriptfile]
         # else unix/linux
         interp = "/bin/sh"
         if self.has_bash():
@@ -390,6 +389,10 @@ def make_script(lines, powershell=False):
     """
     extra = []
     tail = []
+
+    line_wrap_before = []
+    line_wrap_tail = []
+
     if is_linux() or is_apple():
         extra = ["set -e"]
 
@@ -397,10 +400,13 @@ def make_script(lines, powershell=False):
         if powershell:
             extra = [
                 '$ErrorActionPreference = "Stop"',
+                'echo ...',
                 'echo "Running on $([Environment]::MachineName)..."',
+            ]
+            line_wrap_before = [
                 '& {',
             ]
-            tail = [
+            line_wrap_tail = [
                 '}',
                 'if(!$?) { Exit $LASTEXITCODE }',
             ]
@@ -410,12 +416,16 @@ def make_script(lines, powershell=False):
                 'setlocal enableextensions',
                 'setlocal enableDelayedExpansion',
                 'set nl=^',
+                'echo ...',
                 'echo Running on %COMPUTERNAME%...',
                 'call :buildscript',
                 'if !errorlevel! NEQ 0 exit /b !errorlevel!',
                 'goto :EOF',
                 ':buildscript',
             ]
+            line_wrap_tail = [
+            ]
+
             tail = [
                 'goto :EOF',
             ]
@@ -427,11 +437,13 @@ def make_script(lines, powershell=False):
         if "\n" in line:
             content += line
         else:
+            content += os.linesep.join(line_wrap_before)
             if powershell:
                 content += "& " + line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
             else:
                 content += line + os.linesep
+            content += os.linesep.join(line_wrap_tail)
     for line in tail:
         content += line
 

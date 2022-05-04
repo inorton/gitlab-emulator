@@ -1,5 +1,8 @@
+.windows:
+  image: mcr.microsoft.com/windows/servercore:1809-amd64
 windows-powershell-fail:
-  image: nshield-tools-artifactory.ncipher.com/nshield/windows-dev:12.80-5
+  extends:
+    - .windows
   script:
     - echo hello
     - echo 'this is powershell'
@@ -8,8 +11,24 @@ windows-powershell-fail:
     - echo 'should not get here'
 
 windows-powershell-ok:
-  image: nshield-tools-artifactory.ncipher.com/nshield/windows-dev:12.80-5
+  extends:
+    - .windows
   script:
     - echo hello
     - echo 'this is powershell'
     - dir test-powershell-fail.yml
+
+windows-cmd-fail:
+  extends:
+    - .windows
+  script:
+    - echo hello
+    - dir /S ksdhfsdjkfhsdjkfhsdjkh
+    - echo should not get here
+
+windows-cmd-ok:
+  extends:
+    - .windows
+  script:
+    - echo cmd is here
+    - dir /Q test-powershell-fail.yml

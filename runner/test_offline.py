@@ -71,12 +71,16 @@ def test_unpack_permissions(capsys, tmpdir):
     assert "Unpacking artifacts into {}..".format(tmpdir.strpath) in captured.out
 
 
-def compute_server_job(name=".echo", script=None):
+def compute_server_job(name=".computed", script=None):
     if script is None:
         script = ["echo hello"]
 
     job = {
         "variables": [
+            {
+                "key": "GITLAB_PYTHON_RUNNER_COMPUTED",
+                "value": "yes",
+            },
             {
                 "key": "CI_PROJECT_PATH",
                 "value": "testing/runner"
@@ -148,10 +152,13 @@ class SimpleTrace(TraceProxy):
 @pytest.mark.timeout(60)
 def test_runner_run_offline():
     # test the default shell
+    ls = "ls"
+    if platform.system() == "Windows":
+        ls = "dir"
     runner = Runner(None, None)
     trace = SimpleTrace()
     runner.trace = trace.trace
-    job = compute_server_job(script=["dir", "echo hello"])
+    job = compute_server_job(script=["echo 'job start'", ls, "echo hello"])
     result = run(runner, job, False)
 
     trace.assert_contains("README.md")
@@ -218,6 +225,8 @@ def test_runner_run_fail_cmd():
 
 @pytest.mark.timeout(60)
 def test_runner_run_offline_fail_powershell():
+    if not platform.system() == "Windows":
+        pytest.skip("Windows only")
     runner = Runner(None, None)
     runner.shell = "powershell"
     trace = SimpleTrace()
