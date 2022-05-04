@@ -323,7 +323,9 @@ def load_pipeline_config(trace, tempdir, build_dir_abs, job, jobname):
 
     config = loader.config
 
-    if not ci_cfg or jobname not in loader.get_jobs():
+    runner_computed_job = get_variable(job, "GITLAB_PYTHON_RUNNER_COMPUTED", False)
+
+    if runner_computed_job or not ci_cfg or jobname not in loader.get_jobs():
         with trace.section("child-job", "Execute child job"):
             trace.writeline("Computing child job steps..")
 

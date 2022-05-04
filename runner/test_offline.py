@@ -71,12 +71,16 @@ def test_unpack_permissions(capsys, tmpdir):
     assert "Unpacking artifacts into {}..".format(tmpdir.strpath) in captured.out
 
 
-def compute_server_job(name=".echo", script=None):
+def compute_server_job(name=".computed", script=None):
     if script is None:
         script = ["echo hello"]
 
     job = {
         "variables": [
+            {
+                "key": "GITLAB_PYTHON_RUNNER_COMPUTED",
+                "value": "yes",
+            },
             {
                 "key": "CI_PROJECT_PATH",
                 "value": "testing/runner"
@@ -154,7 +158,7 @@ def test_runner_run_offline():
     runner = Runner(None, None)
     trace = SimpleTrace()
     runner.trace = trace.trace
-    job = compute_server_job(script=[ls, "echo hello"])
+    job = compute_server_job(script=["echo 'job start'", ls, "echo hello"])
     result = run(runner, job, False)
 
     trace.assert_contains("README.md")
