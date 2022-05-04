@@ -44,11 +44,20 @@ def has_docker():
 
 @pytest.fixture(scope="session")
 def linux_docker():
+    check_docker("linux")
+
+
+@pytest.fixture(scope="session")
+def windows_docker():
+    check_docker("windows")
+
+
+def check_docker(osname):
     try:
         output = subprocess.check_output(["docker", "info", "-f", "{{.OSType}}"])
         text = output.decode().strip()
-        if text != "linux":
-            pytest.skip("docker cannot run a linux image")
+        if text != osname:
+            pytest.skip("docker cannot run a {} image".format(osname))
     except Exception as err:
         pytest.skip("could not run docker info " + str(err))
 
