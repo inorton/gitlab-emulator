@@ -418,6 +418,7 @@ def make_script(lines, powershell=False):
                 'set nl=^',
                 'echo ...',
                 'echo Running on %COMPUTERNAME%...',
+                'echo Warning: cmd shells on windows are no longer supported by gitlab',
                 'call :buildscript',
                 'if !errorlevel! NEQ 0 exit /b !errorlevel!',
                 'goto :EOF',
