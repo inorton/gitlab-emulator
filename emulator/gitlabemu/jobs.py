@@ -11,6 +11,8 @@ import subprocess
 import tempfile
 import threading
 import time
+import uuid
+
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print
@@ -116,7 +118,7 @@ class Job(object):
                         "-NoProfile",
                         "-NonInteractive",
                         "-ExecutionPolicy", "Bypass",
-                        "-Command", scriptfile]
+                        "-Command", "-"]
             return ["powershell", "-Command", "& cmd /Q /C " + scriptfile]
         # else unix/linux
         interp = "/bin/sh"
@@ -273,6 +275,9 @@ class Job(object):
                 print(script, file=fd)
             cmdline = self.shell_command(generated)
             debug_print("cmdline: {}".format(cmdline))
+            stdin = None
+            if self.is_powershell():
+                stdin = script
             opened = subprocess.Popen(cmdline,
                                       env=envs,
                                       shell=False,
@@ -281,7 +286,7 @@ class Job(object):
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
             self.build_process = opened
-            self.communicate(opened, script=None)
+            self.communicate(opened, script=stdin)
         finally:
             shutil.rmtree(temp)
 
