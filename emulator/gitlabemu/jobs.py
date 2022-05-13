@@ -276,13 +276,15 @@ class Job(object):
             cmdline = self.shell_command(generated)
             debug_print("cmdline: {}".format(cmdline))
             stdin = None
+            proc_stdin = subprocess.DEVNULL
             if self.is_powershell():
                 stdin = script
+                proc_stdin = subprocess.PIPE
             opened = subprocess.Popen(cmdline,
                                       env=envs,
                                       shell=False,
                                       cwd=self.workspace,
-                                      stdin=subprocess.DEVNULL,
+                                      stdin=proc_stdin,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
             self.build_process = opened
