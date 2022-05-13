@@ -11,7 +11,6 @@ import subprocess
 import tempfile
 import threading
 import time
-import uuid
 
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
@@ -269,17 +268,18 @@ class Job(object):
         script = make_script(lines, powershell=self.is_powershell())
         temp = tempfile.mkdtemp()
         try:
-            ext = self.get_script_fileext()
-            generated = os.path.join(temp, "generated-gitlab-script" + ext)
-            with open(generated, "w") as fd:
-                print(script, file=fd)
-            cmdline = self.shell_command(generated)
-            debug_print("cmdline: {}".format(cmdline))
-            stdin = None
             proc_stdin = subprocess.DEVNULL
             if self.is_powershell():
-                stdin = script
+                stdin = script.encode()
                 proc_stdin = subprocess.PIPE
+            else:
+                ext = self.get_script_fileext()
+                generated = os.path.join(temp, "generated-gitlab-script" + ext)
+                with open(generated, "w") as fd:
+                    print(script, file=fd)
+                stdin = subprocess.DEVNULL
+            cmdline = self.shell_command(generated)
+            debug_print("cmdline: {}".format(cmdline))
             opened = subprocess.Popen(cmdline,
                                       env=envs,
                                       shell=False,
