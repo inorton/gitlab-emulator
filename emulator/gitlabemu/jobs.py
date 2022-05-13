@@ -441,7 +441,11 @@ def make_script(lines, powershell=False):
             content += os.linesep.join(line_wrap_before)
             if powershell:
                 content += "& " + line + os.linesep
-                content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
+                content += """
+                if(!$?) {
+                    Write-Error -Message "failed command"
+                    Exit $LASTEXITCODE 
+                }""" + os.linesep
             else:
                 content += line + os.linesep
             content += os.linesep.join(line_wrap_tail)
