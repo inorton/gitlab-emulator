@@ -404,10 +404,10 @@ def make_script(lines, powershell=False):
                 'echo "Running on $([Environment]::MachineName)..."',
             ]
             line_wrap_before = [
-                '& {',
+                '& { ',
             ]
             line_wrap_tail = [
-                '}',
+                ' }',
                 'if(!$?) { Exit $LASTEXITCODE }',
             ]
         else:
