@@ -240,7 +240,7 @@ class DockerJob(Job):
             while attempts > 0:
                 try:
                     cmdline = self.shell_command(target_script)
-                    task = self.docker.exec(self.workspace, cmdline, user=user, pipe=stdin is not None)
+                    task = self.docker.exec(self.workspace, cmdline, user=user, pipe=True)
                     self.communicate(task, script=stdin)
                     break
                 except DockerExecError:
