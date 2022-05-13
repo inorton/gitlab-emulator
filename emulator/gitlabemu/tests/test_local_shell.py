@@ -11,6 +11,6 @@ def test_local_shell_windows(top_dir, capfd):
     os.chdir(folder)
     # should print to stderr without failing the build
     run(["-c", "test-powershell-fail.yml", "windows-powershell-ok", "--powershell", "--ignore-docker"])
-    stdout, stderr = capfd.readouterr()
-    assert "this goes to stderr" in stderr
+    stdout, _ = capfd.readouterr()
+    assert "this goes to stderr" in stdout
     assert "this is powershell" in stdout
