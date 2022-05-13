@@ -112,7 +112,7 @@ class Job(object):
 
     def shell_command(self, scriptfile):
         if is_windows():
-            if self.shell == "powershell":
+            if self.is_powershell():
                 return ["powershell.exe",
                         "-NoProfile",
                         "-NonInteractive",
@@ -275,8 +275,7 @@ class Job(object):
                 stdin = script.encode()
                 proc_stdin = subprocess.PIPE
             else:
-                ext = self.get_script_fileext()
-                generated = os.path.join(temp, "generated-gitlab-script" + ext)
+                generated = os.path.join(temp, "generated-gitlab-script" + self.get_script_fileext())
                 with open(generated, "w") as fd:
                     print(script, file=fd)
             cmdline = self.shell_command(generated)
