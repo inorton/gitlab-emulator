@@ -268,6 +268,8 @@ class Job(object):
         script = make_script(lines, powershell=self.is_powershell())
         temp = tempfile.mkdtemp()
         try:
+            generated = None
+            stdin = None
             proc_stdin = subprocess.DEVNULL
             if self.is_powershell():
                 stdin = script.encode()
@@ -277,7 +279,6 @@ class Job(object):
                 generated = os.path.join(temp, "generated-gitlab-script" + ext)
                 with open(generated, "w") as fd:
                     print(script, file=fd)
-                stdin = subprocess.DEVNULL
             cmdline = self.shell_command(generated)
             debug_print("cmdline: {}".format(cmdline))
             opened = subprocess.Popen(cmdline,
