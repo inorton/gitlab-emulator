@@ -14,3 +14,6 @@ def test_local_shell_windows(top_dir, capfd):
     stdout, _ = capfd.readouterr()
     assert "this goes to stderr" in stdout
     assert "this is powershell" in stdout
+
+    with pytest.raises(SystemExit):
+        run(["-c", "test-powershell-fail.yml", "windows-powershell-fail", "--powershell", "--ignore-docker"])
