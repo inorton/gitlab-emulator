@@ -16,6 +16,7 @@ from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print
 from .helpers import parse_timeout
+from .ansi import ANSI_GREEN, ANSI_RESET
 
 
 class NoSuchJob(GitlabEmulatorError):
@@ -388,6 +389,27 @@ class Job(object):
             fatal("Shell job {} failed".format(self.name))
 
 
+def powershell_escape(text: str, variable=False) -> str:
+    """Escape a powershell string"""
+    text = ANSI_GREEN + text + ANSI_RESET
+    # taken from: http://www.robvanderwoude.com/escapechars.php
+    text = text.replace("`", "``")
+    text = text.replace("\a", "`a")
+    text = text.replace("\b", "`b")
+    text = text.replace("\f", "^f")
+    text = text.replace("\r", "`r")
+    text = text.replace("\n", "`n")
+    text = text.replace("\t", "^t")
+    text = text.replace("\v", "^v")
+    text = text.replace("#", "`#")
+    text = text.replace("'", "`'")
+    text = text.replace("\"", "`\"")
+    if variable:
+        text = text.replace("$", "`$")
+        text = text.replace("``e", "`e")
+    return text
+
+
 def make_script(lines, powershell=False):
     """
     Join lines together to make a script
@@ -406,7 +428,7 @@ def make_script(lines, powershell=False):
     if is_windows():
         if powershell:
             extra = [
-                '$ErrorActionPreference = "Continue"',
+                '$ErrorActionPreference = "Stop"',
                 'echo ...',
                 'echo "Running on $([Environment]::MachineName)..."',
             ]
@@ -447,7 +469,8 @@ def make_script(lines, powershell=False):
         else:
             content += os.linesep.join(line_wrap_before)
             if powershell:
-                content += line + os.linesep
+                content += "echo" + powershell_escape(line, variable=True) + os.linesep
+                content += "& " + powershell_escape(line) + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
             else:
                 content += line + os.linesep
