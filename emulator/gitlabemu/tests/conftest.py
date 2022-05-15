@@ -35,6 +35,11 @@ def posix_only():
 
 
 @pytest.fixture(scope="session")
+def windows_only():
+    if platform.system() != "Windows":
+        pytest.skip("not a Windows platform")
+
+@pytest.fixture(scope="session")
 def has_docker():
     try:
         subprocess.check_output(["docker", "info"])

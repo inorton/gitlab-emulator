@@ -222,21 +222,26 @@ class DockerJob(Job):
         filename = "generated-gitlab-script" + self.get_script_fileext()
         temp = os.path.join(tempfile.gettempdir(), filename)
         try:
-            with open(temp, "w") as fd:
-                print(lines, file=fd)
-            # copy it to the container
-            dest = "/tmp"
-            if is_windows():
-                dest = "c:\\windows\\temp"
-            target_script = os.path.join(dest, filename)
-            info("Copying {} to container as {} ..".format(temp, target_script))
-            self.docker.add_file(temp, dest)
+            stdin = None
+            if self.is_powershell():
+                stdin = lines
+                target_script = None
+            if stdin is None:
+                # copy script into the container
+                with open(temp, "w") as fd:
+                    print(lines, file=fd)
+                dest = "/tmp"
+                if is_windows():
+                    dest = "c:\\windows\\temp"
+                target_script = os.path.join(dest, filename)
+                info("Copying {} to container as {} ..".format(temp, target_script))
+                self.docker.add_file(temp, dest)
 
             while attempts > 0:
                 try:
                     cmdline = self.shell_command(target_script)
-                    task = self.docker.exec(self.workspace, cmdline, user=user)
-                    self.communicate(task, script=None)
+                    task = self.docker.exec(self.workspace, cmdline, user=user, pipe=True)
+                    self.communicate(task, script=stdin)
                     break
                 except DockerExecError:
                     self.stdout.write(

@@ -15,6 +15,7 @@ windows-powershell-ok:
     - .windows
   script:
     - echo hello
+    - cmd /C "echo this goes to stderr 1>&2"
     - echo 'this is powershell'
     - dir test-powershell-fail.yml
 

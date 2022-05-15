@@ -44,6 +44,7 @@ class ProcessLineProxyThread(Thread):
                     self.errors.append(err)
 
     def run(self):
+        data = None
         while True:
             try:
                 data = self.process.stdout.readline()
