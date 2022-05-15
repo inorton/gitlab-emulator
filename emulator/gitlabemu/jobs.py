@@ -376,7 +376,8 @@ class Job(object):
         result = self.run_script(lines)
         if result and self.error_shell:
             self.shell_on_error()
-        self.run_script(self.after_script)
+        if self.after_script:
+            self.run_script(self.after_script)
 
         if result:
             fatal("Shell job {} failed".format(self.name))
