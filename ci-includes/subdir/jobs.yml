@@ -37,6 +37,7 @@ git-alpine:
     - echo SPEED=$SPEED >> record.txt
 
 extends-checker_1:
+  stage: build
   image: alpine:latest
   extends:
     - .extends_base1
