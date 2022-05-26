@@ -52,6 +52,11 @@ def test_load_extends():
     assert top["image"] == "baseimage:image"
     assert top["before_script"][0] == "middle before_script"
     assert top["script"][0] == "top script"
+    assert top["variables"]
+    assert "BASE" in top["variables"]
+    assert "COLOR" in top["variables"]
+    assert top["variables"]["BASE"] = "baseimage"
+    assert top["variables"]["COLOR"] = "purple"
 
     last = loader.get_job("last")
 
