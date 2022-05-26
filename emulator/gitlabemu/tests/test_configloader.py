@@ -55,8 +55,8 @@ def test_load_extends():
     assert top["variables"]
     assert "BASE" in top["variables"]
     assert "COLOR" in top["variables"]
-    assert top["variables"]["BASE"] = "baseimage"
-    assert top["variables"]["COLOR"] = "purple"
+    assert top["variables"]["BASE"] == "baseimage"
+    assert top["variables"]["COLOR"] == "purple"
 
     last = loader.get_job("last")
 

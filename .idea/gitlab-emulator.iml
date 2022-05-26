@@ -10,8 +10,9 @@
       <excludeFolder url="file://$MODULE_DIR$/runner/tmpksvxl6ib" />
       <excludeFolder url="file://$MODULE_DIR$/runner/tmpui4ymd2v" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
+      <excludeFolder url="file://$MODULE_DIR$/builds" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.8 (gitlab-emulator)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.7 (gitlab-emulator)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="gitlab-python-runner" />
   </component>

@@ -237,7 +237,16 @@ def do_extends(alljobs: dict):
                     for base in bases + [name]:
                         baseobj = copy.deepcopy(alljobs[base])
                         for item in baseobj:
-                            new_obj[item] = baseobj[item]
+                            value = baseobj[item]
+                            if isinstance(value, dict):
+                                # this is a hash, merge the keys and values
+                                if item not in new_obj:
+                                    new_obj[item] = OrderedDict()
+                                for keyname in value:
+                                    new_obj[item][keyname] = value[keyname]
+                            else:
+                                # this is a scalar or list, replace it
+                                new_obj[item] = value
                     alljobs[name] = new_obj
                     resolved.add(name)
 
