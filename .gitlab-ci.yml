@@ -47,7 +47,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python -m pytest  --junitxml=test-results.xml -vv .
+    - python -m pytest --cov gitlabemu --junitxml=test-results.xml -vv .
     - python -m build
   artifacts:
     when: always
