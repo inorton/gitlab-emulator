@@ -33,17 +33,6 @@ class OrderedLoader(yaml.FullLoader):
             firstpass = OrderedDict()
         self.first_pass = firstpass
 
-    def construct_sequence(self, node, deep=False):
-        seq = super(OrderedLoader, self).construct_sequence(node, deep=deep)
-        # flatten lists of lists down to one dimension
-        newseq = []
-        for item in seq:
-            if isinstance(item, list):
-                newseq.extend(item)
-            else:
-                newseq.append(item)
-        return newseq
-
 
 def reference_constructor(loader: OrderedLoader, node):
     address = []

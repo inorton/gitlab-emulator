@@ -560,6 +560,21 @@ class Loader(object):
         new_keys = [x for x in new_keys if x not in RESERVED_TOP_KEYS]
         self._job_sources[relative_filename] = new_keys
 
+        # collapse down list-of-lists in scripts
+        for jobname in objdata:
+            if not isinstance(objdata[jobname], dict):
+                continue
+            for step in ["before_script", "script", "after_script"]:
+                lines = objdata[jobname].get(step, None)
+                if lines is not None:
+                    newlines = []
+                    for item in lines:
+                        if isinstance(item, list):
+                            newlines.extend(item)
+                        else:
+                            newlines.append(item)
+                    objdata[jobname][step] = newlines
+
         return objdata
 
     def load(self, filename):
