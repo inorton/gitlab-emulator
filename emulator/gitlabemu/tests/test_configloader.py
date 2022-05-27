@@ -20,7 +20,7 @@ def test_references():
         "uname -a",
         "date",
         "df -h",
-        "pwd"
+        "pwd > pwd.txt"
     ]
 
     assert loader.config["job2"]["variables"] == {

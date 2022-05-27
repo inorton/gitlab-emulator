@@ -2,6 +2,9 @@
   variables:
     COLOR: red
     SHAPE: triangle
+  artifacts:
+    paths:
+      - pwd.txt
 
 .base:
   script:
@@ -16,7 +19,9 @@ job1:
   script:
     - uname -a
     - !reference [.base, script]
-    - pwd
+    - pwd > pwd.txt
+  artifacts:
+    paths: !reference [.template, artifacts, paths]
 
 job2:
   variables: !reference [.template, variables]
