@@ -16,6 +16,18 @@ job1:
     COLOR: !reference [.template, variables, COLOR]
     KUBERENETES_CPU_REQUEST: 3
 
+  # when !reference is used inside a list, if the address is a list
+  # gitlab actually creates a list element that contains the list, eg:
+  # script:
+  #   - uname -a
+  #   - - date
+  #     - df -h
+  #   - pwd > pwd.txt
+  #
+  # You can see this if you use the "View merged YAML" tab in ci/editor
+  #
+  # wierdly, this is seemingly legal to have a multi-dimensional list for scripts
+  #
   script:
     - uname -a
     - !reference [.base, script]
