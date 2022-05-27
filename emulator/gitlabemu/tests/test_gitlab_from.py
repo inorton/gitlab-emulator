@@ -51,3 +51,12 @@ def test_mock_download(capsys, top_dir: str, mocker):
     assert gp.called
     assert pipe.jobs.list.called
     assert zipfile.called
+
+    # try mock export
+    copyfile = mocker.patch("shutil.copyfileobj")
+    run(["--export", "savedir", "emulator-linux-test", "--from", "gitlab.none/group/project/1234"])
+
+    _, stderr = capsys.readouterr()
+    assert copyfile.called
+    assert "Exporting emulator-linux-test artifacts from gitlab.none/group/project/1234" in stderr
+    assert "Saving log to savedir/emulator-linux-test/trace.log" in stderr
