@@ -22,6 +22,7 @@ def test_references():
         "df -h",
         "pwd > pwd.txt"
     ]
+    assert loader.config["job1"]["artifacts"]["paths"] == ["pwd.txt"]
 
     assert loader.config["job2"]["variables"] == {
         "COLOR": "red",

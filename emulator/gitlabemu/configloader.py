@@ -407,7 +407,9 @@ def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=N
     else:
         yamlfile = os.path.join(topdir, yamlfile)
     with open(yamlfile, "r") as yamlobj:
-        loaded = yamlloader.ordered_load(yamlobj, Loader=yaml.FullLoader)
+        preloaded = yamlloader.ordered_load(yamlobj)
+    with open(yamlfile, "r") as yamlobj:
+        loaded = yamlloader.ordered_load(yamlobj, preloaded)
 
     if not baseobj:
         parent = True

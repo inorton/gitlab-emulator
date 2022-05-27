@@ -13,7 +13,7 @@ setup(
     scripts=["gitlab-runner.py"],
     install_requires=[
         "pyyaml>=5.1",
-        "gitlab-emulator>=0.9.20",
+        "gitlab-emulator>=0.9.21",
         "unidecode>=1.1.1"],
     platforms=["any"],
     license="License :: OSI Approved :: MIT License",
