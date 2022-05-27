@@ -24,3 +24,32 @@ git-alpine:
     - ls -l .git
     - git log -n 1
     - echo git log ok
+
+.extends_base1:
+  variables:
+    FRUIT: orange
+
+.extends_base2:
+  variables:
+    SPEED: fast
+  before_script:
+    - echo FRUIT=$FRUIT > record.txt
+    - echo SPEED=$SPEED >> record.txt
+
+extends-checker_1:
+  stage: build
+  image: alpine:latest
+  extends:
+    - .extends_base1
+    - .extends_base2
+  script:
+    - grep FRUIT=orange record.txt
+    - grep SPEED=fast record.txt
+
+extends-checker_2:
+  extends: extends-checker_1
+  variables:
+    SPEED: warp
+  script:
+    - grep FRUIT=orange record.txt
+    - grep SPEED=warp record.txt

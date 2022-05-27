@@ -47,7 +47,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python -m pytest -vv .
+    - python -m pytest --cov gitlabemu --junitxml=test-results.xml -vv .
     - python -m build
   artifacts:
     when: always
@@ -65,7 +65,7 @@ emulator-apple-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest -vv . --cov-config .coveragerc.apple
+    - python3 -m pytest  --junitxml=test-results.xml -vv . --cov-config .coveragerc.apple
   artifacts:
     reports:
       junit:

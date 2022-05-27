@@ -22,6 +22,9 @@ baseimage:
     BASE: baseimage
 
 basebefore:
+  variables:
+    BASE: basebefore
+    COLOR: purple
   before_script:
     - basebefore before_script
   script:
@@ -37,7 +40,8 @@ middle:
 top:
   extends:
     - middle
-  # should set BASE=baseimage
+  # should merge variable from basebefore then baseimage
+  # leaving BASE=baseimage and COLOR=purple
   # should inherit middle: before_script
   # should inherit baseimage: image
   script:
