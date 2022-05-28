@@ -407,7 +407,9 @@ def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=N
     else:
         yamlfile = os.path.join(topdir, yamlfile)
     with open(yamlfile, "r") as yamlobj:
-        loaded = yamlloader.ordered_load(yamlobj, Loader=yaml.FullLoader)
+        preloaded = yamlloader.ordered_load(yamlobj)
+    with open(yamlfile, "r") as yamlobj:
+        loaded = yamlloader.ordered_load(yamlobj, preloaded)
 
     if not baseobj:
         parent = True
@@ -557,6 +559,21 @@ class Loader(object):
         new_keys = (x for x in objdata if x not in before)
         new_keys = [x for x in new_keys if x not in RESERVED_TOP_KEYS]
         self._job_sources[relative_filename] = new_keys
+
+        # collapse down list-of-lists in scripts
+        for jobname in objdata:
+            if not isinstance(objdata[jobname], dict):
+                continue
+            for step in ["before_script", "script", "after_script"]:
+                lines = objdata[jobname].get(step, None)
+                if lines is not None:
+                    newlines = []
+                    for item in lines:
+                        if isinstance(item, list):
+                            newlines.extend(item)
+                        else:
+                            newlines.append(item)
+                    objdata[jobname][step] = newlines
 
         return objdata
 
