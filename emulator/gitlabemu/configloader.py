@@ -203,10 +203,10 @@ def do_extends(alljobs: dict):
     if not default_job:
         alljobs["default"] = {}
         if default_image:
-            alljobs["image"] = default_image
+            alljobs["default"]["image"] = default_image
             del alljobs["image"]
         if default_services:
-            alljobs["services"] = default_services
+            alljobs["default"]["services"] = default_services
             del alljobs["services"]
 
     jobnames = [x for x in alljobs.keys() if x not in RESERVED_TOP_KEYS] + ["default"]
