@@ -5,14 +5,14 @@
       <sourceFolder url="file://$MODULE_DIR$/designer" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/runner" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/emulator" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/builds" />
       <excludeFolder url="file://$MODULE_DIR$/emulator/build" />
       <excludeFolder url="file://$MODULE_DIR$/emulator/dist" />
       <excludeFolder url="file://$MODULE_DIR$/runner/tmpksvxl6ib" />
       <excludeFolder url="file://$MODULE_DIR$/runner/tmpui4ymd2v" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
-      <excludeFolder url="file://$MODULE_DIR$/builds" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.7 (gitlab-emulator)" jdkType="Python SDK" />
+    <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="gitlab-python-runner" />
   </component>

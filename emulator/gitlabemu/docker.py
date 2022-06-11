@@ -495,16 +495,25 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
                         ]
                     )
                 )
-            # this could be a list of images
+
             for service in services:
-                assert ":" in service["name"]
-                image = service["name"]
-                name = service["name"].split(":", 1)[0]
                 aliases = []
-                aliases.append(name.replace("/", "-")) 
-                job.stdout.write(f"create docker service : {name}\n")
+                if isinstance(service, str):
+                    image = service
+                    service = {
+                        "name": image
+                    }
+                else:
+                    image = service["name"]
+                name = image
+                if ":" in name:
+                    name = image.split(":", 1)[0]
+                aliases.append(name.replace("/", "-"))
                 if "alias" in service:
                     aliases.append(service["alias"])
+
+                job.stdout.write(f"create docker service : {name} ({aliases})\n")
+
                 try:
                     client.images.pull(image)
                 except docker.errors.ImageNotFound:
@@ -515,7 +524,7 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
                     privileged=priv,
                     environment=dict(variables),
                     remove=True, detach=True)
-                info(f"creating docker service {name}")
+                info(f"creating docker service {name} ({aliases})")
                 info(f"service {name} is container {container.id}")
                 containers.append(container)
                 info(f"connect {name} to service network")
