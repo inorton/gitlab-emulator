@@ -1,6 +1,10 @@
 stages:
   - test
 
+services:
+  - name: nginx:1.19.2
+    alias: globalservice
+
 job1:
   image: alpine:latest
   services:
@@ -10,3 +14,10 @@ job1:
     - sleep 5
     - ping -c 5 aliased
     - wget http://aliased -O -
+
+job2:
+  image: alpine:latest
+  script:
+    - sleep 5
+    - ping -c globalservice
+    - wget http://globalservice -O -

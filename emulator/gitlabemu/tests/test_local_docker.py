@@ -97,12 +97,25 @@ def test_no_such_exec():
 
 def test_services(linux_docker, capsys):
     """
-    Test that we can do a simple build using docker with services
+    Test that we can do a simple build using docker with services defined in a job
     :param linux_docker:
     :return:
     """
     run(["-c", os.path.join(TEST_DIR, "test-services.yaml"),
          "--full", "job1"])
+
+    out, err = capsys.readouterr()
+    assert "Welcome to nginx!" in out
+
+
+def test_global_services(linux_docker, capsys):
+    """
+    Test that we can do a simple build using docker with services defined globally
+    :param linux_docker:
+    :return:
+    """
+    run(["-c", os.path.join(TEST_DIR, "test-services.yaml"),
+         "--full", "job2"])
 
     out, err = capsys.readouterr()
     assert "Welcome to nginx!" in out
