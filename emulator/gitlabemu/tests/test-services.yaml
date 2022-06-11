@@ -19,5 +19,5 @@ job2:
   image: alpine:latest
   script:
     - sleep 5
-    - ping -c globalservice
+    - ping -c 5 globalservice
     - wget http://globalservice -O -
