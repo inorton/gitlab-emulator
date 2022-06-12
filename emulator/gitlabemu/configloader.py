@@ -93,6 +93,7 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None):
 
     # make this work on windows
     if os.sep != "/":
+        # pragma: linux no cover
         include = include.replace("/", os.sep)
 
     return handle_read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
@@ -600,6 +601,7 @@ class Loader(object):
                 jobfile = filename.replace("\\", "/")
                 break
         return jobfile
+
 
 def find_ci_config(path):
     """

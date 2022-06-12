@@ -1,7 +1,7 @@
 import os
 from typing import Optional
-import psutil
 import uuid
+from .pstab import get_pids
 
 PID = os.getpid()
 
@@ -30,5 +30,5 @@ def resource_owner_alive(name: str) -> bool:
     """Return True if the owner of this resource is still alive"""
     pid = is_gle_resource(name)
     if pid is not None:
-        return psutil.pid_exists(pid)
+        return pid in get_pids()
     return False

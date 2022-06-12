@@ -16,7 +16,6 @@ setup(
     scripts=["locallab.py"],
     install_requires=[
         "pyyaml>=5.1",
-        "psutil>=5.9",
         "requests>=2.23.0",
         "requests-toolbelt>=0.9.1",
         "docker>=5.0.2; platform_system=='Linux'",

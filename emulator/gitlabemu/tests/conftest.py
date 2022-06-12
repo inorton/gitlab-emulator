@@ -24,6 +24,18 @@ def in_tests():
 
 
 @pytest.fixture(scope="session")
+def linux_only():
+    if platform.system() != "Linux":
+        pytest.skip("not a Linux system")
+
+
+@pytest.fixture(scope="session")
+def windows_only():
+    if platform.system() != "Windows":
+        pytest.skip("not a Windows system")
+
+
+@pytest.fixture(scope="session")
 def posix_only():
     if platform.system() == "Windows":
         pytest.skip("not a POSIX platform")
