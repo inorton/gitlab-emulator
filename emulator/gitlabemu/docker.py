@@ -4,7 +4,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import uuid
 import tarfile
 from contextlib import contextmanager
 from typing import Dict, Optional
@@ -226,7 +225,7 @@ class DockerJob(Job):
                 print(lines, file=fd)
             # copy it to the container
             dest = "/tmp"
-            if is_windows():
+            if is_windows():  # pragma: linux no cover
                 dest = "c:\\windows\\temp"
             target_script = os.path.join(dest, filename)
             info("Copying {} to container as {} ..".format(temp, target_script))
@@ -296,7 +295,7 @@ class DockerJob(Job):
 
         # set the defaults
         if cmdline is None:
-            if is_windows():
+            if is_windows():  # pragma: linux no cover
                 if self.is_powershell():
                     cmdline = ["powershell.exe"]
                 else:
@@ -340,7 +339,8 @@ class DockerJob(Job):
             pass
 
     def run_impl(self):
-        if is_windows():
+        from .resnamer import generate_resource_name
+        if is_windows():  # pragma: linux no cover
             warning("warning windows docker is experimental")
 
         if not is_windows():
@@ -352,7 +352,7 @@ class DockerJob(Job):
             self.image = image
 
         self.docker.image = self.image
-        self.container = "gitlab-emu-" + str(uuid.uuid4())
+        self.container = generate_resource_name()
         self.docker.name = self.container
 
         info("pulling docker image {}".format(self.image))
@@ -477,6 +477,7 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
     :param variables: dict of env vars to set in the service container
     :return:
     """
+    from .resnamer import generate_resource_name
     services = job.services
     service_network = None
     containers = []
@@ -484,10 +485,9 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
         if services:
             client = docker.DockerClient()
             # create a network, start each service attached
-            network = "gitlabemu-services-{}".format(str(uuid.uuid4())[0:4])
             info("create docker services network")
             service_network = client.networks.create(
-                network,
+                generate_resource_name(),
                 driver="bridge",
                 ipam=docker.types.IPAMConfig(
                         pool_configs=[

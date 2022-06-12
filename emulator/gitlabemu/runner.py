@@ -13,7 +13,7 @@ from . import configloader
 from . import stream_response
 from .docker import has_docker
 from .localfiles import restore_path_ownership
-from .helpers import is_apple, is_linux, is_windows, git_worktree, make_path_slug
+from .helpers import is_apple, is_linux, is_windows, git_worktree, make_path_slug, clean_leftovers
 from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
 import requests
 from gitlab import Gitlab
@@ -78,7 +78,11 @@ parser.add_argument("--completed", default=False, action="store_true",
 parser.add_argument("--insecure", "-k", dest="insecure", default=False, action="store_true",
                     help="Ignore TLS certificate errors when fetching from remote servers")
 
-if is_windows():
+parser.add_argument("--clean", dest="clean", default=False, action="store_true",
+                    help="Clean up any leftover docker containers or networks")
+
+
+if is_windows():  # pragma: linux no cover
     shellgrp = parser.add_mutually_exclusive_group()
     shellgrp.add_argument("--powershell", default=False, action="store_true",
                           help="Force use of powershell for windows jobs")
@@ -318,6 +322,9 @@ def run(args=None):
     if options.version:
         do_version()
 
+    if options.clean:
+        clean_leftovers()
+
     if options.chdir:
         if not os.path.exists(options.chdir):
             die(f"Cannot change to {options.chdir}, no such directory")
@@ -345,6 +352,7 @@ def run(args=None):
         die("Config error: " + str(err))
 
     if is_windows():
+        # pragma: linux no cover
         options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
         if options.cmd_shell:
             loader.config[".gitlabemu-windows-shell"] = "cmd"

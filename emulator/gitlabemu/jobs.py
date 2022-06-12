@@ -6,15 +6,13 @@ import shutil
 import signal
 
 import sys
-import platform
 import subprocess
 import tempfile
 import threading
 import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
-from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print
-from .helpers import parse_timeout
+from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout
 from .ansi import ANSI_GREEN, ANSI_RESET
 
 
@@ -50,7 +48,7 @@ class Job(object):
         self.needed_artifacts = []
         self._shell = None
 
-        if is_windows():
+        if is_windows():  # pragma: linux no cover
             self._shell = "powershell"
         else:
             self._shell = "sh"
@@ -111,7 +109,7 @@ class Job(object):
         self._shell = value
 
     def shell_command(self, scriptfile):
-        if is_windows():
+        if is_windows():  # pragma: linux no cover
             if self.shell == "powershell":
                 return ["powershell.exe",
                         "-NoProfile",
@@ -233,7 +231,7 @@ class Job(object):
         """
         if not is_windows():
             return os.path.exists("/bin/bash")
-        return False
+        return False  # pragma: linux no cover
 
     def get_envs(self):
         """
@@ -250,7 +248,7 @@ class Job(object):
 
     def get_script_fileext(self):
         ext = ".sh"
-        if is_windows():
+        if is_windows():  # pragma: linux no cover
             if self.is_powershell():
                 ext = ".ps1"
             else:
@@ -293,11 +291,13 @@ class Job(object):
         Execute a shell command on job errors
         :return:
         """
+        # this is interactive only and cant really be easily tested
+        # pragma: no cover
         try:
             print("Running interactive-shell..", flush=True)
             env = self.get_envs()
             prog = ["/bin/sh"]
-            if is_windows():
+            if is_windows():  # pragma: linux no cover
                 if "powershell.exe" in self.shell:
                     prog = ["powershell"]
                 else:
@@ -325,6 +325,8 @@ class Job(object):
         Execute a shell command on job errors
         :return:
         """
+        # this is interactive only and cant really be easily tested
+        # pragma: no cover
         try:
             print("Job {} script error..".format(self.name), flush=True)
             print("Running error-shell..", flush=True)
@@ -345,11 +347,15 @@ class Job(object):
             try:
                 self.monitor_thread.start()
             except RuntimeError as err:
+                # funky hpux special case
+                # pragma: no cover
                 info("could not create a monitor thread, job timeouts may not work: {}".format(err))
                 self.monitor_thread = None
 
             info("job {} timeout set to {} mins".format(self.name, int(self.timeout_seconds/60)))
             if not self.monitor_thread:
+                # funky hpux special case
+                # pragma: no cover
                 def alarm_handler(x, y):
                     info("Got SIGALRM, aborting build..")
                     self.abort()
@@ -367,6 +373,8 @@ class Job(object):
 
     def run_impl(self):
         if self.enter_shell:
+            # interactive mode only
+            # pragma: no cover
             print("Entering shell")
             self.run_shell()
             print("Exiting shell")
@@ -383,7 +391,8 @@ class Job(object):
             fatal("Shell job {} failed".format(self.name))
 
 
-def powershell_escape(text: str, variables=False) -> str:    
+def powershell_escape(text: str, variables=False) -> str:
+    # pragma: linux no cover
     # taken from: http://www.robvanderwoude.com/escapechars.php
     text = text.replace("`", "``")
     text = text.replace("\a", "`a")
@@ -419,6 +428,7 @@ def make_script(lines, powershell=False):
         extra = ["set -e"]
 
     if is_windows():
+        # pragma: linux no cover
         if powershell:
             extra = [
                 '$ErrorActionPreference = "Stop"',
@@ -462,6 +472,7 @@ def make_script(lines, powershell=False):
         else:
             content += os.linesep.join(line_wrap_before)
             if powershell:
+                # pragma: linux no cover
                 content += f"echo {powershell_escape( ANSI_GREEN + line + ANSI_RESET, variables=True)}" + os.linesep
                 content += "& " + line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
@@ -471,9 +482,8 @@ def make_script(lines, powershell=False):
     for line in tail:
         content += line
 
-    if platform.system() == "Windows":
+    if is_windows():
+        # pragma: linux no cover
         content += os.linesep
 
     return content
-
-

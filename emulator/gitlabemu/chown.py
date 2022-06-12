@@ -9,8 +9,8 @@ parser.add_argument("UID", type=int, help="UID to set")
 parser.add_argument("GID", type=int, help="GID to set")
 
 
-def run():
-    opts = parser.parse_args()
+def run(args=None):
+    opts = parser.parse_args(args=args)
     started = time.time()
     cmdline = ["chown", "-R", "-h", f"{str(opts.UID)}.{str(opts.GID)}", os.getcwd()]
     print(f"Restoring ownership of {os.getcwd()} to {str(opts.UID)}.{str(opts.GID)}..")
