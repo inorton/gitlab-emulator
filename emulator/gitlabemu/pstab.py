@@ -20,12 +20,13 @@ class Base:
         pids = []
         for line in self.get_process_list():
             content = line.strip()
-            words = content.split()
-            try:
-                pid = int(words[0])
-                pids.append(pid)
-            except ValueError:
-                pass
+            if content:
+                words = content.split()
+                if words:
+                    try:
+                        pids.append(int(words[0]))
+                    except ValueError:
+                        pass
         return pids
 
 
