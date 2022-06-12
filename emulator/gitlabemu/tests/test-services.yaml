@@ -6,14 +6,18 @@ services:
     alias: globalservice
 
 job1:
+  # test both expanded service map and service string
   image: alpine:latest
   services:
     - name: nginx:1.19.2
       alias: aliased
+    - nginx:1.19.2
   script:
     - sleep 5
     - ping -c 5 aliased
     - wget http://aliased -O -
+    - ping -c 5 nginx
+    - wget http://nginx -O -
 
 job2:
   image: alpine:latest
