@@ -47,13 +47,16 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python -m pytest --cov gitlabemu --junitxml=test-results.xml -vv .
+    - python -m pytest --cov gitlabemu --junitxml=test-results.xml -vv . --cov-report=xml:pytest-cobertura.xml
     - python -m build
   artifacts:
     when: always
     reports:
       junit:
         - emulator/test-results.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: emulator/cobertura-coverage.xml
     paths:
       - emulator/*.whl
 
