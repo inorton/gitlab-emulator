@@ -47,7 +47,7 @@ emulator-linux-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python -m pytest --cov gitlabemu --junitxml=test-results.xml -vv . --cov-report=xml:pytest-cobertura.xml
+    - python -m pytest --cov gitlabemu --junitxml=test-results.xml -vv . --cov-report=xml:pytest-coverage.xml
     - python -m build
   artifacts:
     when: always
@@ -56,9 +56,8 @@ emulator-linux-test:
         - emulator/test-results.xml
       coverage_report:
         coverage_format: cobertura
-        path: emulator/cobertura-coverage.xml
-    paths:
-      - emulator/*.whl
+        path: emulator/pytest-coverage.xml
+
 
 emulator-apple-test:
   tags: [ shared-macos-amd64 ]
