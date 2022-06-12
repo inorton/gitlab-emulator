@@ -1,5 +1,6 @@
 """Tests for helpers.py"""
 import os
+import sys
 
 import docker.errors
 import pytest
@@ -31,7 +32,7 @@ def test_communicate() -> None:
 
 @pytest.mark.usefixtures("posix_only")
 def test_communicate_throws() -> None:
-    proc = subprocess.Popen(["/bin/false"], shell=False,
+    proc = subprocess.Popen([sys.executable, "-c", "import sys; sys.exit(1)"], shell=False,
                             stderr=subprocess.STDOUT,
                             stdout=subprocess.PIPE
                             )
