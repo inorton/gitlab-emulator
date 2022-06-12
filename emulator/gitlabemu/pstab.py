@@ -8,9 +8,11 @@ import subprocess
 class Base:
 
     cmdline = ["ps", "ax"]
+    shell = True
 
     def get_process_list(self) -> List[str]:
         stdout = subprocess.check_output(self.cmdline,
+                                         shell=self.shell,
                                          encoding="utf-8",
                                          stderr=subprocess.DEVNULL)
         lines = [line for line in stdout.splitlines(keepends=False)]
@@ -46,7 +48,8 @@ class Proc(Base):
 
 class Powershell(Base):
     """Windows powershell"""
-    cmdline = ["powershell", "-Command", "Get-Process"]  # pragma: linux no cover
+    shell = False
+    cmdline = "powershell -Command \"Get-Process|Format-Table -Property Id\""  # pragma: linux no cover
 
 
 def get_pids() -> List[int]:
