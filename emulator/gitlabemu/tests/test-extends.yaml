@@ -52,3 +52,14 @@ last:
   extends:
     - top
     - .template-basic
+
+.simple_base:
+  image: ubuntu:latest
+  script:
+    - uname -a
+
+simple_image_extends:
+  extends:
+    - .simple_base
+  image:
+    name: alpine:latest
