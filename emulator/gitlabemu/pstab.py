@@ -7,7 +7,7 @@ import subprocess
 
 class Base:
 
-    cmdline = ["ps", "ax"]
+    cmdline = "/bin/ps ax"
     shell = True
 
     def get_process_list(self) -> List[str]:
