@@ -241,8 +241,13 @@ def do_extends(alljobs: dict):
                             value = baseobj[item]
                             if isinstance(value, dict):
                                 # this is a hash, merge the keys and values
-                                if item not in new_obj:
+                                if item not in new_obj or not isinstance(new_obj[item], dict):
+                                    # sometimes a string value can be replaced
+                                    # with a map, eg
+                                    #  image: imagename:latest  ->  image:
+                                    #                                 name: imagename:latest
                                     new_obj[item] = OrderedDict()
+
                                 for keyname in value:
                                     new_obj[item][keyname] = value[keyname]
                             else:
