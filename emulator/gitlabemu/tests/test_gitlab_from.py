@@ -5,10 +5,11 @@ import pytest
 import argparse
 from ..runner import do_gitlab_from, run, ProjectPipelineJob
 
+
 @pytest.mark.usefixtures("posix_only")
 def test_from_missing_download_args(capsys):
     with pytest.raises(SystemExit):
-        do_gitlab_from(argparse.Namespace(FROM=None, download=True), None, None)
+        do_gitlab_from(argparse.Namespace(FROM=None, download=True), None)
 
     _, stderr = capsys.readouterr()
     assert "--download requires --from PIPELINE" in stderr

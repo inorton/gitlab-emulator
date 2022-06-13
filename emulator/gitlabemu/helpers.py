@@ -249,3 +249,46 @@ def clean_leftovers():
                 if not resource_owner_alive(network.name):
                     info(f"Remove leftover docker network: {network.name}")
                     network.remove()
+
+
+class DockerVolume:
+    def __init__(self, host, mount, mode):
+        if host != "/":
+            host = host.rstrip(os.sep)
+        self.host = host
+        self.mount = mount.rstrip(os.sep)
+        if mode is None:
+            mode = "rw"
+        assert mode in ["rw", "ro"]
+        self.mode = mode
+
+    def __str__(self):
+        return f"{self.host}:{self.mount}:{self.mode}"
+
+
+def plausible_docker_volume(text: str) -> Optional[DockerVolume]:
+    """Decode a docker volume string or return None"""
+    mode = "rw"
+    parts = text.split(":")
+    src = None
+    mount = None
+    if is_windows() or len(parts) >= 4:
+        # c:\thing:c:\container
+        # or
+        # c:\thing:c:\container:rw
+        if len(parts) == 5:
+            # has mode
+            mode = parts[-1]
+        if len(parts) > 3:
+            src = f"{parts[0]}:{parts[1]}"
+            mount = f"{parts[2]:{parts[3]}}"
+    else:
+        if len(parts) >= 2:
+            # host:mount[:mode]
+            src = parts[0]
+            mount = parts[1]
+            if len(parts) == 3:
+                mode = parts[2]
+    if not src:
+        return None
+    return DockerVolume(src, mount, mode)

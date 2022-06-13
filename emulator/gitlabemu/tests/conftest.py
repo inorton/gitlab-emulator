@@ -4,7 +4,6 @@ import subprocess
 import platform
 import sys
 
-from ..userconfig import reset_user_config
 
 TESTS_DIR = os.path.abspath(os.path.dirname(__file__))
 EMULATOR_DIR = os.path.dirname(os.path.dirname(TESTS_DIR))
@@ -79,8 +78,9 @@ def envs():
     envs = dict(os.environ)
     # strip out CI_ env vars
     for name in envs:
-        if name.startswith("CI_"):
-            del os.environ[name]
+        for exclude in ["CI_", "GLE_"]:
+            if name.startswith(exclude):
+                del os.environ[name]
     yield
     for item in envs:
         os.environ[item] = envs[item]
@@ -104,8 +104,3 @@ def replace_stdout():
     default_encoding = sys.stdout.encoding
     yield
     sys.stdout.reconfigure(encoding=default_encoding)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def gle_reset_user_config():
-    reset_user_config()

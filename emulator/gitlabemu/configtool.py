@@ -3,13 +3,9 @@ Configure gitlab emulator context, servers, local variables and docker bind moun
 """
 import sys
 from argparse import ArgumentParser, Namespace
-from .userconfig import (get_user_contexts,
-                         get_current_user_context,
-                         get_user_config_value,
-                         load_user_config,
-                         set_context,
-                         save_userconfig
-                         )
+
+from gitlabemu.userconfigdata import UserContext
+from .userconfig import get_user_config
 
 GLOBAL_DESC = __doc__
 
@@ -22,10 +18,10 @@ def notice(text: str) -> None:
     print(f"notice: {text}", file=sys.stderr, flush=True)
 
 
-def print_contexts(data: dict):
-    context_list = get_user_contexts(data)
-    current = get_current_user_context(data)
-    for item in context_list:
+def print_contexts():
+    cfg = get_user_config()
+    current = cfg.current_context
+    for item in cfg.contexts:
         mark = " "
         if item == current:
             mark = "*"
@@ -33,13 +29,16 @@ def print_contexts(data: dict):
 
 
 def set_context_cmd(opts: Namespace):
-    data = load_user_config(force_reload=True)
     if opts.NAME is None:
-        print_contexts(data)
+        print_contexts()
     else:
-        name = set_context(data, opts.NAME)
+        cfg = get_user_config()
+        name = opts.NAME
+        cfg.current_context = name
+        if name not in cfg.contexts:
+            cfg.contexts[name] = UserContext()
         notice(f"gle context set to {name}")
-        save_userconfig(data)
+        cfg.save()
 
 
 def sensitive_varname(name) -> bool:
@@ -67,9 +66,13 @@ def trim_quotes(text: str) -> str:
 
 
 def vars_cmd(opts: Namespace):
-    data = load_user_config(force_reload=True)
-    context = get_current_user_context(data)
-    variables = get_user_config_value(data, "docker", name="variables", default={})
+    cfg = get_user_config()
+    current = cfg.current_context
+    if opts.local:
+        vars_container = getattr(cfg.contexts[current], "local")
+    else:
+        vars_container = getattr(cfg.contexts[current], "docker")
+    variables = vars_container.variables
     if opts.VAR is None:
         print_sensitive_vars(variables)
     elif "=" in opts.VAR:
@@ -78,17 +81,14 @@ def vars_cmd(opts: Namespace):
             # unset variable if set
             if name in variables:
                 notice(f"Unsetting {name}")
-                del variables[name]
+                del vars_container.variables[name]
             else:
                 warning(f"{name} is not set. If you want an empty string, use {name}='\"\"'")
         else:
             notice(f"Setting {name}")
-            variables[name] = trim_quotes(value)
+            vars_container.variables[name] = trim_quotes(value)
 
-        if "docker" not in data[context]:
-            data[context]["docker"] = {}
-        data[context]["docker"]["variables"] = variables
-        save_userconfig(data)
+        cfg.save()
     else:
         if opts.VAR in variables:
             print_sensitive_vars({opts.VAR: variables[opts.VAR]})
@@ -96,7 +96,35 @@ def vars_cmd(opts: Namespace):
             print(f"{opts.VAR} is not set")
 
 
+def volumes_cmd(opts: Namespace):
+    cfg = get_user_config()
+    current = cfg.current_context
 
+    if opts.add:
+        cfg.contexts[current].docker.add_volume(opts.add)
+        cfg.save()
+    elif opts.remove:
+        cfg.contexts[current].docker.remove_volume(opts.remove)
+        cfg.save()
+
+    for volume in cfg.contexts[current].docker.volumes:
+        print(volume)
+
+
+def win_shell_cmd(opts: Namespace):
+    cfg = get_user_config()
+    current = cfg.current_context
+    if opts.cmd or opts.powershell:
+        if opts.cmd:
+            cfg.contexts[current].windows.cmd = True
+        elif opts.powershell:
+            cfg.contexts[current].windows.cmd = False
+        cfg.save()
+
+    if cfg.contexts[current].windows.cmd:
+        print("Windows shell is cmd")
+    else:
+        print("Windows shell is powershell")
 
 
 def main(args=None):
@@ -108,8 +136,26 @@ def main(args=None):
     set_ctx.set_defaults(func=set_context_cmd)
 
     set_var = subparsers.add_parser("vars", help="Show/set environment variables injected into jobs")
+    set_var.add_argument("--local", default=False, action="store_true",
+                         help="Set/Show variables for local shell jobs instead of docker")
     set_var.add_argument("VAR", type=str, help="Set or unset an environment variable", nargs="?")
     set_var.set_defaults(func=vars_cmd)
+
+    set_vols = subparsers.add_parser("volumes", help="Show/set the docker volumes")
+    vol_grp = set_vols.add_mutually_exclusive_group()
+    vol_grp.add_argument("--add", type=str, metavar="VOLUME",
+                         help="Volume to add (eg /path/to/folder:/mount/path:rw)")
+    vol_grp.add_argument("--remove", type=str, metavar="PATH",
+                         help="Volume to remove (eg /mount/path)")
+    set_vols.set_defaults(func=volumes_cmd)
+
+    win_shell = subparsers.add_parser("windows-shell", help="Set the shell for windows jobs (default is powershell)")
+    win_shell_grp = win_shell.add_mutually_exclusive_group()
+    win_shell_grp.add_argument("--cmd", default=False, action="store_true",
+                               help="Use cmd for jobs")
+    win_shell_grp.add_argument("--powershell", default=False, action="store_true",
+                               help="Use powershell for jobs (default)")
+    win_shell.set_defaults(func=win_shell_cmd)
 
     opts = parser.parse_args(args)
     if hasattr(opts, "func"):

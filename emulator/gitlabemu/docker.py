@@ -11,7 +11,7 @@ from typing import Dict, Optional
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 from .helpers import communicate as comm, is_windows
-from .userconfig import load_user_config, get_user_config_value
+from .userconfig import get_user_config_context
 from .errors import DockerExecError
 from .dockersupport import docker
 
@@ -357,7 +357,7 @@ class DockerJob(Job):
 
         info("pulling docker image {}".format(self.image))
         try:
-            self.stdout.write("Pulling {}...".format(self.image))
+            self.stdout.write("Pulling {}...\n".format(self.image))
             self.docker.pull()
         except subprocess.CalledProcessError:
             warning("could not pull docker image {}".format(self.image))
@@ -371,8 +371,7 @@ class DockerJob(Job):
 
             if self.entrypoint is not None:
                 self.docker.entrypoint = self.entrypoint
-            volumes = get_user_config_value(load_user_config(),
-                                            "docker", name="volumes", default=[])
+            volumes = get_user_config_context().docker.runtime_volumes()
             if volumes:
                 info("Extra docker volumes registered:")
                 for item in volumes:

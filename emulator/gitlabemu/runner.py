@@ -14,7 +14,8 @@ from . import stream_response
 from .docker import has_docker
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, make_path_slug, clean_leftovers
-from .userconfig import load_user_config, get_user_config_value, override_user_config_value, USER_CFG_ENV
+from .userconfig import USER_CFG_ENV, get_user_config_context
+from .userconfigdata import UserContext
 import requests
 from gitlab import Gitlab
 
@@ -105,22 +106,22 @@ def note(msg):
     print(msg, file=sys.stderr)
 
 
-def apply_user_config(loader: configloader.Loader, cfg: dict, is_docker: bool):
+def apply_user_config(loader: configloader.Loader, is_docker: bool):
     """
     Add the user config values to the loader
     :param loader:
-    :param cfg:
     :param is_docker:
     :return:
     """
-    allvars = get_user_config_value(cfg, "variables", default={})
-    for name in allvars:
-        loader.config["variables"][name] = allvars[name]
+    ctx: UserContext = get_user_config_context()
+
+    for name in ctx.variables:
+        loader.config["variables"][name] = ctx.variables[name]
 
     if is_docker:
-        jobvars = get_user_config_value(cfg, "docker", name="variables", default={})
+        jobvars = ctx.docker.variables
     else:
-        jobvars = get_user_config_value(cfg, "local", name="variables", default={})
+        jobvars = ctx.local.variables
 
     for name in jobvars:
         loader.config["variables"][name] = jobvars[name]
@@ -146,15 +147,15 @@ def execute_job(config, jobname, seen=None, recurse=False):
         seen.add(jobname)
 
 
-def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
+def gitlab_api(alias: str, secure=True) -> Gitlab:
     """Create a Gitlab API client"""
-    servers = get_user_config_value(cfg, "gitlab", name="servers", default=[])
+    ctx = get_user_config_context()
     server = None
     token = None
-    for item in servers:
-        if item.get("name") == alias:
-            server = item.get("server")
-            token = item.get("token")
+    for item in ctx.gitlab.servers:
+        if item.name == alias:
+            server = item.server
+            token = item.token
             if not server:
                 die(f"no server address for alias {alias}")
             if not token:
@@ -188,14 +189,14 @@ def gitlab_api(cfg: dict, alias: str, secure=True) -> Gitlab:
     die(f"Cannot find local configuration for server {alias}")
 
 
-def get_pipeline(cfg, fromline, secure: Optional[bool] = True):
+def get_pipeline(fromline, secure: Optional[bool] = True):
     """Get a pipeline"""
     server, extra = fromline.split("/", 1)
     project_path, pipeline_id = extra.rsplit("/", 1)
     if not secure:
         note("TLS server validation disabled by --insecure")
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    gitlab = gitlab_api(cfg, server, secure=secure)
+    gitlab = gitlab_api(server, secure=secure)
     # get project
     project = gitlab.projects.get(project_path)
     # get pipeline
@@ -203,12 +204,12 @@ def get_pipeline(cfg, fromline, secure: Optional[bool] = True):
     return gitlab, project, pipeline
 
 
-def do_gitlab_from(options: argparse.Namespace, cfg, loader):
+def do_gitlab_from(options: argparse.Namespace, loader):
     """Perform actions using a gitlab server"""
     if options.download and not options.FROM:
         die("--download requires --from PIPELINE")
     if options.FROM:
-        gitlab, project, pipeline = get_pipeline(cfg, options.FROM, secure=not options.insecure)
+        gitlab, project, pipeline = get_pipeline(options.FROM, secure=not options.insecure)
         if options.insecure:
             gitlab.session.verify = False
         pipeline_jobs = pipeline.jobs.list(all=True)
@@ -342,7 +343,8 @@ def run(args=None):
     if options.USER_SETTINGS:
         os.environ[USER_CFG_ENV] = options.USER_SETTINGS
 
-    cfg = load_user_config()
+    ctx = get_user_config_context()
+
     try:
         fullpath = os.path.abspath(yamlfile)
         rootdir = os.path.dirname(fullpath)
@@ -353,7 +355,7 @@ def run(args=None):
 
     if is_windows():
         # pragma: linux no cover
-        options.cmd_shell = get_user_config_value(cfg, "windows", name="cmd", default=options.cmd_shell)
+        options.cmd_shell = ctx.windows.cmd
         if options.cmd_shell:
             loader.config[".gitlabemu-windows-shell"] = "cmd"
         else:
@@ -365,7 +367,7 @@ def run(args=None):
         die("--full and --parallel cannot be used together")
 
     if options.FROM:
-        do_gitlab_from(options, cfg, loader)
+        do_gitlab_from(options, loader)
         return
 
     if options.LIST:
@@ -409,13 +411,13 @@ def run(args=None):
             if gwt:
                 note(f"f{rootdir} is a git worktree, adding {gwt} as a docker volume.")
                 # add the real git repo as a docker volume
-                volumes = get_user_config_value(cfg, "docker", name="volumes", default=[])
+                volumes = ctx.docker.runtime_volumes()
                 volumes.append(f"{gwt}:{gwt}:ro")
-                override_user_config_value("docker", "volumes", volumes)
+                ctx.docker.volumes = volumes
         else:
             fix_ownership = False
 
-        apply_user_config(loader, cfg, is_docker=docker_job)
+        apply_user_config(loader, is_docker=docker_job)
 
         if not is_linux():
             fix_ownership = False
