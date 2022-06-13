@@ -93,6 +93,7 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None):
 
     # make this work on windows
     if os.sep != "/":
+        # pragma: linux no cover
         include = include.replace("/", os.sep)
 
     return handle_read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
@@ -203,10 +204,10 @@ def do_extends(alljobs: dict):
     if not default_job:
         alljobs["default"] = {}
         if default_image:
-            alljobs["image"] = default_image
+            alljobs["default"]["image"] = default_image
             del alljobs["image"]
         if default_services:
-            alljobs["services"] = default_services
+            alljobs["default"]["services"] = default_services
             del alljobs["services"]
 
     jobnames = [x for x in alljobs.keys() if x not in RESERVED_TOP_KEYS] + ["default"]
@@ -600,6 +601,7 @@ class Loader(object):
                 jobfile = filename.replace("\\", "/")
                 break
         return jobfile
+
 
 def find_ci_config(path):
     """

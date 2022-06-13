@@ -3,13 +3,15 @@ Various useful common funcs
 """
 import os.path
 from threading import Thread
-import json
 import sys
 import re
 import platform
 import subprocess
+from typing import Optional
 
 from .errors import DockerExecError
+from .resnamer import resource_owner_alive, is_gle_resource
+from .logmsg import info
 
 
 class ProcessLineProxyThread(Thread):
@@ -47,9 +49,9 @@ class ProcessLineProxyThread(Thread):
         while True:
             try:
                 data = self.process.stdout.readline()
-            except ValueError:
+            except ValueError:  # pragma: no cover
                 pass
-            except Exception as err:
+            except Exception as err:  # pragma: no cover
                 self.errors.append(err)
                 raise
             finally:
@@ -82,7 +84,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     try:
         comm_thread.start()
         thread_started = True
-    except RuntimeError:
+    except RuntimeError:  # pragma: no cover
         # could not create the thread, so use a loop
         pass
 
@@ -100,7 +102,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     while True:
         try:
             data = process.stdout.readline()
-        except ValueError:
+        except ValueError:  # pragma: no cover
             pass
         if data:
             # we can still use our proxy object to decode and write the data
@@ -185,7 +187,7 @@ def parse_timeout(text):
     return seconds
 
 
-def git_worktree(path: str) -> str:
+def git_worktree(path: str) -> Optional[str]:
     """
     If the given path contains a git worktree, return the path to it
     :param path:
@@ -194,6 +196,8 @@ def git_worktree(path: str) -> str:
     gitpath = os.path.join(path, ".git")
 
     if os.path.isfile(gitpath):
+        # this is an odd case where you have .git files instead of folders
+        # pragma: no cover
         with open(gitpath, "r") as fd:
             full = fd.read()
             for line in full.splitlines():
@@ -220,5 +224,28 @@ def debug_enabled():
 
 
 def debug_print(msg):
-    if debug_enabled():
+    if debug_enabled():  # pragma: no cover
         print("GLE DEBUG: {}".format(msg))
+
+
+def clean_leftovers():
+    """Clean up any unused leftover docker containers or networks"""
+    from .dockersupport import docker
+    if docker:
+        from .docker import DockerTool
+        tool = DockerTool()
+        for container in tool.client.containers.list():
+            name = container.name
+            pid = is_gle_resource(name)
+            if pid is not None:
+                if not resource_owner_alive(name):
+                    # kill this container
+                    info(f"Killing leftover docker container: {name}")
+                    container.kill()
+
+        for network in tool.client.networks.list():
+            pid = is_gle_resource(network.name)
+            if pid is not None:
+                if not resource_owner_alive(network.name):
+                    info(f"Remove leftover docker network: {network.name}")
+                    network.remove()

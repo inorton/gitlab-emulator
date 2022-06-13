@@ -11,8 +11,9 @@ def restore_path_ownership(path):
     chowner = os.path.abspath(os.path.join(os.path.dirname(__file__), "chown.py"))
     if not is_windows():
         if has_docker():
+            from .resnamer import generate_resource_name
             dt = DockerTool()
-            dt.name = f"gitlabemu-chowner-{os.getpid()}"
+            dt.name = generate_resource_name("chowner")
             dt.image = "python:3.9-alpine3.14"
             dt.add_volume(path, path)
             dt.entrypoint = ["/bin/sh"]

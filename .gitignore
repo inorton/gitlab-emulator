@@ -1,3 +1,6 @@
 /linux-build-later
 */.coverage
 */test-results.xml
+/emulator/*.egg-info/
+/record.txt
+/savedir/emulator-linux-test/trace.log
