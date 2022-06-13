@@ -30,6 +30,7 @@ setup(
     entry_points={
         "console_scripts": [
             "gle=gitlabemu.runner:run",
+            "gle-config=gitlabemu.configtool:main",
         ]
     }
 )
