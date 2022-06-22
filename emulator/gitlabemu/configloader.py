@@ -3,17 +3,13 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
-from collections import OrderedDict
-
-import yaml
-
 from .errors import GitlabEmulatorError
 from .gitlab.types import RESERVED_TOP_KEYS
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
-from .userconfig import load_user_config, get_user_config_value
-from .yamlloader import GitlabReference
+from .yamlloader import GitlabReference, StringableOrderedDict
+from .userconfig import get_user_config_context
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -140,8 +136,8 @@ def strict_needs_stages() -> bool:
     Return True if gitlab needs requires stage (gitlab 14.1 or earlier)
     :return:
     """
-    cfg = load_user_config()
-    version = str(get_user_config_value(cfg, "gitlab", name="version", default="14.2"))
+    ctx = get_user_config_context()
+    version = ctx.gitlab.version
     if "." in version:
         major, minor = version.split(".", 1)
         if int(major) < 15:
@@ -234,7 +230,7 @@ def do_extends(alljobs: dict):
                         continue
 
                     # do the extends work
-                    new_obj = OrderedDict()
+                    new_obj = StringableOrderedDict()
                     for base in bases + [name]:
                         baseobj = copy.deepcopy(alljobs[base])
                         for item in baseobj:
@@ -246,7 +242,7 @@ def do_extends(alljobs: dict):
                                     # with a map, eg
                                     #  image: imagename:latest  ->  image:
                                     #                                 name: imagename:latest
-                                    new_obj[item] = OrderedDict()
+                                    new_obj[item] = StringableOrderedDict()
 
                                 for keyname in value:
                                     new_obj[item][keyname] = value[keyname]

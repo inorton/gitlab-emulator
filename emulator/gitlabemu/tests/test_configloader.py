@@ -5,6 +5,7 @@ import os
 
 import pytest
 from .. import configloader
+from .. import yamlloader
 
 HERE = os.path.dirname(__file__)
 TOPDIR = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
@@ -28,6 +29,29 @@ def test_references():
         "COLOR": "red",
         "SHAPE": "triangle"
     }
+
+
+def test_bad_references():
+    loader = configloader.Loader()
+    with pytest.raises(yamlloader.ReferenceError) as err:
+        loader.load(os.path.join(HERE, "invalid", "bad_references.yaml"))
+
+    assert "cannot find referent job for !reference [.template, variables, COLOR]" in err.value.message
+    assert "bad_references.yaml\", line 4, column 12" in err.value.message
+
+    loader = configloader.Loader()
+    with pytest.raises(yamlloader.ReferenceError) as err:
+        loader.load(os.path.join(HERE, "invalid", "bad_references_2.yaml"))
+
+    assert "cannot find referent key for !reference [.template, variables, COLOR]" in err.value.message
+    assert "bad_references_2.yaml\", line 7, column 12" in err.value.message
+
+    loader = configloader.Loader()
+    with pytest.raises(yamlloader.ReferenceError) as err:
+        loader.load(os.path.join(HERE, "invalid", "bad_references_3.yaml"))
+
+    assert "cannot find referent value for !reference [.template, variables, COLOR]" in err.value.message
+    assert "bad_references_3.yaml\", line 8, column 12" in err.value.message
 
 
 def test_loading_ci():

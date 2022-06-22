@@ -9,7 +9,7 @@ from .docker import DockerTool, has_docker
 def restore_path_ownership(path):
     path = os.path.abspath(path)
     chowner = os.path.abspath(os.path.join(os.path.dirname(__file__), "chown.py"))
-    if not is_windows():
+    if not is_windows():  # pragma: windows no cover
         if has_docker():
             from .resnamer import generate_resource_name
             dt = DockerTool()

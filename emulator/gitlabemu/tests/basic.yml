@@ -16,5 +16,6 @@ vars-job:
   stage: build
   image: alpine:latest
   script:
-    - echo EXECUTE_VARIABLE=${EXECUTE_VARIABLE}
+    - echo "SOME_VAR_NAME=\"${SOME_VAR_NAME}\""
+    - echo "EXECUTE_VARIABLE=\"${EXECUTE_VARIABLE}\""
     - sh -c "${EXECUTE_VARIABLE}"

@@ -5,15 +5,18 @@ branch = True
 source = gitlabemu
 
 [report]
-fail_under = 70
+fail_under = 69
 
 omit =
     gitlabemu/gitlab/types.py
+    gitlabemu/tests/*
 
 # Regexes for lines to exclude from consideration
 exclude_lines =
     # Have to re-enable the standard pragma
     pragma: no cover
+    # Skip lines marked as no cover on windows
+    pragma: windows no cover
 
     # Don't complain about missing debug-only code:
     def __repr__

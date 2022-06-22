@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.9.23"
+VERSION = "0.10.1"
 
 setup(
     name="gitlab-emulator",
@@ -30,6 +30,7 @@ setup(
     entry_points={
         "console_scripts": [
             "gle=gitlabemu.runner:run",
+            "gle-config=gitlabemu.configtool:main",
         ]
     }
 )

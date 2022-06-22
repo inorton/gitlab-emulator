@@ -53,11 +53,11 @@ class Powershell(Base):
 
 
 def get_pids() -> List[int]:
-    if platform.system() == "Windows":
+    if platform.system() == "Windows":  # pragma: posix no cover
         p = Powershell()
-    elif os.path.isdir("/proc"):
+    elif os.path.isdir("/proc"):  # pragma: windows no cover
         p = Proc()
-    else:
+    else:  # pragma: windows no cover
         p = Base()
 
     return p.get_pids()

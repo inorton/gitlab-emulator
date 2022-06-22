@@ -12,7 +12,7 @@ import threading
 import time
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
-from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout
+from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
 from .ansi import ANSI_GREEN, ANSI_RESET
 
 
@@ -71,7 +71,10 @@ class Job(object):
 
     def duration(self):
         if self.started_time:
-            return time.time() - self.started_time
+            ended = self.ended_time
+            if not ended:
+                ended = time.time()
+            return ended - self.started_time
         return 0
 
     def monitor_thread_loop_once(self):
@@ -206,6 +209,11 @@ class Job(object):
         if self.build_process and self.build_process.poll() is None:
             info("killing child build process..")
             os.kill(self.build_process.pid, signal.SIGTERM)
+            killing = time.time()
+            while self.build_process.poll() is None: # pragma: no cover
+                time.sleep(1)
+                if time.time() - killing > 10:
+                    os.kill(self.build_process.pid, signal.SIGKILL)
 
     def check_communicate(self, process, script=None):
         """
@@ -372,9 +380,8 @@ class Job(object):
                 self.monitor_thread.join(timeout=5)
 
     def run_impl(self):
-        if self.enter_shell:
+        if self.enter_shell:  # pragma: no cover
             # interactive mode only
-            # pragma: no cover
             print("Entering shell")
             self.run_shell()
             print("Exiting shell")
@@ -382,34 +389,13 @@ class Job(object):
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
         result = self.run_script(lines)
-        if result and self.error_shell:
+        if result and self.error_shell:  # pragma: no cover
             self.shell_on_error()
         if self.after_script:
             self.run_script(self.after_script)
 
         if result:
             fatal("Shell job {} failed".format(self.name))
-
-
-def powershell_escape(text: str, variables=False) -> str:
-    # pragma: linux no cover
-    # taken from: http://www.robvanderwoude.com/escapechars.php
-    text = text.replace("`", "``")
-    text = text.replace("\a", "`a")
-    text = text.replace("\b", "`b")
-    text = text.replace("\f", "^f")
-    text = text.replace("\r", "`r")
-    text = text.replace("\n", "`n")
-    text = text.replace("\t", "^t")
-    text = text.replace("\v", "^v")
-    text = text.replace("#", "`#")
-    text = text.replace("'", "`'")
-    text = text.replace("\"", "`\"")
-    text = f"\"{text}\""
-    if variables:
-        text = text.replace("$", "`$")
-        text = text.replace("``e", "`e")
-    return text
 
 
 def make_script(lines, powershell=False):
@@ -427,8 +413,7 @@ def make_script(lines, powershell=False):
     if is_linux() or is_apple():
         extra = ["set -e"]
 
-    if is_windows():
-        # pragma: linux no cover
+    if is_windows():  # pragma: linux no cover
         if powershell:
             extra = [
                 '$ErrorActionPreference = "Stop"',
@@ -471,9 +456,8 @@ def make_script(lines, powershell=False):
             content += line
         else:
             content += os.linesep.join(line_wrap_before)
-            if powershell:
-                # pragma: linux no cover
-                content += f"echo {powershell_escape( ANSI_GREEN + line + ANSI_RESET, variables=True)}" + os.linesep
+            if powershell:  # pragma: linux no cover
+                content += f"echo {powershell_escape(ANSI_GREEN + line + ANSI_RESET, variables=True)}" + os.linesep
                 content += "& " + line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
             else:
@@ -482,8 +466,7 @@ def make_script(lines, powershell=False):
     for line in tail:
         content += line
 
-    if is_windows():
-        # pragma: linux no cover
+    if is_windows():  # pragma: linux no cover
         content += os.linesep
 
     return content
