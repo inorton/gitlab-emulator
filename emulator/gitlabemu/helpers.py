@@ -269,7 +269,7 @@ def plausible_docker_volume(text: str) -> Optional[DockerVolume]:
     parts = text.split(":")
     src = None
     mount = None
-    if is_windows() or len(parts) >= 4:
+    if len(parts) >= 4:
         import ntpath
         # c:\thing:c:\container
         # or
@@ -281,9 +281,10 @@ def plausible_docker_volume(text: str) -> Optional[DockerVolume]:
         mount = ntpath.abspath(f"{parts[2]}:{parts[3]}")
     else:
         if len(parts) >= 2:
+            import posixpath
             # host:mount[:mode]
-            src = parts[0]
-            mount = parts[1]
+            src = posixpath.abspath(parts[0])
+            mount = posixpath.abspath(parts[1])
             if len(parts) == 3:
                 mode = parts[2]
     if not src:
