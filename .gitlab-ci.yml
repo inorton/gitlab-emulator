@@ -116,7 +116,7 @@ emulator-windows-test:
     - c:\python38\python -m pip install -r test_requirements.txt
     - cd emulator
     - c:\python38\python -m pip install -e .
-    - c:\python38\python -m pytest -vv . --cov-config .coveragerc.windows
+    - c:\python38\python -m pytest -vv . --cov gitlabemu --cov-config .coveragerc.windows
 
 runner-windows-test:
   stage: build
