@@ -85,9 +85,15 @@ parser.add_argument("--clean", dest="clean", default=False, action="store_true",
 
 if is_windows():  # pragma: linux no cover
     shellgrp = parser.add_mutually_exclusive_group()
-    shellgrp.add_argument("--powershell", default=False, action="store_true",
-                          help="Force use of powershell for windows jobs")
-    shellgrp.add_argument("--cmd", default=False, action="store_true", dest="cmd_shell",
+    shellgrp.add_argument("--powershell",
+                          dest="windows_shell",
+                          action="store_const",
+                          const="powershell",
+                          help="Force use of powershell for windows jobs (default)")
+    shellgrp.add_argument("--cmd", default=None,
+                          dest="windows_shell",
+                          action="store_const",
+                          const="cmd",
                           help="Force use of cmd for windows jobs")
 
 parser.add_argument("JOB", type=str, default=None,
@@ -354,11 +360,13 @@ def run(args=None):
         die("Config error: " + str(err))
 
     if is_windows():  # pragma: linux no cover
-        options.cmd_shell = ctx.windows.cmd
-        if options.cmd_shell:
-            loader.config[".gitlabemu-windows-shell"] = "cmd"
-        else:
-            loader.config[".gitlabemu-windows-shell"] = "powershell"
+        windows_shell = "powershell"
+        if ctx.windows.cmd:
+            windows_shell = "cmd"
+        if options.windows_shell:
+            # command line option given, use that
+            windows_shell = options.windows_shell
+        loader.config[".gitlabemu-windows-shell"] = windows_shell
 
     hide_dot_jobs = not options.hidden
 
