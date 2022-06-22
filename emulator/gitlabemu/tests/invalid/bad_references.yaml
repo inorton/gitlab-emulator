@@ -1,0 +1,4 @@
+job:
+  variables:
+    SIZE: big
+    COLOR: !reference [.template, variables, COLOR]

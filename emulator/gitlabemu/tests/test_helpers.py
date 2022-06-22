@@ -7,7 +7,16 @@ import pytest
 import subprocess
 import uuid
 from io import StringIO
-from ..helpers import communicate, clean_leftovers, debug_enabled, make_path_slug
+from ..helpers import (communicate,
+                       clean_leftovers,
+                       debug_enabled,
+                       make_path_slug,
+                       plausible_docker_volume,
+                       trim_quotes,
+                       sensitive_varname,
+                       is_apple,
+                       parse_timeout
+                       )
 from random import randint
 
 
@@ -72,14 +81,86 @@ def test_clean_leftovers():
 
 
 def test_debug_enabled():
-    for afirm in ["y", "yes", "1"]:
-        os.environ["GITLAB_EMULATOR_DEBUG"] = afirm
+    for enabled in ["y", "yes", "1"]:
+        os.environ["GITLAB_EMULATOR_DEBUG"] = enabled
         assert debug_enabled()
 
-    for negat in ["0", "no", "moose", str(uuid.uuid4())]:
-        os.environ["GITLAB_EMULATOR_DEBUG"] = negat
+    for negative in ["0", "no", "moose", str(uuid.uuid4())]:
+        os.environ["GITLAB_EMULATOR_DEBUG"] = negative
         assert not debug_enabled()
 
 
 def test_make_path_slug():
     assert "Foo_Bar_123" == make_path_slug("Foo/Bar 123")
+
+
+def test_decode_volume_line():
+    simple = plausible_docker_volume("/home:/mnt")
+    assert simple.host == "/home"
+    assert simple.mount == "/mnt"
+    assert simple.mode == "rw"
+
+    assert str(simple) == "/home:/mnt:rw"
+
+    vanilla = plausible_docker_volume("/home/user:/mnt/home/user:ro")
+    assert vanilla.host == "/home/user"
+    assert vanilla.mount == "/mnt/home/user"
+    assert vanilla.mode == "ro"
+
+    stripped = plausible_docker_volume("/home/:/mnt/home/:rw")
+    assert stripped.host == "/home"
+    assert stripped.mount == "/mnt/home"
+    assert stripped.mode == "rw"
+
+    windows = plausible_docker_volume('c:\\foo\\bar:c:\\path\\bar')
+    assert windows.host == 'c:\\foo\\bar'
+    assert windows.mount == 'c:\\path\\bar'
+    assert windows.mode == 'rw'
+
+    windows_mode = plausible_docker_volume('c:\\windows\\temp\\:c:\\outside\\temp:ro')
+    assert windows_mode.host == 'c:\\windows\\temp'
+    assert windows_mode.mount == 'c:\\outside\\temp'
+    assert windows_mode.mode == 'ro'
+
+    nonsense = plausible_docker_volume("/foo")
+    assert nonsense is None
+
+
+def test_trim_quotes():
+    assert trim_quotes('"foo bar"') == 'foo bar'
+    assert trim_quotes('\'foo bar\'') == 'foo bar'
+    assert trim_quotes('trailing_quote\"') == "trailing_quote\""
+    assert trim_quotes('\"mismatched\'') == '\"mismatched\''
+    assert trim_quotes("") == ""
+
+
+def test_sensitive_varnames():
+    assert sensitive_varname("MY_PASSWORD")
+    assert sensitive_varname("SECRET_TOKEN")
+    assert sensitive_varname("PRIVATE_KEY")
+
+    assert not sensitive_varname("PATH")
+    assert not sensitive_varname("USERNAME")
+
+
+@pytest.mark.usefixtures("linux_only")
+def test_platforms():
+    assert not is_apple()
+
+
+def test_parse_timeout_str():
+    assert parse_timeout("1m") == 60
+
+    with pytest.raises(ValueError) as err:
+        parse_timeout("1 m")
+    assert "Cannot decode timeout 1 m" in err.value.args
+
+    with pytest.raises(ValueError) as err:
+        parse_timeout("x")
+    assert "Cannot decode timeout x" in err.value.args
+
+    with pytest.raises(ValueError) as err:
+        parse_timeout("1h 2h")
+    assert "Unexpected h value 1h 2h" in err.value.args
+
+

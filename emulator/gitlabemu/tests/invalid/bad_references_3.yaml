@@ -1,0 +1,8 @@
+.template:
+  variables:
+    SHAPE: circle
+
+job:
+  variables:
+    SIZE: big
+    COLOR: !reference [.template, variables, COLOR]

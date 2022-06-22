@@ -195,9 +195,8 @@ def git_worktree(path: str) -> Optional[str]:
     """
     gitpath = os.path.join(path, ".git")
 
-    if os.path.isfile(gitpath):
+    if os.path.isfile(gitpath):  # pragma: no cover
         # this is an odd case where you have .git files instead of folders
-        # pragma: no cover
         with open(gitpath, "r") as fd:
             full = fd.read()
             for line in full.splitlines():
@@ -249,3 +248,82 @@ def clean_leftovers():
                 if not resource_owner_alive(network.name):
                     info(f"Remove leftover docker network: {network.name}")
                     network.remove()
+
+
+class DockerVolume:
+    def __init__(self, host, mount, mode):
+        if host != "/":
+            host = host.rstrip(os.sep)
+        self.host = host
+        self.mount = mount.rstrip(os.sep)
+        assert mode in ["rw", "ro"]
+        self.mode = mode
+
+    def __str__(self):
+        return f"{self.host}:{self.mount}:{self.mode}"
+
+
+def plausible_docker_volume(text: str) -> Optional[DockerVolume]:
+    """Decode a docker volume string or return None"""
+    mode = "rw"
+    parts = text.split(":")
+    src = None
+    mount = None
+    if len(parts) >= 4:
+        import ntpath
+        # c:\thing:c:\container
+        # c:\thing:c:\container[:mode]
+        if len(parts) == 5:
+            # has mode
+            mode = parts[-1]
+        src = ntpath.abspath(f"{parts[0]}:{parts[1]}")
+        mount = ntpath.abspath(f"{parts[2]}:{parts[3]}")
+    else:
+        if len(parts) >= 2:
+            import posixpath
+            # /host/path:/mount/path[:mode]
+            src = posixpath.abspath(parts[0])
+            mount = posixpath.abspath(parts[1])
+            if len(parts) == 3:
+                mode = parts[2]
+    if not src:
+        return None
+    return DockerVolume(src, mount, mode)
+
+
+def sensitive_varname(name) -> bool:
+    """Return True if the variable might be a sensitive/secret one"""
+    for check in ["PASSWORD", "TOKEN", "PRIVATE"]:
+        if check in name:
+            return True
+    return False
+
+
+def trim_quotes(text: str) -> str:
+    """If the string is wrapped in quotes, strip them off"""
+    if text:
+        if text[0] in ["'", "\""]:
+            if text[0] == text[-1]:
+                text = text[1:-1]
+    return text
+
+
+def powershell_escape(text: str, variables=False) -> str:
+    # pragma: linux no cover
+    # taken from: http://www.robvanderwoude.com/escapechars.php
+    text = text.replace("`", "``")
+    text = text.replace("\a", "`a")
+    text = text.replace("\b", "`b")
+    text = text.replace("\f", "^f")
+    text = text.replace("\r", "`r")
+    text = text.replace("\n", "`n")
+    text = text.replace("\t", "^t")
+    text = text.replace("\v", "^v")
+    text = text.replace("#", "`#")
+    text = text.replace("'", "`'")
+    text = text.replace("\"", "`\"")
+    text = f"\"{text}\""
+    if variables:
+        text = text.replace("$", "`$")
+        text = text.replace("``e", "`e")
+    return text

@@ -37,6 +37,14 @@ def test_interactive_starts(linux_docker, capfd):
     assert "Exiting shell" in stdout
 
 
+def test_interactive_conflict(capfd):
+    with pytest.raises(SystemExit) as err:
+        runner.run(["--full", "-i", "-c", TOPCFG, ".check-interactive"])
+    assert err.value.code != 0
+    stdout, stderr = capfd.readouterr()
+    assert "-i is not compatible with --full" in stderr
+
+
 def test_chdir(posix_only, capsys):
     os.chdir(HERE)
     topdir = os.path.dirname(TOPCFG)

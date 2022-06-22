@@ -6,6 +6,7 @@ from ..runner import run
 HERE = os.path.dirname(__file__)
 PARALLEL_CONFIG = os.path.join(HERE, "test_parallel.yml")
 
+
 @pytest.mark.usefixtures("linux_docker")
 def test_docker_parallel(top_dir, capsys):
     run(["-c", PARALLEL_CONFIG, "jobname"])
@@ -15,6 +16,7 @@ def test_docker_parallel(top_dir, capsys):
     assert "CI_JOB_NAME=jobname 1/1\n" in stdout
     assert "CI_NODE_TOTAL=1\n" in stdout
     assert "CI_NODE_INDEX=1\n" in stdout
+
 
 @pytest.mark.usefixtures("linux_docker")
 def test_docker_parallel_m_of_n(top_dir, capsys):

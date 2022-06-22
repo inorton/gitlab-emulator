@@ -5,5 +5,5 @@ Importable even if the docker package is missing
 """
 try:
     import docker
-except ImportError:
-    docker = None  # pragma: no cover
+except ImportError:  # pragma: no cover
+    docker = None
