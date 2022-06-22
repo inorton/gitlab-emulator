@@ -28,6 +28,7 @@ def test_job_basic():
     assert job.duration() == 300
 
 
+@pytest.mark.usefixtures("posix_only")
 def test_abort(caplog: pytest.CaptureFixture):
     job = Job()
     job.name = "stopper"
