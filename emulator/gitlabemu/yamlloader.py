@@ -64,6 +64,7 @@ def reference_constructor(loader: OrderedLoader, node):
         return first_element
     return reference
 
+
 yaml.add_constructor(u"!reference", reference_constructor)
 
 

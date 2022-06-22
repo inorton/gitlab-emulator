@@ -299,7 +299,7 @@ def do_gitlab_from(options: argparse.Namespace, loader):
 
 def do_version():
     """Print the current package version"""
-    try:
+    try:  # pragma: no cover
         ver = subprocess.check_output([sys.executable, "-m", "pip", "show", "gitlab-emulator"],
                                       encoding="utf-8",
                                       stderr=subprocess.STDOUT)
@@ -353,8 +353,7 @@ def run(args=None):
     except configloader.ConfigLoaderError as err:
         die("Config error: " + str(err))
 
-    if is_windows():
-        # pragma: linux no cover
+    if is_windows():  # pragma: linux no cover
         options.cmd_shell = ctx.windows.cmd
         if options.cmd_shell:
             loader.config[".gitlabemu-windows-shell"] = "cmd"
@@ -408,7 +407,7 @@ def run(args=None):
         docker_job = loader.get_docker_image(jobname)
         if docker_job:
             gwt = git_worktree(rootdir)
-            if gwt:
+            if gwt:  # pragma: no cover
                 note(f"f{rootdir} is a git worktree, adding {gwt} as a docker volume.")
                 # add the real git repo as a docker volume
                 volumes = ctx.docker.runtime_volumes()
@@ -446,10 +445,10 @@ def run(args=None):
         loader.config["before_script_enter_shell"] = options.before_script_enter_shell
         loader.config["shell_is_user"] = options.shell_is_user
 
-        if options.before_script_enter_shell and is_windows():
+        if options.before_script_enter_shell and is_windows():  # pragma: no cover
             die("--before-script is not yet supported on windows")
 
-        if options.error_shell:
+        if options.error_shell:  # pragma: no cover
             loader.config["error_shell"] = [options.error_shell]
         try:
             executed_jobs = set()

@@ -212,9 +212,12 @@ class UserConfigFile(ToYaml):
     def save(self, filename: Optional[str] = None):
         if filename is None:
             filename = self.filename
-        else:
+
+        if filename and os.path.basename(filename):
             self.filename = os.path.abspath(filename)
             filename = self.filename
+        else:
+            filename = None
 
         if filename:
             folder = os.path.dirname(os.path.abspath(filename))
@@ -226,4 +229,4 @@ class UserConfigFile(ToYaml):
                           width=120,
                           indent=2,
                           default_flow_style=False)
-        return self.filename
+        return filename

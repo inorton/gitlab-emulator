@@ -4,7 +4,8 @@ Configure gitlab emulator context, servers, local variables and docker bind moun
 import sys
 from argparse import ArgumentParser, Namespace
 
-from gitlabemu.userconfigdata import UserContext
+from gitlabemu.helpers import sensitive_varname, trim_quotes
+from gitlabemu.userconfigdata import UserContext, DEFAULT_CONTEXT
 from .userconfig import get_user_config
 
 GLOBAL_DESC = __doc__
@@ -34,44 +35,37 @@ def set_context_cmd(opts: Namespace):
     else:
         cfg = get_user_config()
         name = opts.NAME
-        cfg.current_context = name
-        if name not in cfg.contexts:
-            cfg.contexts[name] = UserContext()
-        notice(f"gle context set to {name}")
+        if opts.remove:
+            if name in cfg.contexts:
+                notice(f"delete context {name}")
+                del cfg.contexts[name]
+            if name == cfg.current_context:
+                cfg.current_context = DEFAULT_CONTEXT
+        else:
+            cfg.current_context = name
+            if name not in cfg.contexts:
+                cfg.contexts[name] = UserContext()
+        notice(f"gle context set to {cfg.current_context}")
         cfg.save()
 
 
-def sensitive_varname(name) -> bool:
-    for check in ["PASSWORD", "TOKEN", "PRIVATE"]:
-        if check in name:
-            return True
-    return False
-
-
-def print_sensitive_vars(vars: dict) -> None:
-    for name in sorted(vars.keys()):
+def print_sensitive_vars(variables: dict) -> None:
+    for name in sorted(variables.keys()):
         if sensitive_varname(name):
             print(f"{name}=************")
         else:
-            print(f"{name}={vars[name]}")
-
-
-def trim_quotes(text: str) -> str:
-    """If the string is wrapped in quotes, strip them off"""
-    if text:
-        if text[0] in ["'", "\""]:
-            if text[0] == text[-1]:
-                text = text[1:-1]
-    return text
+            print(f"{name}={variables[name]}")
 
 
 def vars_cmd(opts: Namespace):
     cfg = get_user_config()
     current = cfg.current_context
     if opts.local:
-        vars_container = getattr(cfg.contexts[current], "local")
+        vars_container = cfg.contexts[current].local
+    elif opts.docker:
+        vars_container = cfg.contexts[current].docker
     else:
-        vars_container = getattr(cfg.contexts[current], "docker")
+        vars_container = cfg.contexts[current]
     variables = vars_container.variables
     if opts.VAR is None:
         print_sensitive_vars(variables)
@@ -133,11 +127,15 @@ def main(args=None):
 
     set_ctx = subparsers.add_parser("context", help="Show/select the current and available gle contexts")
     set_ctx.add_argument("NAME", type=str, help="Name of the context to use (or create)", nargs="?")
+    set_ctx.add_argument("--remove", default=False, action="store_true",
+                         help="Remove the context")
     set_ctx.set_defaults(func=set_context_cmd)
 
     set_var = subparsers.add_parser("vars", help="Show/set environment variables injected into jobs")
     set_var.add_argument("--local", default=False, action="store_true",
-                         help="Set/Show variables for local shell jobs instead of docker")
+                         help="Set/Show variables for local shell jobs only")
+    set_var.add_argument("--docker", default=False, action="store_true",
+                         help="Set/Show variables for local docker jobs only")
     set_var.add_argument("VAR", type=str, help="Set or unset an environment variable", nargs="?")
     set_var.set_defaults(func=vars_cmd)
 
