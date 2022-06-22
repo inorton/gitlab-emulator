@@ -3,7 +3,7 @@ import os
 import uuid
 
 import pytest
-from .. import configtool
+from .. import configtool, userconfig
 
 
 @pytest.fixture(scope="function")
@@ -19,7 +19,7 @@ def test_help_shows_commands(capfd: pytest.CaptureFixture):
     with pytest.raises(SystemExit):
         configtool.main(["--help"])
     stdout, stderr = capfd.readouterr()
-    assert "{context,vars,volumes,windows-shell}" in stdout
+    assert "{context,gitlab,vars,volumes,windows-shell}" in stdout
 
 
 def test_context(custom_config: str, capfd: pytest.CaptureFixture):
@@ -156,6 +156,18 @@ def test_windows_shell(custom_config: str, capfd: pytest.CaptureFixture):
     assert err.value.code != 0
 
 
+def test_gitlab_settings(custom_config: str, capfd: pytest.CaptureFixture):
+    assert not os.path.exists(custom_config)
+    token = "ABCd123z/_432421"
+    server = "https://gitlab.com"
+    configtool.main(["gitlab", "gitlab", "--server", server, "--token", token, "--insecure"])
+    ctx = userconfig.get_user_config_context()
+    assert ctx.gitlab.servers[0].name == "gitlab"
+    assert ctx.gitlab.servers[0].server == "https://gitlab.com"
+    assert ctx.gitlab.servers[0].token == token
+    assert not ctx.gitlab.servers[0].tls_verify
+
+
 def test_print_sensitive(capfd: pytest.CaptureFixture):
     configtool.print_sensitive_vars(
         {
@@ -173,3 +185,4 @@ def test_usage(capfd: pytest.CaptureFixture):
     configtool.main([])
     stdout, stderr = capfd.readouterr()
     assert "usage:" in stdout
+
