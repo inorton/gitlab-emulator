@@ -5,10 +5,11 @@ branch = True
 source = gitlabemu
 
 [report]
-fail_under = 68
+fail_under = 71
 
 omit =
     gitlabemu/gitlab/types.py
+    gitlabemu/tests/*
 
 # Regexes for lines to exclude from consideration
 exclude_lines =
