@@ -7,7 +7,7 @@ import sys
 import re
 import platform
 import subprocess
-from typing import Optional
+from typing import Optional, List, Dict
 
 from .errors import DockerExecError
 from .resnamer import resource_owner_alive, is_gle_resource
@@ -327,3 +327,67 @@ def powershell_escape(text: str, variables=False) -> str:
         text = text.replace("$", "`$")
         text = text.replace("``e", "`e")
     return text
+
+
+def die(msg):
+    """print an error and exit"""
+    print("error: " + str(msg), file=sys.stderr)
+    sys.exit(1)
+
+
+def note(msg):
+    """Print to stderr"""
+    print(msg, file=sys.stderr, flush=True)
+
+
+def git_uncommitted_changes(path: str) -> bool:
+    """Return True if the given repo has uncommitted changes to tracked files"""
+    topdir = git_top_level(path)
+    output = subprocess.check_output(
+        ["git", "-C", topdir, "status", "--porcelain", "--untracked=no"],
+        encoding="utf-8", stderr=subprocess.DEVNULL).strip()
+    for _ in output.splitlines(keepends=False):
+        return True
+    return False
+
+
+def git_current_branch(path: str) -> str:
+    """Get the current branch"""
+    return subprocess.check_output(
+        ["git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD"], encoding="utf-8", stderr=subprocess.DEVNULL
+    ).strip()
+
+
+def git_commit_sha(path: str) -> str:
+    """Get the current commit hash"""
+    return subprocess.check_output(
+        ["git", "-C", path, "rev-parse", "HEAD"], encoding="utf-8", stderr=subprocess.DEVNULL
+    ).strip()
+
+
+def git_remotes(path: str) -> List[str]:
+    """Get the remote names of the given git repo"""
+    output = subprocess.check_output(
+        ["git", "-C", path, "remote"], encoding="utf-8", stderr=subprocess.DEVNULL)
+    return list(output.splitlines(keepends=False))
+
+
+def git_remote_url(path: str, remote: str) -> str:
+    """Get the URL of the given git remote"""
+    return subprocess.check_output(
+        ["git", "-C", path, "remote", "get-url", remote], encoding="utf-8", stderr=subprocess.DEVNULL).strip()
+
+
+def get_git_remote_urls(repo: str) -> Dict[str, str]:
+    """Return all the git remotes defined in the given git repo"""
+    remotes = git_remotes(repo)
+    urls = {}
+    for item in remotes:
+        urls[item] = git_remote_url(repo, item)
+    return urls
+
+
+def git_top_level(repo: str) -> str:
+    """Get the top folder of the git repo"""
+    return subprocess.check_output(
+        ["git", "-C", repo, "rev-parse", "--show-toplevel"], encoding="utf-8", stderr=subprocess.DEVNULL).strip()

@@ -1,23 +1,19 @@
 import re
-import shutil
 import subprocess
 import sys
 import os
 import argparse
-import zipfile
-from typing import Optional, List
-from gitlab.v4.objects import ProjectPipelineJob
-from urllib3.exceptions import InsecureRequestWarning
+import uuid
 
 from . import configloader
-from . import stream_response
 from .docker import has_docker
+from .gitlab_client_api import PipelineError, PipelineInvalid, get_gitlab_project_client
+from .generator import generate_pipeline_yaml, create_pipeline_branch
 from .localfiles import restore_path_ownership
-from .helpers import is_apple, is_linux, is_windows, git_worktree, make_path_slug, clean_leftovers
+from .helpers import is_apple, is_linux, is_windows, git_worktree, git_current_branch, clean_leftovers, die, note
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
-import requests
-from gitlab import Gitlab
+from .yamlloader import ordered_dump
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -63,9 +59,14 @@ parser.add_argument("--revar", dest="revars", metavar="REGEX", type=str, default
 parser.add_argument("--parallel", type=str,
                     help="Run JOB as one part of a parallel axis (eg 2/4 runs job 2 in a 4 parallel matrix)")
 
+parser.add_argument("--pipeline", default=False, action="store_true",
+                    help="Run JOB on or list pipelines from a gitlab server")
+
 parser.add_argument("--from", type=str, dest="FROM",
                     metavar="SERVER/PROJECT/PIPELINE",
-                    help="Fetch needed artifacts for the current job from the given pipeline, eg nc/321/41881")
+                    help="Fetch needed artifacts for the current job from "
+                         "the given pipeline, eg server/grp/project/41881, "
+                         "=master, 23156")
 
 parser.add_argument("--download", default=False, action="store_true",
                     help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
@@ -99,17 +100,6 @@ if is_windows():  # pragma: linux no cover
 parser.add_argument("JOB", type=str, default=None,
                     nargs="?",
                     help="Run this named job")
-
-
-def die(msg):
-    """print an error and exit"""
-    print("error: " + str(msg), file=sys.stderr)
-    sys.exit(1)
-
-
-def note(msg):
-    """Print to stderr"""
-    print(msg, file=sys.stderr)
 
 
 def apply_user_config(loader: configloader.Loader, is_docker: bool):
@@ -153,154 +143,90 @@ def execute_job(config, jobname, seen=None, recurse=False):
         seen.add(jobname)
 
 
-def gitlab_api(alias: str, secure=True) -> Gitlab:
-    """Create a Gitlab API client"""
-    ctx = get_user_config_context()
-    server = None
-    token = None
-    for item in ctx.gitlab.servers:
-        if item.name == alias:
-            server = item.server
-            token = item.token
-            if not server:
-                die(f"no server address for alias {alias}")
-            if not token:
-                die(f"no api-token for alias {alias} ({server})")
-            break
+def do_pipeline(options: argparse.Namespace, loader):
+    """Run/List gitlab pipelines in the current project"""
+    cwd = os.getcwd()
+    client, project, remotename = get_gitlab_project_client(cwd, not options.insecure)
+    if not client or not project:
+        die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
 
-    if not server:
-        note(f"using {alias} as server hostname")
-        server = alias
-        if "://" not in server:
-            server = f"https://{server}"
+    if not remotename:
+        die("Could not find a gitlab configuration that matches any of our git remotes")
 
-    ca_cert = os.getenv("CI_SERVER_TLS_CA_FILE", None)
-    if ca_cert is not None:
-        note("Using CI_SERVER_TLS_CA_FILE CA cert")
-        os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
-        secure = True
-
-    if not token:
-        token = os.getenv("GITLAB_PRIVATE_TOKEN", None)
-        if token:
-            note("Using GITLAB_PRIVATE_TOKEN for authentication")
-
-    if not token:
-        die(f"Could not find a configured token for {alias} or GITLAB_PRIVATE_TOKEN not set")
-
-    if server and token:
-        client = Gitlab(url=server, private_token=token, ssl_verify=secure)
-        return client
-
-    die(f"Cannot find local configuration for server {alias}")
-
-
-def get_pipeline(fromline, secure: Optional[bool] = True):
-    """Get a pipeline"""
-    server, extra = fromline.split("/", 1)
-    project_path, pipeline_id = extra.rsplit("/", 1)
-    if not secure:
-        note("TLS server validation disabled by --insecure")
-        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    gitlab = gitlab_api(server, secure=secure)
-    # get project
-    project = gitlab.projects.get(project_path)
-    # get pipeline
-    pipeline = project.pipelines.get(int(pipeline_id))
-    return gitlab, project, pipeline
+    if options.LIST:
+        note(f"Recent pipelines from project '{project.name}' on {client.api_url}")
+        pipes = project.pipelines.list(sort="desc", order_by="updated_at", page=1, per_page=16)
+        print(f"{'# ID':<12} {'Status':<8} {'Git Ref':<42} Commit")
+        for pipe in pipes:
+            print(f"{pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
+    else:
+        goals = [options.JOB]
+        note(f"Generate subset pipeline to build '{goals}'..")
+        generated = generate_pipeline_yaml(loader, *goals)
+        jobs = [name for name in generated.keys() if name != "stages"]
+        note(f"Will build jobs: {jobs} ..")
+        branch_name = f"temp/{client.user.username}/{git_current_branch(cwd)}"
+        note(f"Creating temporary pipeline branch '{branch_name}'..")
+        commit = create_pipeline_branch(cwd,
+                                        remotename,
+                                        branch_name,
+                                        f"subset pipeline for {goals}",
+                                        {
+                                            ".gitlab-ci.yml": ordered_dump(generated)
+                                        })
+        if commit:
+            print(f"Custom build commit is {commit}")
+        else:
+            die("Could not make a custom pipeline branch, "
+                "please make sure your local changes are commited first")
 
 
 def do_gitlab_from(options: argparse.Namespace, loader):
-    """Perform actions using a gitlab server"""
+    """Perform actions using a gitlab server artifacts"""
+    from .gitlab_client_api import get_pipeline
+    from .gitlab_client_api import do_gitlab_fetch
+
     if options.download and not options.FROM:
         die("--download requires --from PIPELINE")
     if options.FROM:
-        gitlab, project, pipeline = get_pipeline(options.FROM, secure=not options.insecure)
-        if options.insecure:
-            gitlab.session.verify = False
-        pipeline_jobs = pipeline.jobs.list(all=True)
-
-        if options.export:
-            options.download = True
-
-        if options.LIST:
-            # print the jobs in the pipeline
-
-            jobs = list(pipeline_jobs)
-            if options.completed:
-                jobs = [x for x in jobs if x.status == "success"]
-                note(f"Listing completed jobs in {options.FROM}")
-            else:
-                note(f"Listing jobs in {options.FROM}")
-            names = sorted([x.name for x in jobs])
-            for name in names:
-                print(name)
-            return
-
-        outdir = os.getcwd()
-        if options.download:
-            # download a job
-            download_from_jobs = [options.JOB]
-            if options.export:
-                # export the job
-                note(f"Export '{options.JOB}'")
-                slug = make_path_slug(options.JOB)
-                outdir = os.path.join(options.export, slug)
-                os.makedirs(outdir, exist_ok=True)
-            else:
+        try:
+            if options.LIST:
+                gitlab, project, pipeline = get_pipeline(options.FROM, secure=not options.insecure)
+                # print the jobs in the pipeline
+                if not pipeline:
+                    raise PipelineInvalid(options.FROM)
+                jobs = list(pipeline.jobs.list(all=True))
+                if options.completed:
+                    jobs = [x for x in jobs if x.status == "success"]
+                    note(f"Listing completed jobs in {options.FROM}")
+                else:
+                    note(f"Listing jobs in {options.FROM}")
+                names = sorted([x.name for x in jobs])
+                for name in names:
+                    print(name)
+                return
+            download_jobs = []
+            if options.download:
+                # download a job's artifacts
                 note(f"Download '{options.JOB}' artifacts")
-        else:
-            note(f"Download artifacts required by '{options.JOB}'")
-            # download jobs needed by a job
-            jobobj = configloader.load_job(loader.config, options.JOB)
-            download_from_jobs = jobobj.dependencies
+                download_jobs = [options.JOB]
+            elif options.export:
+                note(f"Export full '{options.FROM}' pipeline")
+            elif options.JOB:
+                # download jobs needed by a job
+                note(f"Download artifacts required by '{options.JOB}'")
+                jobobj = configloader.load_job(loader.config, options.JOB)
+                download_jobs = jobobj.dependencies
 
-        def gitlab_session_get(geturl, **kwargs):
-            """Get using requests and retry TLS errors"""
-            try:
-                return gitlab.session.get(geturl, **kwargs)
-            except requests.exceptions.SSLError:
-                # validation was requested but cert was invalid,
-                # tty again without the gitlab-supplied CA cert and try the system ca certs
-                if "REQUESTS_CA_BUNDLE" in os.environ:
-                    note(f"warning: Encountered TLS/SSL error getting {geturl}), retrying with system ca certs")
-                    del os.environ["REQUESTS_CA_BUNDLE"]
-                    return gitlab.session.get(geturl, **kwargs)
-                raise
-
-        # download what we need
-        mode = "Fetching"
-        if options.export:
-            mode = "Exporting"
-        upsteam_jobs: List[ProjectPipelineJob] = [x for x in pipeline_jobs if x.name in download_from_jobs]
-        for upstream in upsteam_jobs:
-            note(f"{mode} {upstream.name} artifacts from {options.FROM}..")
-            artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/artifacts"
-            reldir = os.path.relpath(outdir, os.getcwd())
-            # stream it into zipfile
-            headers = {}
-            if gitlab.private_token:
-                headers = {"PRIVATE-TOKEN": gitlab.private_token}
-            resp = gitlab_session_get(artifact_url, headers=headers, stream=True)
-            if resp.status_code == 404:
-                note(f"Job {upstream.name} has no artifacts")
-            else:
-                resp.raise_for_status()
-                seekable = stream_response.ResponseStream(resp.iter_content(4096))
-                with zipfile.ZipFile(seekable) as zf:
-                    for item in zf.infolist():
-                        note(f"Saving {reldir}/{item.filename} ..")
-                        zf.extract(item, path=outdir)
-
-            if options.export:
-                # also get the trace and junit reports
-                logfile = os.path.join(outdir, "trace.log")
-                note(f"Saving log to {reldir}/trace.log")
-                trace_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{upstream.id}/trace"
-                with open(logfile, "wb") as logdata:
-                    resp = gitlab.session.get(trace_url, headers=headers, stream=True)
-                    resp.raise_for_status()
-                    shutil.copyfileobj(resp.raw, logdata)
+            # download what we need
+            outdir = os.getcwd()
+            do_gitlab_fetch(options.FROM,
+                            download_jobs,
+                            tls_verify=not options.insecure,
+                            download_to=outdir,
+                            export_to=options.export)
+        except PipelineError as error:
+            die(str(error))
 
 
 def do_version():
@@ -369,6 +295,10 @@ def run(args=None):
         loader.config[".gitlabemu-windows-shell"] = windows_shell
 
     hide_dot_jobs = not options.hidden
+
+    if options.pipeline:
+        do_pipeline(options, loader)
+        return
 
     if options.FULL and options.parallel:
         die("--full and --parallel cannot be used together")

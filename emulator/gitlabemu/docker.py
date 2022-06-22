@@ -20,9 +20,7 @@ class DockerTool(object):
     """
     Control docker containers
     """
-    def __init__(self, server: Optional[str] = None, retries: Optional[int] = 0):
-        if retries == 0:
-            retries = 5
+    def __init__(self, retries: Optional[int] = 5):
         self.retries = retries
         self.container = None
         self.image = None
@@ -45,7 +43,7 @@ class DockerTool(object):
                 try:
                     self._client = docker.from_env()
                     break
-                except DockerException as err:
+                except DockerException as err:  # pragma: no cover
                     errors += 1
                     if errors > self.retries:
                         raise

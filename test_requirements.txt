@@ -3,5 +3,6 @@ pytest-mock>=3.5.1
 pytest-cov>=2.11.1
 pytest-timeout>=2.1.0
 requests_toolbelt
+requests-mock>=1.9
 build
 wheel

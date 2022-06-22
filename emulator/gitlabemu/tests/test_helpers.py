@@ -15,7 +15,8 @@ from ..helpers import (communicate,
                        trim_quotes,
                        sensitive_varname,
                        is_apple,
-                       parse_timeout
+                       parse_timeout,
+                       get_git_remote_urls,
                        )
 from random import randint
 
@@ -164,3 +165,7 @@ def test_parse_timeout_str():
     assert "Unexpected h value 1h 2h" in err.value.args
 
 
+def test_git_helpers(top_dir: str):
+    remotes = get_git_remote_urls(top_dir)
+    assert isinstance(remotes, dict)
+    assert len(remotes)
