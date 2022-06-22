@@ -14,6 +14,8 @@ omit =
 exclude_lines =
     # Have to re-enable the standard pragma
     pragma: no cover
+    # Skip lines marked as no cover on windows
+    pragma: windows no cover
 
     # Don't complain about missing debug-only code:
     def __repr__

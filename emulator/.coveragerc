@@ -17,6 +17,7 @@ exclude_lines =
     pragma: no cover
     # Skip lines marked as no cover on linux
     pragma: linux no cover
+    pragma: posix no cover
 
     # Don't complain about missing debug-only code:
     def __repr__

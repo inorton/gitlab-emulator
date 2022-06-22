@@ -4,12 +4,13 @@ import time
 import argparse
 import subprocess
 
-parser = argparse.ArgumentParser(description="Change all files in the current working directory to be owned by the given UID/GID")
+parser = argparse.ArgumentParser(
+    description="Change all files in the current working directory to be owned by the given UID/GID")
 parser.add_argument("UID", type=int, help="UID to set")
 parser.add_argument("GID", type=int, help="GID to set")
 
 
-def run(args=None):
+def run(args=None):  # pragma: windows no cover
     opts = parser.parse_args(args=args)
     started = time.time()
     cmdline = ["chown", "-R", "-h", f"{str(opts.UID)}.{str(opts.GID)}", os.getcwd()]
