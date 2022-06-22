@@ -3,14 +3,12 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
-from collections import OrderedDict
-
 from .errors import GitlabEmulatorError
 from .gitlab.types import RESERVED_TOP_KEYS
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
-from .yamlloader import GitlabReference
+from .yamlloader import GitlabReference, StringableOrderedDict
 from .userconfig import get_user_config_context
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
@@ -232,7 +230,7 @@ def do_extends(alljobs: dict):
                         continue
 
                     # do the extends work
-                    new_obj = OrderedDict()
+                    new_obj = StringableOrderedDict()
                     for base in bases + [name]:
                         baseobj = copy.deepcopy(alljobs[base])
                         for item in baseobj:
@@ -244,7 +242,7 @@ def do_extends(alljobs: dict):
                                     # with a map, eg
                                     #  image: imagename:latest  ->  image:
                                     #                                 name: imagename:latest
-                                    new_obj[item] = OrderedDict()
+                                    new_obj[item] = StringableOrderedDict()
 
                                 for keyname in value:
                                     new_obj[item][keyname] = value[keyname]
