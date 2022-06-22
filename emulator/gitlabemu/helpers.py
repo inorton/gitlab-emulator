@@ -272,8 +272,7 @@ def plausible_docker_volume(text: str) -> Optional[DockerVolume]:
     if len(parts) >= 4:
         import ntpath
         # c:\thing:c:\container
-        # or
-        # c:\thing:c:\container:rw
+        # c:\thing:c:\container[:mode]
         if len(parts) == 5:
             # has mode
             mode = parts[-1]
@@ -282,7 +281,7 @@ def plausible_docker_volume(text: str) -> Optional[DockerVolume]:
     else:
         if len(parts) >= 2:
             import posixpath
-            # host:mount[:mode]
+            # /host/path:/mount/path[:mode]
             src = posixpath.abspath(parts[0])
             mount = posixpath.abspath(parts[1])
             if len(parts) == 3:

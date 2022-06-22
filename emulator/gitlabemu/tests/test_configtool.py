@@ -1,5 +1,6 @@
 """Tests for configtool and userconfigdata"""
 import os
+import uuid
 
 import pytest
 from .. import configtool
@@ -118,18 +119,22 @@ def test_volumes(custom_config: str, capfd: pytest.CaptureFixture, tmp_path):
     assert stdout == ""
 
     # make a volume
-    host_volume = tmp_path / "folder"
-    host_volume.mkdir()
+    host_volume = f"/{uuid.uuid4()}"
     configtool.main(["volumes", "--add", f"{host_volume}:/mnt/foo:ro"])
     assert os.path.exists(custom_config)
     configtool.main(["volumes"])
     stdout, stderr = capfd.readouterr()
-    assert "/mnt/foo:ro" in stdout
+    assert f"{host_volume}:/mnt/foo:ro" in stdout
     # remove it
     configtool.main(["volumes", "--remove", "/mnt/foo"])
     configtool.main(["volumes"])
     stdout, stderr = capfd.readouterr()
     assert "/mnt/foo" not in stdout
+
+    # make a windows one
+    configtool.main(["volumes", "--add", f"c:\\test:c:\\stuff"])
+    stdout, stderr = capfd.readouterr()
+    assert "c:\\test:c:\\stuff:rw" in stdout
 
 
 def test_windows_shell(custom_config: str, capfd: pytest.CaptureFixture):
