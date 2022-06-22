@@ -5,7 +5,7 @@ branch = True
 source = gitlabemu
 
 [report]
-fail_under = 71
+fail_under = 69
 
 omit =
     gitlabemu/gitlab/types.py
