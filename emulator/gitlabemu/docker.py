@@ -23,7 +23,7 @@ class DockerTool(object):
     def __init__(self, server: Optional[str] = None, retries: Optional[int] = 0):
         if retries == 0:
             retries = 5
-        retry_sleep = 10
+        self.retries = retries
         self.container = None
         self.image = None
         self.env = {}
@@ -33,19 +33,26 @@ class DockerTool(object):
         self.entrypoint = None
         self.pulled = None
         self.network = None
-        errors = 0
+        self._client = None
+
+    @property
+    def client(self):
         from docker.errors import DockerException
-        while True:
-            try:
-                self.client = docker.from_env()
-                return
-            except DockerException as err:
-                errors += 1
-                if errors > retries:
-                    raise
-                warning(f"cannot connect to docker daemon {err}")
-                warning(f"retry in {retry_sleep} seconds")
-                time.sleep(retry_sleep)
+        if not self._client:
+            retry_sleep = 10
+            errors = 0
+            while True:
+                try:
+                    self._client = docker.from_env()
+                    break
+                except DockerException as err:
+                    errors += 1
+                    if errors > self.retries:
+                        raise
+                    warning(f"cannot connect to docker daemon {err}")
+                    warning(f"retry in {retry_sleep} seconds")
+                    time.sleep(retry_sleep)
+        return self._client
 
     def add_volume(self, outside, inside):
         self.volumes.append("{}:{}".format(outside, inside))
