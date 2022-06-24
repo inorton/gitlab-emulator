@@ -193,7 +193,7 @@ def do_pipeline(options: argparse.Namespace, loader):
 
         else:
             die("Could not make a custom pipeline branch, "
-                "please make sure your local changes are commited first")
+                "please make sure your local changes are committed first")
 
 
 def do_gitlab_from(options: argparse.Namespace, loader):

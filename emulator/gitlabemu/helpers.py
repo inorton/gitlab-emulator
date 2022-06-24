@@ -391,3 +391,7 @@ def git_top_level(repo: str) -> str:
     """Get the top folder of the git repo"""
     return subprocess.check_output(
         ["git", "-C", repo, "rev-parse", "--show-toplevel"], encoding="utf-8", stderr=subprocess.DEVNULL).strip()
+
+
+def git_push_force_upstream(repo: str, remote: str, branch: str):  # pragma: no cover
+    subprocess.check_call(["git", "-C", repo, "push", "--force", "-q", "--set-upstream", remote, branch])

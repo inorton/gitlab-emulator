@@ -7,10 +7,10 @@ from typing import List, Dict, Optional
 from gitlab.v4.objects import ProjectPipeline
 
 from .configloader import Loader, StringableOrderedDict
-from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git_current_branch
+from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git_current_branch, git_push_force_upstream
 
 
-def generate_pipeline_yaml(loader: Loader, *goals: List[str]) -> dict:
+def generate_pipeline_yaml(loader: Loader, *goals: str) -> dict:
     """"""
     generated = StringableOrderedDict()
     stages = loader.config.get("stages", [])
@@ -33,9 +33,7 @@ def generate_pipeline_yaml(loader: Loader, *goals: List[str]) -> dict:
             needs = job.get("needs", [])
             for item in needs:
                 if isinstance(item, str):
-                    if item not in generated:
-                        # want it
-                        needed.add(item)
+                    needed.add(item)
                 elif isinstance(item, dict):
                     need_job = item.get("job", None)
                     if need_job and need_job not in generated:
@@ -71,7 +69,7 @@ def create_pipeline_branch(repo: str,
                 subprocess.check_call(["git", "-C", topdir, "add", filepath])
 
             subprocess.check_call(["git", "-C", topdir, "commit", "-am", commit_message])
-            subprocess.check_call(["git", "-C", topdir, "push", "--force", "-q", "--set-upstream", remote, new_branch])
+            git_push_force_upstream(topdir, remote, new_branch)
             commit = git_commit_sha(topdir)
         finally:
             subprocess.check_call(["git", "-C", topdir, "checkout", "-qf", original])
