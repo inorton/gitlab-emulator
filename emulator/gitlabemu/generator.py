@@ -1,8 +1,11 @@
 """Generate sub-pipelines"""
 import os.path
 import subprocess
+import time
 from typing import List, Dict, Optional
-from contextlib import contextmanager
+
+from gitlab.v4.objects import ProjectPipeline
+
 from .configloader import Loader, StringableOrderedDict
 from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git_current_branch
 
@@ -57,7 +60,7 @@ def create_pipeline_branch(repo: str,
     changes = git_uncommitted_changes(topdir)
     if not changes:
         try:
-            subprocess.check_call(["git", "-C", topdir, "checkout", "-b", new_branch])
+            subprocess.check_call(["git", "-C", topdir, "checkout", "-B", new_branch])
             for filename in files:
                 filepath = os.path.join(topdir, filename)
                 folder = os.path.dirname(filepath)
@@ -68,8 +71,19 @@ def create_pipeline_branch(repo: str,
                 subprocess.check_call(["git", "-C", topdir, "add", filepath])
 
             subprocess.check_call(["git", "-C", topdir, "commit", "-am", commit_message])
-            subprocess.check_call(["git", "-C", topdir, "push", "-q", "--set-upstream", remote, new_branch])
+            subprocess.check_call(["git", "-C", topdir, "push", "--force", "-q", "--set-upstream", remote, new_branch])
             commit = git_commit_sha(topdir)
         finally:
             subprocess.check_call(["git", "-C", topdir, "checkout", "-qf", original])
     return commit
+
+
+def wait_for_project_commit_pipeline(project, commit, timeout=30) -> Optional[ProjectPipeline]:
+    started = time.time()
+    while time.time() - started < timeout:
+        time.sleep(2)
+        pipes = project.pipelines.list(sort="desc", order_by="updated_at", page=1, per_page=16)
+        for pipeline in pipes:
+            if pipeline.sha == commit:
+                return pipeline
+    return None

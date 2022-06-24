@@ -3,12 +3,13 @@ import subprocess
 import sys
 import os
 import argparse
+import time
 import uuid
 
 from . import configloader
 from .docker import has_docker
 from .gitlab_client_api import PipelineError, PipelineInvalid, get_gitlab_project_client
-from .generator import generate_pipeline_yaml, create_pipeline_branch
+from .generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, git_current_branch, clean_leftovers, die, note
 from .userconfig import USER_CFG_ENV, get_user_config_context
@@ -175,7 +176,14 @@ def do_pipeline(options: argparse.Namespace, loader):
                                             ".gitlab-ci.yml": ordered_dump(generated)
                                         })
         if commit:
-            print(f"Custom build commit is {commit}")
+            note(f"Custom build commit is {commit}")
+            note(f"Waiting for new pipeline to start..")
+            pipeline = wait_for_project_commit_pipeline(project, commit)
+            if not pipeline:
+                die("Could not find the pipeline for our change")
+            else:
+                note(f"Building: {pipeline.web_url}")
+
         else:
             die("Could not make a custom pipeline branch, "
                 "please make sure your local changes are commited first")
