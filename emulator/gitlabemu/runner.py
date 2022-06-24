@@ -187,7 +187,12 @@ def do_pipeline(options: argparse.Namespace, loader):
             elif ident.gitref:
                 note(f"Searching for latest pipeline on {ident.gitref} ..")
                 # find the newest pipeline for this git reference
-                found = project.pipelines.list(sort="desc", ref=ident.gitref, order_by="updated_at", page=1, per_page=5, status='success')
+                found = project.pipelines.list(
+                    sort="desc",
+                    ref=ident.gitref,
+                    order_by="updated_at",
+                    page=1, per_page=5,
+                    status='success')
                 if not found:
                     die(f"Could not find a completed pipeline for git reference {ident.gitref}")
                 pipeline = found[0]
@@ -218,7 +223,10 @@ def do_pipeline(options: argparse.Namespace, loader):
 
         if download_jobs:
             stages = generated.get("stages", ["test"])
-            fetch_job = generate_artifact_fetch_job(loader, stages[0], download_jobs)
+            fetch_job = generate_artifact_fetch_job(loader,
+                                                    stages[0],
+                                                    download_jobs,
+                                                    tls_verify=client.ssl_verify)
             generated["from_pipeline"] = fetch_job
             for job in jobs:
                 generated[job]["needs"] = ["from_pipeline"]
