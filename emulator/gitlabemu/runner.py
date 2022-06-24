@@ -8,6 +8,7 @@ from gitlab import GitlabGetError
 
 from . import configloader
 from .docker import has_docker
+from .gitlab.types import RESERVED_TOP_KEYS
 from .gitlab_client_api import PipelineError, PipelineInvalid, get_gitlab_project_client, parse_gitlab_from_arg
 from .generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline, \
     generate_artifact_fetch_job
@@ -218,7 +219,7 @@ def do_pipeline(options: argparse.Namespace, loader):
                             download_jobs[dep] = artifact_url
 
         generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
-        jobs = [name for name in generated.keys() if name != "stages"]
+        jobs = [name for name in generated.keys() if name in RESERVED_TOP_KEYS]
         note(f"Will build jobs: {jobs} ..")
 
         if download_jobs:

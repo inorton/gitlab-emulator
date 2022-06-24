@@ -63,12 +63,6 @@ def generate_pipeline_yaml(loader: Loader,
     stages = loader.config.get("stages", [])
     needed = set(goals)
 
-    # get the variables and defaults sections
-    generated["variables"] = dict(loader.config.get("variables", {}))
-    for item in ["image", "default"]:
-        if item in loader.config:
-            generated[item] = loader.config.get(item)
-
     while len(needed):
         for name in list(needed):
             needed.remove(name)
@@ -88,12 +82,15 @@ def generate_pipeline_yaml(loader: Loader,
                 for item in loaded.dependencies:
                     if isinstance(item, str):
                         needed.add(item)
-            else:
-                pass
-                # else, download from an earlier pipeline
 
     if stages:
         generated["stages"] = list(stages)
+
+    # get the variables and defaults sections etc
+    generated["variables"] = dict(loader.config.get("variables", {}))
+    for item in ["image", "default", "before_script", "after_script", "services"]:
+        if item in loader.config:
+            generated[item] = loader.config.get(item)
 
     return generated
 
