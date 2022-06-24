@@ -4,10 +4,13 @@ import sys
 import os
 import argparse
 
+from gitlab import GitlabGetError
+
 from . import configloader
 from .docker import has_docker
-from .gitlab_client_api import PipelineError, PipelineInvalid, get_gitlab_project_client
-from .generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline
+from .gitlab_client_api import PipelineError, PipelineInvalid, get_gitlab_project_client, parse_gitlab_from_arg
+from .generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline, \
+    generate_artifact_fetch_job
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, git_current_branch, clean_leftovers, die, note
 from .userconfig import USER_CFG_ENV, get_user_config_context
@@ -59,16 +62,14 @@ parser.add_argument("--revar", dest="revars", metavar="REGEX", type=str, default
 parser.add_argument("--parallel", type=str,
                     help="Run JOB as one part of a parallel axis (eg 2/4 runs job 2 in a 4 parallel matrix)")
 
-gitlab_mutex = parser.add_mutually_exclusive_group()
+parser.add_argument("--pipeline", default=False, action="store_true",
+                    help="Run JOB on or list pipelines from a gitlab server")
 
-gitlab_mutex.add_argument("--pipeline", default=False, action="store_true",
-                          help="Run JOB on or list pipelines from a gitlab server")
-
-gitlab_mutex.add_argument("--from", type=str, dest="FROM",
-                          metavar="SERVER/PROJECT/PIPELINE",
-                          help="Fetch needed artifacts for the current job from "
-                               "the given pipeline, eg server/grp/project/41881, "
-                               "=master, 23156")
+parser.add_argument("--from", type=str, dest="FROM",
+                    metavar="SERVER/PROJECT/PIPELINE",
+                    help="Fetch needed artifacts for the current job from "
+                         "the given pipeline, eg server/grp/project/41881, "
+                         "=master, 23156")
 
 list_mutex.add_argument("--download", default=False, action="store_true",
                         help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
@@ -153,6 +154,7 @@ def do_pipeline(options: argparse.Namespace, loader):
     """Run/List gitlab pipelines in the current project"""
     cwd = os.getcwd()
     client, project, remotename = get_gitlab_project_client(cwd, not options.insecure)
+
     if not client or not project:
         die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
 
@@ -166,13 +168,62 @@ def do_pipeline(options: argparse.Namespace, loader):
         for pipe in pipes:
             print(f"{pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
     else:
+        pipeline = None
         goals = [options.JOB]
+        download_jobs = {}
         if options.EXTRA_JOBS:
             goals.extend(options.EXTRA_JOBS)
         note(f"Generate subset pipeline to build '{goals}'..")
-        generated = generate_pipeline_yaml(loader, *goals)
+        recurse = True
+        if options.FROM:
+            recurse = False
+            ident = parse_gitlab_from_arg(options.FROM)
+            if ident.server or ident.project:
+                die(f"--from PIPELINE with --pipeline can only use pipelines in the current project (just use the number or git branch name)")
+
+            note(f"Checking for --from ({ident})..")
+            if ident.pipeline:
+                try:
+                    pipeline = project.pipelines.get(ident.pipeline)
+                except GitlabGetError as err:
+                    die(f"Failed to read pipeline {ident.pipeline}, {err.error_message}")
+            elif ident.gitref:
+                # find the newest pipeline for this git reference
+                found = project.pipelines.list(sort="desc", ref=ident.gitref, order_by="updated_at", page=1, per_page=5, status='success')
+                if not found:
+                    die(f"Could not find a completed pipeline for git reference {ident.gitref}")
+                pipeline = found[0]
+
+            # now make sure the pipeline contains the jobs we need
+            pipeline_jobs = {}
+            download_jobs = {}
+            for item in pipeline.jobs.list(all=True):
+                if item.status == "success":
+                    pipeline_jobs[item.name] = item
+
+            for goal in goals:
+                loaded = loader.load_job(goal)
+                for dep in loaded.dependencies:
+                    if dep not in pipeline_jobs:
+                        die(f"Pipeline did not contain a successful '{dep}' job needed by {goal}")
+                    else:
+                        from_job = pipeline_jobs[dep]
+                        if hasattr(from_job, "artifacts_file"):  # missing if it created no artifacts
+                            artifact_url = f"{client.api_url}/projects/{project.id}/jobs/{from_job.id}/artifacts"
+                            download_jobs[dep] = artifact_url
+
+        generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
         jobs = [name for name in generated.keys() if name != "stages"]
         note(f"Will build jobs: {jobs} ..")
+
+        if download_jobs:
+            stages = generated.get("stages", ["test"])
+            fetch_job = generate_artifact_fetch_job(loader, download_jobs)
+            fetch_job["stage"] = stages[0]
+            generated["from_pipeline"] = fetch_job
+            for job in jobs:
+                generated[job]["needs"] = ["from_pipeline"]
+
         branch_name = f"temp/{client.user.username}/{git_current_branch(cwd)}"
         note(f"Creating temporary pipeline branch '{branch_name}'..")
         commit = create_pipeline_branch(cwd,

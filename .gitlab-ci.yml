@@ -268,7 +268,7 @@ needs-artifacts:
   stage: test
   needs: [ quick ]
   script:
-    - ls -l data.txt
+    - ls -l date.txt
 
 .echo:
   stage: test

@@ -523,6 +523,10 @@ class Loader(object):
         """
         return get_job(self.config, name)
 
+    def load_job(self, name) -> "Job":
+        """Return a loaded job object"""
+        return load_job(self.config, name)
+
     def get_stages(self):
         """
         Get the list of stages

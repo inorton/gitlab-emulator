@@ -21,6 +21,20 @@ class GitlabIdent:
         self.pipeline: Optional[int] = pipeline
         self.gitref: Optional[str] = gitref
 
+    def __str__(self):
+        ret = ""
+        attribs = []
+        if self.server:
+            attribs.append(f"server={self.server}")
+        if self.project:
+            attribs.append(f"project={self.project}")
+        if self.gitref:
+            attribs.append(f"git_ref={self.gitref}")
+        elif self.pipeline:
+            attribs.append(f"id={self.pipeline}")
+
+        return f"Pipeline {', '.join(attribs)}"
+
 
 class PipelineError(Exception):
     def __init__(self, pipeline: str):
