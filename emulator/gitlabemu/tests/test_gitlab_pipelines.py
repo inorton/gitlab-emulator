@@ -15,9 +15,10 @@ def test_mocked_list(top_dir: str,
     os.environ["GITLAB_PRIVATE_TOKEN"] = "123"
     project = MockServer(requests_mock, MOCK_HOST).setup(jobnames=["job1", "job2"])
     pipeline = project.pipelines[0]
-    mocker.patch("gitlabemu.gitlab_client_api.get_git_remote_urls", return_value=[
-        project.http_url_to_repo
-    ])
+    mocker.patch("gitlabemu.gitlab_client_api.get_git_remote_urls",
+                 return_value={
+                     "origin": project.http_url_to_repo
+                 })
     run(["-C", top_dir, "--pipeline", "--list"])
 
     stdout, stderr = capfd.readouterr()

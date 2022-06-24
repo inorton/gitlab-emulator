@@ -3,8 +3,6 @@ import subprocess
 import sys
 import os
 import argparse
-import time
-import uuid
 
 from . import configloader
 from .docker import has_docker
@@ -19,15 +17,16 @@ from .yamlloader import ordered_dump
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
 parser = argparse.ArgumentParser(prog="{} -m gitlabemu".format(os.path.basename(sys.executable)))
-parser.add_argument("--list", "-l", dest="LIST", default=False,
-                    action="store_true",
-                    help="List runnable jobs")
+list_mutex = parser.add_mutually_exclusive_group()
+list_mutex.add_argument("--list", "-l", dest="LIST", default=False,
+                        action="store_true",
+                        help="List runnable jobs")
 parser.add_argument("--version", default=False, action="store_true")
 parser.add_argument("--hidden", default=False, action="store_true",
                     help="Show hidden jobs in --list(those that start with '.')")
-parser.add_argument("--full", "-r", dest="FULL", default=False,
-                    action="store_true",
-                    help="Run any jobs that are dependencies")
+list_mutex.add_argument("--full", "-r", dest="FULL", default=False,
+                        action="store_true",
+                        help="Run any jobs that are dependencies")
 parser.add_argument("--config", "-c", dest="CONFIG", default=CONFIG_DEFAULT,
                     type=str,
                     help="Use an alternative gitlab yaml file")
@@ -60,20 +59,22 @@ parser.add_argument("--revar", dest="revars", metavar="REGEX", type=str, default
 parser.add_argument("--parallel", type=str,
                     help="Run JOB as one part of a parallel axis (eg 2/4 runs job 2 in a 4 parallel matrix)")
 
-parser.add_argument("--pipeline", default=False, action="store_true",
-                    help="Run JOB on or list pipelines from a gitlab server")
+gitlab_mutex = parser.add_mutually_exclusive_group()
 
-parser.add_argument("--from", type=str, dest="FROM",
-                    metavar="SERVER/PROJECT/PIPELINE",
-                    help="Fetch needed artifacts for the current job from "
-                         "the given pipeline, eg server/grp/project/41881, "
-                         "=master, 23156")
+gitlab_mutex.add_argument("--pipeline", default=False, action="store_true",
+                          help="Run JOB on or list pipelines from a gitlab server")
 
-parser.add_argument("--download", default=False, action="store_true",
-                    help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
+gitlab_mutex.add_argument("--from", type=str, dest="FROM",
+                          metavar="SERVER/PROJECT/PIPELINE",
+                          help="Fetch needed artifacts for the current job from "
+                               "the given pipeline, eg server/grp/project/41881, "
+                               "=master, 23156")
 
-parser.add_argument("--export", type=str, dest="export", metavar="EXPORT",
-                    help="Download JOB logs and artifacts to EXPORT/JOBNAME (requires --from)")
+list_mutex.add_argument("--download", default=False, action="store_true",
+                        help="Instead of building JOB, download the artifacts of JOB from gitlab (requires --from)")
+
+list_mutex.add_argument("--export", type=str, dest="export", metavar="EXPORT",
+                        help="Download JOB logs and artifacts to EXPORT/JOBNAME (requires --from)")
 
 parser.add_argument("--completed", default=False, action="store_true",
                     help="List (implies --list) all currently completed jobs in the --from pipeline")
@@ -81,8 +82,8 @@ parser.add_argument("--completed", default=False, action="store_true",
 parser.add_argument("--insecure", "-k", dest="insecure", default=False, action="store_true",
                     help="Ignore TLS certificate errors when fetching from remote servers")
 
-parser.add_argument("--clean", dest="clean", default=False, action="store_true",
-                    help="Clean up any leftover docker containers or networks")
+list_mutex.add_argument("--clean", dest="clean", default=False, action="store_true",
+                        help="Clean up any leftover docker containers or networks")
 
 
 if is_windows():  # pragma: linux no cover
