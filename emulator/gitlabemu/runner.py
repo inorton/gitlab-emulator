@@ -177,17 +177,15 @@ def do_pipeline(options: argparse.Namespace, loader):
         recurse = True
         if options.FROM:
             recurse = False
-            ident = parse_gitlab_from_arg(options.FROM)
-            if ident.server or ident.project:
-                die(f"--from PIPELINE with --pipeline can only use pipelines in the current project (just use the number or git branch name)")
-
-            note(f"Checking for --from ({ident})..")
+            ident = parse_gitlab_from_arg(options.FROM, prefer_gitref=True)
             if ident.pipeline:
+                note(f"Checking source pipeline {ident.pipeline} ..")
                 try:
                     pipeline = project.pipelines.get(ident.pipeline)
                 except GitlabGetError as err:
                     die(f"Failed to read pipeline {ident.pipeline}, {err.error_message}")
             elif ident.gitref:
+                note(f"Searching for latest pipeline on {ident.gitref} ..")
                 # find the newest pipeline for this git reference
                 found = project.pipelines.list(sort="desc", ref=ident.gitref, order_by="updated_at", page=1, per_page=5, status='success')
                 if not found:

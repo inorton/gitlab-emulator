@@ -99,7 +99,7 @@ def gitlab_api(alias: str, secure=True) -> Gitlab:
     return client
 
 
-def parse_gitlab_from_arg(arg: str) -> GitlabIdent:
+def parse_gitlab_from_arg(arg: str, prefer_gitref: Optional[bool] = False) -> GitlabIdent:
     """Decode an identifier into a project and optionally pipeline ID or git reference"""
     # server/group/project/1234    = pipeline 1234 from server/group/project
     # 1234                         = pipeline 1234 from current project
@@ -109,7 +109,12 @@ def parse_gitlab_from_arg(arg: str) -> GitlabIdent:
     project = None
     server = None
     pipeline = None
-    if "=" in arg:
+    if arg.isnumeric():
+        pipeline = int(arg)
+    elif prefer_gitref:
+        gitref = arg
+        arg = ""
+    elif "=" in arg:
         arg, gitref = arg.rsplit("=", 1)
 
     if "/" in arg:
@@ -121,8 +126,6 @@ def parse_gitlab_from_arg(arg: str) -> GitlabIdent:
                 project = "/".join(parts[1:-1])
             else:
                 project = "/".join(parts[1:])
-    elif arg.isnumeric():
-        pipeline = int(arg)
 
     return GitlabIdent(project=project,
                        server=server,

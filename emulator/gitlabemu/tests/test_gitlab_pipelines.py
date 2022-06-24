@@ -7,6 +7,7 @@ import pytest
 import yaml
 from requests_mock import Mocker
 
+from ..jobs import NoSuchJob
 from ..runner import run, do_pipeline
 from ..configloader import Loader
 from ..generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline
@@ -68,18 +69,21 @@ def test_mocked_pipeline_error_no_remote(capfd: pytest.CaptureFixture, mocker):
 
 def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, tmp_path, mocker):
     os.environ["GLE_CONFIG"] = str(tmp_path / "config.yml")
-    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, True, "bob"))
-    with pytest.raises(SystemExit):
-        do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
-                                       FROM="foo.com/bar/baz/123"), None)
-    stdout, stderr = capfd.readouterr()
-    assert "--from PIPELINE with --pipeline can only use pipelines in the current project" in stderr
+    loader = Loader()
+    project = mocker.MagicMock()
+    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, project, "bob"))
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
         do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
-                                       FROM="abc"), None)
+                                       FROM="my/branch/abc"), loader)
     stdout, stderr = capfd.readouterr()
-    assert "Cannot work out pipeline" in stderr
+    assert "Searching for latest pipeline on my/branch/abc .." in stderr
+
+    with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
+        do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       FROM="123"), loader)
+    stdout, stderr = capfd.readouterr()
+    assert "Checking source pipeline 123 .." in stderr
 
 
 def test_mocked_generate(capfd: pytest.CaptureFixture):
