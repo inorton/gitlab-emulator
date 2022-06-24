@@ -102,6 +102,10 @@ parser.add_argument("JOB", type=str, default=None,
                     nargs="?",
                     help="Run this named job")
 
+parser.add_argument("EXTRA_JOBS", type=str,
+                    nargs="*",
+                    help=argparse.SUPPRESS)
+
 
 def apply_user_config(loader: configloader.Loader, is_docker: bool):
     """
@@ -162,6 +166,8 @@ def do_pipeline(options: argparse.Namespace, loader):
             print(f"{pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
     else:
         goals = [options.JOB]
+        if options.EXTRA_JOBS:
+            goals.extend(options.EXTRA_JOBS)
         note(f"Generate subset pipeline to build '{goals}'..")
         generated = generate_pipeline_yaml(loader, *goals)
         jobs = [name for name in generated.keys() if name != "stages"]
