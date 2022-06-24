@@ -1,4 +1,5 @@
 """Tests for --pipeline option"""
+import argparse
 import os
 import subprocess
 
@@ -6,7 +7,7 @@ import pytest
 import yaml
 from requests_mock import Mocker
 
-from ..runner import run
+from ..runner import run, do_pipeline
 from ..configloader import Loader
 from ..generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline
 from ..helpers import git_commit_sha
@@ -47,6 +48,36 @@ def mock_git_origin(mocker, project):
                  return_value={
                      "origin": project.http_url_to_repo
                  })
+
+
+def test_mocked_pipeline_error_no_server(capfd: pytest.CaptureFixture, mocker):
+    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(None, None, None))
+    with pytest.raises(SystemExit):
+        do_pipeline(argparse.Namespace(insecure=True), None)
+    stdout, stderr = capfd.readouterr()
+    assert "Could not find a gitlab server configuration," in stderr
+
+
+def test_mocked_pipeline_error_no_remote(capfd: pytest.CaptureFixture, mocker):
+    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, True, None))
+    with pytest.raises(SystemExit):
+        do_pipeline(argparse.Namespace(insecure=True), None)
+    stdout, stderr = capfd.readouterr()
+    assert "Could not find a gitlab configuration that matches any of our git remotes" in stderr
+
+
+def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, mocker):
+    with pytest.raises(SystemExit):
+        do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       FROM="foo.com/bar/baz/123"), None)
+    stdout, stderr = capfd.readouterr()
+    assert "--from PIPELINE with --pipeline can only use pipelines in the current project" in stderr
+
+    with pytest.raises(SystemExit):
+        do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       FROM="abc"), None)
+    stdout, stderr = capfd.readouterr()
+    assert "Cannot work out pipeline" in stderr
 
 
 def test_mocked_generate(capfd: pytest.CaptureFixture):

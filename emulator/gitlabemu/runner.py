@@ -193,6 +193,8 @@ def do_pipeline(options: argparse.Namespace, loader):
                 if not found:
                     die(f"Could not find a completed pipeline for git reference {ident.gitref}")
                 pipeline = found[0]
+            else:
+                die(f"Cannot work out pipeline --from {options.FROM}")
 
             # now make sure the pipeline contains the jobs we need
             pipeline_jobs = {}
@@ -218,8 +220,7 @@ def do_pipeline(options: argparse.Namespace, loader):
 
         if download_jobs:
             stages = generated.get("stages", ["test"])
-            fetch_job = generate_artifact_fetch_job(loader, download_jobs)
-            fetch_job["stage"] = stages[0]
+            fetch_job = generate_artifact_fetch_job(loader, stages[0], download_jobs)
             generated["from_pipeline"] = fetch_job
             for job in jobs:
                 generated[job]["needs"] = ["from_pipeline"]

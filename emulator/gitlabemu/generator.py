@@ -12,6 +12,7 @@ from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git
 
 def generate_artifact_fetch_job(
         loader: Loader,
+        stage: str,
         needed: Dict[str, str]) -> dict:
     """Generate a job to fetch artifacts of needed jobs from a completed pipeline"""
     # use CI_JOB_TOKEN to fetch the artifacts
@@ -37,6 +38,7 @@ def generate_artifact_fetch_job(
             paths.extend(artifact_paths)
     if paths:
         generated = {
+            "stage": stage,
             "image": "alpine:3.14",
             "script": script,
             "artifacts": {
