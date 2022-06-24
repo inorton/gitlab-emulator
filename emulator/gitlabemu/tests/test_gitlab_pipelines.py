@@ -8,7 +8,7 @@ from requests_mock import Mocker
 
 from ..runner import run
 from ..configloader import Loader
-from ..generator import generate_pipeline_yaml, create_pipeline_branch
+from ..generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline
 from ..helpers import git_commit_sha
 from .mocked_gitlab import MockServer, MOCK_HOST
 
