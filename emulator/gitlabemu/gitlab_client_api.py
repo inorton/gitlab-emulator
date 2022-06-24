@@ -1,4 +1,3 @@
-import dataclasses
 import os
 import shutil
 import zipfile
@@ -6,7 +5,7 @@ import requests
 from typing import Optional, List, cast, Set, Tuple
 from typing.io import IO
 from urllib.parse import urlparse
-from gitlab import Gitlab, GitlabGetError, GitlabAuthenticationError
+from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import ProjectPipelineJob, Project
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -15,12 +14,12 @@ from .helpers import die, note, make_path_slug, get_git_remote_urls
 from .userconfig import get_user_config_context
 
 
-@dataclasses.dataclass
 class GitlabIdent:
-    server: Optional[str] = None
-    project: Optional[str] = None
-    pipeline: Optional[int] = None
-    gitref: Optional[str] = None
+    def __init__(self, server=None, project=None, pipeline=None, gitref=None):
+        self.server: Optional[str] = server
+        self.project: Optional[str] = project
+        self.pipeline: Optional[int] = pipeline
+        self.gitref: Optional[str] = gitref
 
 
 class PipelineError(Exception):
