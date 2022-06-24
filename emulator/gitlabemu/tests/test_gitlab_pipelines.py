@@ -66,7 +66,9 @@ def test_mocked_pipeline_error_no_remote(capfd: pytest.CaptureFixture, mocker):
     assert "Could not find a gitlab configuration that matches any of our git remotes" in stderr
 
 
-def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, mocker):
+def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, tmp_path, mocker):
+    os.environ["GLE_CONFIG"] = str(tmp_path / "config.yml")
+    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, True, "bob"))
     with pytest.raises(SystemExit):
         do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
                                        FROM="foo.com/bar/baz/123"), None)
