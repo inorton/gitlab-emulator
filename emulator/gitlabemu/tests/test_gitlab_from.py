@@ -18,9 +18,6 @@ from ..userconfig import get_user_config
 
 @pytest.mark.usefixtures("posix_only")
 def test_from_missing_download_args(capsys):
-    if "GITLAB_PRIVATE_TOKEN" in os.environ:
-        del os.environ["GITLAB_PRIVATE_TOKEN"]
-
     with pytest.raises(SystemExit):
         do_gitlab_from(argparse.Namespace(FROM=None, download=True), None)
 
@@ -30,6 +27,7 @@ def test_from_missing_download_args(capsys):
 
 @pytest.mark.usefixtures("linux_only")
 def test_no_token_or_config(capfd):
+    os.environ["GITLAB_PRIVATE_TOKEN"] = ""
     with pytest.raises(SystemExit):
         run(["--from", "nosuch.gitlab/grp/proj/1234"])
     _, stderr = capfd.readouterr()
