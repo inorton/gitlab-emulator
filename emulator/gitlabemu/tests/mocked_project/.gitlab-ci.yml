@@ -1,0 +1,19 @@
+job1:
+  script:
+    - echo hello
+
+job2:
+  script:
+    - echo world
+  needs:
+    - job: job1
+  when: manual
+
+job3:
+  extends:
+    - job1
+  needs:
+    - job1
+
+job4:
+  extends: job1

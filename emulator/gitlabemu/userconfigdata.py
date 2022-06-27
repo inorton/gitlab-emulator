@@ -35,22 +35,35 @@ class GitlabServer(ToYaml):
         self.name = None
         self.server = None
         self.token = None
+        self.tls_verify = True
 
     def to_dict(self) -> dict:
-        return dict({
+        res = {
             "name": self.name,
             "server": self.server,
             "token": self.token,
-        })
+        }
+        if not self.tls_verify:
+            res["tls_verify"] = False
+        return res
 
     def populate(self, data) -> None:
-        self.setattrs_from_dict(data, "name", "server", "token")
+        self.setattrs_from_dict(data, "name", "server", "token", "tls_verify")
 
 
 class GitlabConfiguration(ToYaml):
     def __init__(self):
         self.version = DEFAULT_GITLAB_VERSION
         self.servers = []
+
+    def add(self, name: str, url: str, token: str, tls_verify: bool):
+        server = GitlabServer()
+        server.tls_verify = tls_verify
+        server.token = token
+        server.server = url
+        server.name = name
+        self.servers.append(server)
+        return server
 
     def to_dict(self) -> dict:
         res = {}
