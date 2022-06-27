@@ -1,7 +1,7 @@
 # Gitlab Emulator and Gitlab Python Runner
 
-[![pipeline status](https://gitlab.com/cunity/gitlab-emulator/badges/master/pipeline.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/master)
-[![coverage report](https://gitlab.com/cunity/gitlab-emulator/badges/master/coverage.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/master)
+[![pipeline status](https://gitlab.com/cunity/gitlab-emulator/badges/main/pipeline.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/main)
+[![coverage report](https://gitlab.com/cunity/gitlab-emulator/badges/main/coverage.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/main)
 
 Supported Gitlab v14.2 features:
 
