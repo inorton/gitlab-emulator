@@ -1,4 +1,7 @@
 import os
+import shutil
+import tempfile
+
 import pytest
 import subprocess
 import platform
@@ -75,13 +78,17 @@ def check_docker(osname):
 
 @pytest.fixture(autouse=True)
 def envs():
+    temp = tempfile.mkdtemp()
     envs = dict(os.environ)
     # strip out CI_ env vars
     for name in envs:
         for exclude in ["CI_", "GLE_"]:
             if name.startswith(exclude):
                 del os.environ[name]
+    envs["GLE_CONFIG"] = os.path.join(temp, "test-config.yaml")
     yield
+    if os.path.exists(temp):
+        shutil.rmtree(temp)
     for item in envs:
         os.environ[item] = envs[item]
     for item in list(os.environ.keys()):

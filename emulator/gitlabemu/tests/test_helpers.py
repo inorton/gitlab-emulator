@@ -15,7 +15,12 @@ from ..helpers import (communicate,
                        trim_quotes,
                        sensitive_varname,
                        is_apple,
-                       parse_timeout
+                       parse_timeout,
+                       get_git_remote_urls,
+                       git_current_branch,
+                       git_commit_sha,
+                       git_uncommitted_changes,
+                       git_worktree
                        )
 from random import randint
 
@@ -164,3 +169,18 @@ def test_parse_timeout_str():
     assert "Unexpected h value 1h 2h" in err.value.args
 
 
+def test_git_helpers(top_dir: str):
+    remotes = get_git_remote_urls(top_dir)
+    assert isinstance(remotes, dict)
+    assert len(remotes)
+
+    commit = git_commit_sha(top_dir)
+    assert commit
+    assert len(commit) >= 40
+
+    branch = git_current_branch(top_dir)
+    assert branch
+
+    # just check that they don't crash, can't get relaible values from these locally and on CI runs
+    git_uncommitted_changes(top_dir)
+    git_worktree(top_dir)
