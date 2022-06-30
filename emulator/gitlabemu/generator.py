@@ -49,6 +49,10 @@ def generate_artifact_fetch_job(
             "artifacts": {
                 "paths": list(set(paths)),
                 "expire_in": '1 day'
+            },
+            "variables": {
+                "KUBERNETES_CPU_REQUEST": "1",
+                "KUBERNETES_MEMORY_REQUEST": "2G",
             }
         }
 
@@ -87,8 +91,8 @@ def generate_pipeline_yaml(loader: Loader,
         generated["stages"] = list(stages)
 
     # get the variables and defaults sections etc
-    vars = dict(loader.config.get("variables", {}))
-    generated["variables"] = vars
+    variables = dict(loader.config.get("variables", {}))
+    generated["variables"] = variables
     for item in ["image", "default", "before_script", "after_script", "services"]:
         if item in loader.config:
             generated[item] = loader.config.get(item)

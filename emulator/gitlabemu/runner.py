@@ -172,6 +172,7 @@ def do_pipeline(options: argparse.Namespace, loader):
         pipeline = None
         goals = [options.JOB]
         download_jobs = {}
+        deps = {}
         if options.EXTRA_JOBS:
             goals.extend(options.EXTRA_JOBS)
         note(f"Generate subset pipeline to build '{goals}'..")
@@ -202,7 +203,7 @@ def do_pipeline(options: argparse.Namespace, loader):
 
             # now make sure the pipeline contains the jobs we need
             pipeline_jobs = {}
-            download_jobs = {}
+
             for item in pipeline.jobs.list(all=True):
                 if item.status == "success":
                     pipeline_jobs[item.name] = item
@@ -217,21 +218,25 @@ def do_pipeline(options: argparse.Namespace, loader):
                         if hasattr(from_job, "artifacts_file"):  # missing if it created no artifacts
                             artifact_url = f"{client.api_url}/projects/{project.id}/jobs/{from_job.id}/artifacts"
                             download_jobs[dep] = artifact_url
+                            if goal not in deps:
+                                deps[goal] = []
+                            deps[goal].append(dep)
 
         generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
         jobs = [name for name in generated.keys() if name not in RESERVED_TOP_KEYS]
         note(f"Will build jobs: {jobs} ..")
+        stages = generated.get("stages", ["test"])
 
-        if download_jobs:
-            from_name = f"from_pipeline_{pipeline.id}"
-            stages = generated.get("stages", ["test"])
+        for from_name in download_jobs:
             fetch_job = generate_artifact_fetch_job(loader,
                                                     stages[0],
-                                                    download_jobs,
+                                                    {from_name: download_jobs[from_name]},
                                                     tls_verify=client.ssl_verify)
             generated[from_name] = fetch_job
-            for job in jobs:
-                generated[job]["needs"] = [from_name]
+
+        if deps:
+            for job in goals:
+                generated[job]["needs"] = deps.get(job, [])
 
         branch_name = f"temp/{client.user.username}/{git_current_branch(cwd)}"
         note(f"Creating temporary pipeline branch '{branch_name}'..")
