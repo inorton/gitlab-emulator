@@ -347,7 +347,7 @@ def job_docker_image(config, name):
     return config[name].get("image")
 
 
-def load_job(config, name):
+def load_job(config, name, allow_add_variables=True):
     """
     Load a job from the configuration
     :param config:
@@ -362,16 +362,13 @@ def load_job(config, name):
         job = DockerJob()
     else:
         job = Job()
-
+    job.allow_add_variables = allow_add_variables
     job.load(name, config)
 
     return job
 
 
 def do_variables(baseobj, yamlfile):
-    baseobj[".gitlab-emulator-workspace"] = os.path.abspath(os.path.dirname(yamlfile))
-    if "variables" not in baseobj:
-        baseobj["variables"] = {}
     # set CI_ values
     baseobj["variables"]["CI_PIPELINE_ID"] = os.getenv(
         "CI_PIPELINE_ID", "0")
@@ -447,10 +444,10 @@ class Loader(object):
     A configuration loader for gitlab pipelines
     """
 
-    def __init__(self):
+    def __init__(self, emulator_variables=True):
         self.filename = None
         self.rootdir = None
-
+        self.create_emulator_variables = emulator_variables
         self.config = {}
         self.included_files = []
 
@@ -506,7 +503,11 @@ class Loader(object):
         :param yamlfile:
         :return:
         """
-        return do_variables(baseobj, yamlfile)
+        if "variables" not in baseobj:
+            baseobj["variables"] = {}
+        baseobj[".gitlab-emulator-workspace"] = os.path.abspath(os.path.dirname(yamlfile))
+        if self.create_emulator_variables:
+            return do_variables(baseobj, yamlfile)
 
     def get_jobs(self):
         """
@@ -525,7 +526,7 @@ class Loader(object):
 
     def load_job(self, name) -> "Job":
         """Return a loaded job object"""
-        return load_job(self.config, name)
+        return load_job(self.config, name, allow_add_variables=self.create_emulator_variables)
 
     def get_stages(self):
         """
