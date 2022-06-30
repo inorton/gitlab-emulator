@@ -6,12 +6,54 @@ from typing import List, Dict, Optional
 
 from gitlab.v4.objects import ProjectPipeline
 
-from .configloader import Loader, StringableOrderedDict
+from .configloader import Loader, StringableOrderedDict, load_job
 from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git_current_branch, git_push_force_upstream
 
 
-def generate_pipeline_yaml(loader: Loader, *goals: str) -> dict:
-    """"""
+def generate_artifact_fetch_job(
+        loader: Loader,
+        stage: str,
+        needed: Dict[str, str]) -> dict:
+    """Generate a job to fetch artifacts of needed jobs from a completed pipeline"""
+    # use CI_JOB_TOKEN to fetch the artifacts
+    script = []
+    paths = []
+    generated = {}
+    for name in needed:
+        job = loader.get_job(name)
+        # does it define any artifacts?
+        artifacts = job.get("artifacts", {})
+        artifact_paths = artifacts.get("paths", [])
+        if artifact_paths:
+            url = needed[name]
+            script.extend(
+                [
+                    'apk add curl',
+                    f'curl --location --output {name}-artifacts.zip --header "JOB-TOKEN: $CI_JOB_TOKEN" {url}',
+                    f'unzip -o {name}-artifacts.zip',
+                    f'rm -f {name}-artifacts.zip',
+                ]
+            )
+
+            paths.extend(artifact_paths)
+    if paths:
+        generated = {
+            "stage": stage,
+            "image": "alpine:3.14",
+            "script": script,
+            "artifacts": {
+                "paths": list(set(paths)),
+                "expire_in": '1 day'
+            }
+        }
+
+    return generated
+
+
+def generate_pipeline_yaml(loader: Loader,
+                           *goals: str,
+                           recurse: Optional[bool] = True) -> dict:
+    """Generate a subset pipeline to build the given goals"""
     generated = StringableOrderedDict()
     stages = loader.config.get("stages", [])
     needed = set(goals)
@@ -29,15 +71,15 @@ def generate_pipeline_yaml(loader: Loader, *goals: str) -> dict:
                 if stage not in stages:
                     stages.append(stage)
             generated[name] = job
-
-            needs = job.get("needs", [])
-            for item in needs:
-                if isinstance(item, str):
-                    needed.add(item)
-                elif isinstance(item, dict):
-                    need_job = item.get("job", None)
-                    if need_job and need_job not in generated:
-                        needed.add(need_job)
+            loaded = loader.load_job(name)
+            if recurse:
+                # build the needed jobs in the pipeline
+                for item in loaded.dependencies:
+                    if isinstance(item, str):
+                        needed.add(item)
+            else:
+                pass
+                # else, download from an earlier pipeline
 
     if stages:
         generated["stages"] = list(stages)

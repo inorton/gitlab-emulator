@@ -1,4 +1,5 @@
 """Tests for --pipeline option"""
+import argparse
 import os
 import subprocess
 
@@ -6,7 +7,8 @@ import pytest
 import yaml
 from requests_mock import Mocker
 
-from ..runner import run
+from ..jobs import NoSuchJob
+from ..runner import run, do_pipeline
 from ..configloader import Loader
 from ..generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline
 from ..helpers import git_commit_sha
@@ -47,6 +49,41 @@ def mock_git_origin(mocker, project):
                  return_value={
                      "origin": project.http_url_to_repo
                  })
+
+
+def test_mocked_pipeline_error_no_server(capfd: pytest.CaptureFixture, mocker):
+    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(None, None, None))
+    with pytest.raises(SystemExit):
+        do_pipeline(argparse.Namespace(insecure=True), None)
+    stdout, stderr = capfd.readouterr()
+    assert "Could not find a gitlab server configuration," in stderr
+
+
+def test_mocked_pipeline_error_no_remote(capfd: pytest.CaptureFixture, mocker):
+    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, True, None))
+    with pytest.raises(SystemExit):
+        do_pipeline(argparse.Namespace(insecure=True), None)
+    stdout, stderr = capfd.readouterr()
+    assert "Could not find a gitlab configuration that matches any of our git remotes" in stderr
+
+
+def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, tmp_path, mocker):
+    os.environ["GLE_CONFIG"] = str(tmp_path / "config.yml")
+    loader = Loader()
+    project = mocker.MagicMock()
+    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, project, "bob"))
+
+    with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
+        do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       FROM="my/branch/abc"), loader)
+    stdout, stderr = capfd.readouterr()
+    assert "Searching for latest pipeline on my/branch/abc .." in stderr
+
+    with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
+        do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       FROM="123"), loader)
+    stdout, stderr = capfd.readouterr()
+    assert "Checking source pipeline 123 .." in stderr
 
 
 def test_mocked_generate(capfd: pytest.CaptureFixture):

@@ -263,7 +263,16 @@ needs-no-artifacts:
   script:
     - mkdir date.txt # will fail if date.txt was fetched from the quick job
 
+needs-artifacts:
+  image: alpine:3.14
+  stage: test
+  needs: [ quick ]
+  script:
+    - ls -l date.txt
+
 .echo:
   stage: test
   script:
     - echo hello
+
+

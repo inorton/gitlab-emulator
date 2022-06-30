@@ -21,6 +21,20 @@ class GitlabIdent:
         self.pipeline: Optional[int] = pipeline
         self.gitref: Optional[str] = gitref
 
+    def __str__(self):
+        ret = ""
+        attribs = []
+        if self.server:
+            attribs.append(f"server={self.server}")
+        if self.project:
+            attribs.append(f"project={self.project}")
+        if self.gitref:
+            attribs.append(f"git_ref={self.gitref}")
+        elif self.pipeline:
+            attribs.append(f"id={self.pipeline}")
+
+        return f"Pipeline {', '.join(attribs)}"
+
 
 class PipelineError(Exception):
     def __init__(self, pipeline: str):
@@ -85,7 +99,7 @@ def gitlab_api(alias: str, secure=True) -> Gitlab:
     return client
 
 
-def parse_gitlab_from_arg(arg: str) -> GitlabIdent:
+def parse_gitlab_from_arg(arg: str, prefer_gitref: Optional[bool] = False) -> GitlabIdent:
     """Decode an identifier into a project and optionally pipeline ID or git reference"""
     # server/group/project/1234    = pipeline 1234 from server/group/project
     # 1234                         = pipeline 1234 from current project
@@ -95,7 +109,12 @@ def parse_gitlab_from_arg(arg: str) -> GitlabIdent:
     project = None
     server = None
     pipeline = None
-    if "=" in arg:
+    if arg.isnumeric():
+        pipeline = int(arg)
+    elif prefer_gitref:
+        gitref = arg
+        arg = ""
+    elif "=" in arg:
         arg, gitref = arg.rsplit("=", 1)
 
     if "/" in arg:
@@ -107,8 +126,6 @@ def parse_gitlab_from_arg(arg: str) -> GitlabIdent:
                 project = "/".join(parts[1:-1])
             else:
                 project = "/".join(parts[1:])
-    elif arg.isnumeric():
-        pipeline = int(arg)
 
     return GitlabIdent(project=project,
                        server=server,

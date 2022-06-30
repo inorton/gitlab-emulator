@@ -4,3 +4,4 @@
 /emulator/*.egg-info/
 /record.txt
 /savedir/emulator-linux-test/trace.log
+/random.txt
