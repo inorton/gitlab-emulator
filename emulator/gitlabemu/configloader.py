@@ -370,6 +370,9 @@ def load_job(config, name, allow_add_variables=True):
 
 def do_variables(baseobj, yamlfile):
     # set CI_ values
+    if "variables" not in baseobj:
+        baseobj["variables"] = {}
+
     baseobj["variables"]["CI_PIPELINE_ID"] = os.getenv(
         "CI_PIPELINE_ID", "0")
     baseobj["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
