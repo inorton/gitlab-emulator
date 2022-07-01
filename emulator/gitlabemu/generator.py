@@ -13,12 +13,17 @@ from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git
 def generate_artifact_fetch_job(
         loader: Loader,
         stage: str,
-        needed: Dict[str, str]) -> dict:
+        needed: Dict[str, str],
+        tls_verify: Optional[bool] = True
+) -> dict:
     """Generate a job to fetch artifacts of needed jobs from a completed pipeline"""
     # use CI_JOB_TOKEN to fetch the artifacts
     script = []
     paths = []
     generated = {}
+    verify = "--cacert $CI_SERVER_TLS_CA_FILE"
+    if not tls_verify:
+        verify = "--insecure"
     for name in needed:
         job = loader.get_job(name)
         # does it define any artifacts?
@@ -29,7 +34,7 @@ def generate_artifact_fetch_job(
             script.extend(
                 [
                     'apk add curl',
-                    f'curl --location --output {name}-artifacts.zip --header "JOB-TOKEN: $CI_JOB_TOKEN" {url}',
+                    f'curl {verify} --location --output {name}-artifacts.zip --header "JOB-TOKEN: $CI_JOB_TOKEN" {url}',
                     f'unzip -o {name}-artifacts.zip',
                     f'rm -f {name}-artifacts.zip',
                 ]
@@ -44,6 +49,10 @@ def generate_artifact_fetch_job(
             "artifacts": {
                 "paths": list(set(paths)),
                 "expire_in": '1 day'
+            },
+            "variables": {
+                "KUBERNETES_CPU_REQUEST": "1",
+                "KUBERNETES_MEMORY_REQUEST": "2G",
             }
         }
 
@@ -77,12 +86,16 @@ def generate_pipeline_yaml(loader: Loader,
                 for item in loaded.dependencies:
                     if isinstance(item, str):
                         needed.add(item)
-            else:
-                pass
-                # else, download from an earlier pipeline
 
     if stages:
         generated["stages"] = list(stages)
+
+    # get the variables and defaults sections etc
+    variables = dict(loader.config.get("variables", {}))
+    generated["variables"] = variables
+    for item in ["image", "default", "before_script", "after_script", "services"]:
+        if item in loader.config:
+            generated[item] = loader.config.get(item)
 
     return generated
 
