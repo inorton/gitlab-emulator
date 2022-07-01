@@ -44,6 +44,7 @@ class Job(object):
         self.tags = []
         self.stage = "test"
         self.variables = {}
+        self.allow_add_variables = True
         self.dependencies = []
         self.needed_artifacts = []
         self._shell = None
@@ -190,6 +191,9 @@ class Job(object):
         Set job variable defaults. If the variable is not present in self.variables, set it to the given value. If the variable is present in os.environ, use that value instead
         :return:
         """
+        if not self.allow_add_variables:
+            return
+
         if value is None:
             value = ""
         value = str(value)

@@ -8,6 +8,7 @@ from gitlab import GitlabGetError
 
 from . import configloader
 from .docker import has_docker
+from .gitlab.types import RESERVED_TOP_KEYS
 from .gitlab_client_api import PipelineError, PipelineInvalid, get_gitlab_project_client, parse_gitlab_from_arg
 from .generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline, \
     generate_artifact_fetch_job
@@ -171,6 +172,7 @@ def do_pipeline(options: argparse.Namespace, loader):
         pipeline = None
         goals = [options.JOB]
         download_jobs = {}
+        deps = {}
         if options.EXTRA_JOBS:
             goals.extend(options.EXTRA_JOBS)
         note(f"Generate subset pipeline to build '{goals}'..")
@@ -187,7 +189,12 @@ def do_pipeline(options: argparse.Namespace, loader):
             elif ident.gitref:
                 note(f"Searching for latest pipeline on {ident.gitref} ..")
                 # find the newest pipeline for this git reference
-                found = project.pipelines.list(sort="desc", ref=ident.gitref, order_by="updated_at", page=1, per_page=5, status='success')
+                found = project.pipelines.list(
+                    sort="desc",
+                    ref=ident.gitref,
+                    order_by="updated_at",
+                    page=1, per_page=5,
+                    status='success')
                 if not found:
                     die(f"Could not find a completed pipeline for git reference {ident.gitref}")
                 pipeline = found[0]
@@ -196,7 +203,7 @@ def do_pipeline(options: argparse.Namespace, loader):
 
             # now make sure the pipeline contains the jobs we need
             pipeline_jobs = {}
-            download_jobs = {}
+
             for item in pipeline.jobs.list(all=True):
                 if item.status == "success":
                     pipeline_jobs[item.name] = item
@@ -211,17 +218,25 @@ def do_pipeline(options: argparse.Namespace, loader):
                         if hasattr(from_job, "artifacts_file"):  # missing if it created no artifacts
                             artifact_url = f"{client.api_url}/projects/{project.id}/jobs/{from_job.id}/artifacts"
                             download_jobs[dep] = artifact_url
+                            if goal not in deps:
+                                deps[goal] = []
+                            deps[goal].append(dep)
 
         generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
-        jobs = [name for name in generated.keys() if name != "stages"]
+        jobs = [name for name in generated.keys() if name not in RESERVED_TOP_KEYS]
         note(f"Will build jobs: {jobs} ..")
+        stages = generated.get("stages", ["test"])
 
-        if download_jobs:
-            stages = generated.get("stages", ["test"])
-            fetch_job = generate_artifact_fetch_job(loader, stages[0], download_jobs)
-            generated["from_pipeline"] = fetch_job
-            for job in jobs:
-                generated[job]["needs"] = ["from_pipeline"]
+        for from_name in download_jobs:
+            fetch_job = generate_artifact_fetch_job(loader,
+                                                    stages[0],
+                                                    {from_name: download_jobs[from_name]},
+                                                    tls_verify=client.ssl_verify)
+            generated[from_name] = fetch_job
+
+        if deps:
+            for job in goals:
+                generated[job]["needs"] = deps.get(job, [])
 
         branch_name = f"temp/{client.user.username}/{git_current_branch(cwd)}"
         note(f"Creating temporary pipeline branch '{branch_name}'..")
@@ -341,12 +356,29 @@ def run(args=None):
         os.environ[USER_CFG_ENV] = options.USER_SETTINGS
 
     ctx = get_user_config_context()
+    fullpath = os.path.abspath(yamlfile)
+    rootdir = os.path.dirname(fullpath)
+    os.chdir(rootdir)
 
+    hide_dot_jobs = not options.hidden
     try:
-        fullpath = os.path.abspath(yamlfile)
-        rootdir = os.path.dirname(fullpath)
-        os.chdir(rootdir)
+        if options.pipeline:
+            loader = configloader.Loader(emulator_variables=False)
+            loader.load(fullpath)
+            do_pipeline(options, loader)
+            return
+
+        if options.FULL and options.parallel:
+            die("--full and --parallel cannot be used together")
+
+        if options.FROM:
+            loader = configloader.Loader(emulator_variables=False)
+            loader.load(fullpath)
+            do_gitlab_from(options, loader)
+            return
+
         loader.load(fullpath)
+
     except configloader.ConfigLoaderError as err:
         die("Config error: " + str(err))
 
@@ -358,19 +390,6 @@ def run(args=None):
             # command line option given, use that
             windows_shell = options.windows_shell
         loader.config[".gitlabemu-windows-shell"] = windows_shell
-
-    hide_dot_jobs = not options.hidden
-
-    if options.pipeline:
-        do_pipeline(options, loader)
-        return
-
-    if options.FULL and options.parallel:
-        die("--full and --parallel cannot be used together")
-
-    if options.FROM:
-        do_gitlab_from(options, loader)
-        return
 
     if options.LIST:
         for jobname in sorted(loader.get_jobs()):
