@@ -7,6 +7,8 @@ from argparse import ArgumentParser, Namespace
 from gitlabemu.helpers import sensitive_varname, trim_quotes
 from gitlabemu.userconfigdata import UserContext, DEFAULT_CONTEXT
 from .userconfig import get_user_config
+from .helpers import die, note
+
 
 GLOBAL_DESC = __doc__
 
@@ -125,10 +127,20 @@ def gitlab_cmd(opts: Namespace):
     cfg = get_user_config()
     ctx = cfg.contexts[cfg.current_context]
     if not opts.NAME:
+        # other options supplied, maybe someone forgot the name
+        if opts.server or opts.token or opts.tls_verify is not None:
+            die("--server, --token and --insecure require a server alias")
         # list
-        for item in ctx.gitlab.servers:
-            print(item.name)
+        if ctx.gitlab.servers:
+            note("Current gitlab servers:")
+            for item in ctx.gitlab.servers:
+                print(item.name)
+        else:
+            note("There are no current gitlab servers set.")
     else:
+        if opts.tls_verify is None:
+            opts.tls_verify = True
+
         matched = [x for x in ctx.gitlab.servers if x.name == opts.NAME]
         if len(matched):
             first = matched[0]
@@ -155,7 +167,7 @@ def main(args=None):
     gl_ctx.add_argument("NAME", type=str, help="Set the name", default=None, nargs="?")
     gl_ctx.add_argument("--server", type=str, help="Set the URL for a gitlab server",
                         default=None)
-    gl_ctx.add_argument("--insecure", default=True, action="store_false", dest="tls_verify",
+    gl_ctx.add_argument("--insecure", default=None, action="store_false", dest="tls_verify",
                         help="Disable TLS certificate verification for this server (default is to verify)")
     gl_ctx.add_argument("--token", type=str,
                         help="Set the gitlab API token (should have git and api write access for best use)")
