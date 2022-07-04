@@ -215,12 +215,14 @@ def do_pipeline(options: argparse.Namespace, loader):
                         die(f"Pipeline did not contain a successful '{dep}' job needed by {goal}")
                     else:
                         from_job = pipeline_jobs[dep]
-                        if hasattr(from_job, "artifacts_file"):  # missing if it created no artifacts
-                            artifact_url = f"{client.api_url}/projects/{project.id}/jobs/{from_job.id}/artifacts"
-                            download_jobs[dep] = artifact_url
-                            if goal not in deps:
-                                deps[goal] = []
-                            deps[goal].append(dep)
+                        if hasattr(from_job, "artifacts"):  # missing if it created no artifacts
+                            archives = [x for x in from_job.artifacts if x["file_type"] == "archive"]
+                            if archives:
+                                artifact_url = f"{client.api_url}/projects/{project.id}/jobs/{from_job.id}/artifacts"
+                                download_jobs[dep] = artifact_url
+                                if goal not in deps:
+                                    deps[goal] = []
+                                deps[goal].append(dep)
 
         generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
         jobs = [name for name in generated.keys() if name not in RESERVED_TOP_KEYS]
