@@ -40,7 +40,8 @@ def test_no_token_or_config(capfd):
     # should fail to connect
     with pytest.raises(ConnectionError) as err:
         run(["--from", "nosuch.gitlab/grp/proj/1234"])
-    assert err.value.request.url == 'https://myserver.nosuch/api/v4/projects/grp%2Fproj'
+    assert err.value.request.url == "https://myserver.nosuch/"
+    assert err.value.request.method == "HEAD"
 
 
 @pytest.fixture(scope="function", autouse=True)

@@ -320,12 +320,17 @@ class Job(MockedIDResource):
         return f"{self.server.web_url}/-/jobs/{self.id}"
 
     def json(self) -> dict:
-        return {
+        data = {
             "id": self.id,
             "name": self.name,
             "pipeline": self.pipeline.json(),
             "status": self.status
         }
+        if self.archive_artifact:
+            data["artifacts"] = [
+                self.archive_artifact.json()
+            ]
+        return data
 
     @property
     def archive_artifact(self) -> Optional[Artifact]:
@@ -378,10 +383,12 @@ class Job(MockedIDResource):
 
 class MockServer:
     def __init__(self, mocker: Mocker, hostname: str):
-        server = Server(url=f"https://{hostname}", mocker=mocker)
+        url = f"https://{hostname}"
+        server = Server(url=url, mocker=mocker)
         self._server = server
         self.hostname = hostname
         self.next_id = random.randint(3, 888)
+        server.mocker.head(url, text="<html></html>")
 
     def get_id(self):
         claim = self.next_id
