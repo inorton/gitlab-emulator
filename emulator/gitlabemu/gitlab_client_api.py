@@ -140,14 +140,22 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
     """Get a pipeline"""
     pipeline = None
     ident = parse_gitlab_from_arg(fromline)
-    if not ident.server:
-        raise PipelineInvalid(fromline)
     if not secure:
         note("TLS server validation disabled by --insecure")
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    gitlab = gitlab_api(ident.server, secure=secure)
-    # get project
-    project = gitlab.projects.get(ident.project)
+
+    if not ident.server:
+        cwd = os.getcwd()
+        gitlab, project, remotename = get_gitlab_project_client(cwd, secure)
+
+    else:
+        gitlab = gitlab_api(ident.server, secure=secure)
+        # get project
+        project = gitlab.projects.get(ident.project)
+
+    if not project:
+        raise PipelineInvalid(fromline)
+
     # get pipeline
     if ident.pipeline:
         try:
