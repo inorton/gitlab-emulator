@@ -1,15 +1,16 @@
+import contextlib
 import os
 import shutil
+import time
 import zipfile
 import requests
-from typing import Optional, List, cast, Set, Tuple
-from typing.io import IO
+import tempfile
+from typing import Optional, List, Set, Tuple
 from urllib.parse import urlparse
 from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import ProjectPipelineJob, Project
 from urllib3.exceptions import InsecureRequestWarning
 
-from . import stream_response
 from .helpers import die, note, make_path_slug, get_git_remote_urls
 from .userconfig import get_user_config_context
 
@@ -96,6 +97,8 @@ def gitlab_api(alias: str, secure=True) -> Gitlab:
         die(f"Could not find a configured token for {alias} or GITLAB_PRIVATE_TOKEN not set")
 
     client = Gitlab(url=server, private_token=token, ssl_verify=secure)
+    if secure:
+        gitlab_session_head(client.session, server)
     return client
 
 
@@ -137,14 +140,22 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
     """Get a pipeline"""
     pipeline = None
     ident = parse_gitlab_from_arg(fromline)
-    if not ident.server:
-        raise PipelineInvalid(fromline)
     if not secure:
         note("TLS server validation disabled by --insecure")
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    gitlab = gitlab_api(ident.server, secure=secure)
-    # get project
-    project = gitlab.projects.get(ident.project)
+
+    if not ident.server:
+        cwd = os.getcwd()
+        gitlab, project, remotename = get_gitlab_project_client(cwd, secure)
+
+    else:
+        gitlab = gitlab_api(ident.server, secure=secure)
+        # get project
+        project = gitlab.projects.get(ident.project)
+
+    if not project:
+        raise PipelineInvalid(fromline)
+
     # get pipeline
     if ident.pipeline:
         try:
@@ -156,18 +167,24 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
     return gitlab, project, pipeline
 
 
-def gitlab_session_get(gitlab, geturl, **kwargs):
-    """Get using requests and retry TLS errors"""
+@contextlib.contextmanager
+def ca_bundle_error(func: callable):
     try:
-        return gitlab.session.get(geturl, **kwargs)
+        yield func()
     except requests.exceptions.SSLError:  # pragma: no cover
         # validation was requested but cert was invalid,
         # tty again without the gitlab-supplied CA cert and try the system ca certs
-        if "REQUESTS_CA_BUNDLE" in os.environ:
-            note(f"warning: Encountered TLS/SSL error getting {geturl}), retrying with system ca certs")
-            del os.environ["REQUESTS_CA_BUNDLE"]
-            return gitlab.session.get(geturl, **kwargs)
-        raise
+        if "REQUESTS_CA_BUNDLE" not in os.environ:
+            raise
+        note(f"warning: Encountered TLS/SSL error, retrying with only system ca certs")
+        del os.environ["REQUESTS_CA_BUNDLE"]
+        yield func()
+
+
+def gitlab_session_head(session, geturl, **kwargs):
+    """HEAD using requests to try different CA options"""
+    with ca_bundle_error(lambda: session.head(geturl, **kwargs)) as resp:
+        return resp
 
 
 def do_gitlab_fetch(from_pipeline: str,
@@ -193,24 +210,45 @@ def do_gitlab_fetch(from_pipeline: str,
             slug = make_path_slug(fetch_job.name)
             outdir = os.path.join(export_to, slug)
             os.makedirs(outdir, exist_ok=True)
-
-        note(f"{mode} {fetch_job.name} artifacts from {from_pipeline}..")
-        artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{fetch_job.id}/artifacts"
         reldir = os.path.relpath(outdir, os.getcwd())
-        # stream it into zipfile
+
         headers = {}
         if gitlab.private_token:
             headers = {"PRIVATE-TOKEN": gitlab.private_token}
-        resp = gitlab_session_get(gitlab, artifact_url, headers=headers, stream=True)
-        if resp.status_code == 404:
-            note(f"Job {fetch_job.name} has no artifacts")
+
+        note(f"{mode} {fetch_job.name} artifacts from {from_pipeline}..")
+        archive_artifact = [x for x in fetch_job.artifacts if x["file_type"] == "archive"]
+        if archive_artifact:
+            artifact_compressed_size = archive_artifact[0]["size"]
+            artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{fetch_job.id}/artifacts"
+            note(f"Get {artifact_url} ({int(artifact_compressed_size/1024)} kb) ..")
+            temp_zip_dir = tempfile.mkdtemp(dir=os.getcwd(), prefix=".temp-gle-download")
+            try:
+                started_fetch = time.time()
+                with ca_bundle_error(
+                        lambda: gitlab.session.get(artifact_url, headers=headers, stream=True)) as resp:
+                    resp.raise_for_status()
+                temp_zip_file = os.path.join(temp_zip_dir, "artifacts.zip")
+                with open(temp_zip_file, "wb") as zf:
+                    for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            zf.write(chunk)
+                with open(temp_zip_file, "rb") as compressed:
+                    with zipfile.ZipFile(compressed) as zf:
+                        for item in zf.infolist():
+                            note(f"Saving {reldir}/{item.filename} ..")
+                            zf.extract(item, path=outdir)
+                completed_fetch = time.time()
+                duration = completed_fetch - started_fetch
+                fetch_unpack_rate = artifact_compressed_size / duration
+                note("Fetched/Unpacked at {} kb/s ({} kb)".format(
+                    int(fetch_unpack_rate / 1024.0),
+                    int(artifact_compressed_size / 1024.0)
+                ))
+            finally:
+                shutil.rmtree(temp_zip_dir)
         else:
-            resp.raise_for_status()
-            seekable = cast(IO, stream_response.ResponseStream(resp.iter_content(4096)))
-            with zipfile.ZipFile(seekable) as zf:
-                for item in zf.infolist():
-                    note(f"Saving {reldir}/{item.filename} ..")
-                    zf.extract(item, path=outdir)
+            note(f"Job {fetch_job.name} has no artifacts")
 
         if export_to:
             # also get the trace and junit reports
