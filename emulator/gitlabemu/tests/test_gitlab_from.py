@@ -2,6 +2,7 @@
 import os
 import random
 import shutil
+import subprocess
 
 import pytest
 import argparse
@@ -40,7 +41,8 @@ def test_no_token_or_config(capfd):
     # should fail to connect
     with pytest.raises(ConnectionError) as err:
         run(["--from", "nosuch.gitlab/grp/proj/1234"])
-    assert err.value.request.url == 'https://myserver.nosuch/api/v4/projects/grp%2Fproj'
+    assert err.value.request.url == "https://myserver.nosuch/"
+    assert err.value.request.method == "HEAD"
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -82,7 +84,6 @@ def test_mock_list_pipelines(requests_mock: Mocker, capfd: pytest.CaptureFixture
     assert f"Cannot find pipeline '{unknown_path}'" in stderr
 
 
-
 @pytest.mark.usefixtures("posix_only")
 def test_mock_download(requests_mock: Mocker, capfd: pytest.CaptureFixture):
     """Test downloading individual job artifacts"""
@@ -110,6 +111,16 @@ def test_mock_from(requests_mock: Mocker, capfd: pytest.CaptureFixture):
 
     # job2 needs job1, so this should fetch job1's artifact files only
     run(["-k", "job2", "--from", simple_path])
+    _, stderr = capfd.readouterr()
+    assert "TLS server validation disabled" in stderr
+    assert "Download artifacts required by 'job2'" in stderr
+    assert os.path.isfile("artifact.job1.txt")
+    assert not os.path.isfile("artifact.job2.txt")
+
+    # test just the number for the current git repo
+    subprocess.check_call(["git", "init"])
+    subprocess.check_call(["git", "remote", "add", "origin", f"https://{MOCK_HOST}/{project.path_with_namespace}.git"])
+    run(["-k", "job2", "--from", str(pipeline.id)])
     _, stderr = capfd.readouterr()
     assert "TLS server validation disabled" in stderr
     assert "Download artifacts required by 'job2'" in stderr
