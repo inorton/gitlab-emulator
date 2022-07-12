@@ -11,7 +11,7 @@ from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import ProjectPipelineJob, Project
 from urllib3.exceptions import InsecureRequestWarning
 
-from .helpers import die, note, make_path_slug, get_git_remote_urls
+from .helpers import die, note, make_path_slug, get_git_remote_urls, is_linux
 from .userconfig import get_user_config_context
 
 
@@ -170,6 +170,10 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
 @contextlib.contextmanager
 def ca_bundle_error(func: callable):
     try:
+        if is_linux():
+            certs = "/etc/ssl/certs/ca-certificates.crt"
+            if os.path.exists(certs):
+                os.environ["REQUESTS_CA_BUNDLE"] = certs
         yield func()
     except requests.exceptions.SSLError:  # pragma: no cover
         # validation was requested but cert was invalid,
