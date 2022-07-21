@@ -36,6 +36,23 @@ def test_mocked_list(top_dir: str,
     assert pipeline.sha in stdout
     assert pipeline.ref in stdout
 
+    run(["-C", top_dir, "--pipeline", "--list", "--completed"])
+    stdout, stderr = capfd.readouterr()
+    assert "matching {'status': 'success'}" in stderr
+
+    run(["-C", top_dir, "--pipeline", "--list", "--match", "ref=main"])
+    stdout, stderr = capfd.readouterr()
+    assert "matching {'ref': 'main'}" in stderr
+
+
+def test_mocked_cancel(top_dir: str,
+                     mocker,
+                     requests_mock: Mocker,
+                     capfd: pytest.CaptureFixture):
+    pipeline, project = mock_project_pipeline(requests_mock)
+    mock_git_origin(mocker, project)
+    run(["-C", top_dir, "--pipeline", "--cancel", "--match", "ref=main"])
+
 
 def mock_project_pipeline(requests_mock):
     os.environ["GITLAB_PRIVATE_TOKEN"] = "123"
@@ -75,12 +92,14 @@ def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, tmp_path, mo
 
     with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
         do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       completed=False, match=None, cancel=False,
                                        FROM="my/branch/abc"), loader)
     stdout, stderr = capfd.readouterr()
     assert "Searching for latest pipeline on my/branch/abc .." in stderr
 
     with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
         do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       completed=False, match=None, cancel=False,
                                        FROM="123"), loader)
     stdout, stderr = capfd.readouterr()
     assert "Checking source pipeline 123 .." in stderr

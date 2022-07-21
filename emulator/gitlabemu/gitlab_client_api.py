@@ -144,6 +144,10 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
         note("TLS server validation disabled by --insecure")
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+    if not ident.pipeline:
+        if not ident.gitref:
+            raise PipelineInvalid(fromline)
+
     if not ident.server:
         cwd = os.getcwd()
         gitlab, project, remotename = get_gitlab_project_client(cwd, secure)

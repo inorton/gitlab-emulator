@@ -214,6 +214,9 @@ class Project(MockedIDPathResource):
         mocked_url = f"{self.server.url}/api/v4/projects/{pipe.project.id}/pipelines/{pipe.id}"
         pipe.mocks.append(self.mocker.get(mocked_url, json=pipe.json_callback))
 
+        cancel_url = f"{self.server.url}/api/v4/projects/{pipe.project.id}/pipelines/{pipe.id}/cancel"
+        pipe.mocks.append(self.mocker.post(cancel_url, json=pipe.json_callback))
+
         mocked_jobs_url = f"{mocked_url}/jobs"
         pipe.mocks.append(self.mocker.get(mocked_jobs_url, json=pipe.jobs_json_callback))
         return pipe

@@ -79,13 +79,20 @@ list_mutex.add_argument("--export", type=str, dest="export", metavar="EXPORT",
                         help="Download JOB logs and artifacts to EXPORT/JOBNAME (requires --from)")
 
 parser.add_argument("--completed", default=False, action="store_true",
-                    help="List (implies --list) all currently completed jobs in the --from pipeline")
+                    help="Show all currently completed jobs in the --from pipeline or all "
+                         "completed pipelines with --pipeline --list")
+
+parser.add_argument("--match", default=None, type=str,
+                    metavar="X=Y",
+                    help="when using --pipeline with --list or --cancel, filter the results with this expression")
 
 parser.add_argument("--insecure", "-k", dest="insecure", default=False, action="store_true",
                     help="Ignore TLS certificate errors when fetching from remote servers")
 
 list_mutex.add_argument("--clean", dest="clean", default=False, action="store_true",
                         help="Clean up any leftover docker containers or networks")
+list_mutex.add_argument("--cancel", default=False, action="store_true",
+                        help="Cancel pipelines that match --match x=y, (requires --pipeline)")
 
 
 if is_windows():  # pragma: linux no cover
@@ -152,7 +159,7 @@ def execute_job(config, jobname, seen=None, recurse=False):
 
 
 def do_pipeline(options: argparse.Namespace, loader):
-    """Run/List gitlab pipelines in the current project"""
+    """Run/List/Cancel gitlab pipelines in the current project"""
     cwd = os.getcwd()
     client, project, remotename = get_gitlab_project_client(cwd, not options.insecure)
 
@@ -162,12 +169,43 @@ def do_pipeline(options: argparse.Namespace, loader):
     if not remotename:
         die("Could not find a gitlab configuration that matches any of our git remotes")
 
-    if options.LIST:
-        note(f"Recent pipelines from project '{project.name}' on {client.api_url}")
-        pipes = project.pipelines.list(sort="desc", order_by="updated_at", page=1, per_page=16)
-        print(f"{'# ID':<12} {'Status':<8} {'Git Ref':<42} Commit")
-        for pipe in pipes:
-            print(f"{pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
+    more = False
+    matchers = {}
+    if options.completed:
+        matchers["status"] = "success"
+
+    if options.match:
+        fields = ["status", "ref"]
+        name, value = options.match.split("=", 1)
+        if name in fields:
+            matchers[name] = value
+    elif options.cancel:
+        die("--pipeline --cancel requires --match x=y")
+
+    if options.LIST or options.cancel:
+        if options.LIST:
+            matching = ""
+            if matchers:
+                matching = f"matching {matchers}"
+            note(f"Recent pipelines from project '{project.name}' on {client.api_url} {matching}")
+        elif options.cancel:
+            note(f"Cancel pipelines in project '{project.name}' on {client.api_url} matching: {matchers}")
+        page = 1
+        pagesize = 16
+        if options.LIST:
+            print(f"{'# ID':<12} {'Status':<8} {'Git Ref':<42} Commit")
+        while True:
+            pipes = project.pipelines.list(sort="desc", order_by="updated_at", page=page, per_page=pagesize, **matchers)
+            for pipe in pipes:
+                if options.LIST:
+                    print(f"{pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
+                elif options.cancel:
+                    print(f"Cancelling {pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
+                    pipe.cancel()
+            if not more: # just first page
+                break
+            if more and len(pipes) == pagesize:
+                page += 1
     else:
         pipeline = None
         goals = [options.JOB]
