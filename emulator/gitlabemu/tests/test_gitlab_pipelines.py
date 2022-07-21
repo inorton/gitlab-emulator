@@ -75,12 +75,14 @@ def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, tmp_path, mo
 
     with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
         do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       completed=False, match=None, cancel=False,
                                        FROM="my/branch/abc"), loader)
     stdout, stderr = capfd.readouterr()
     assert "Searching for latest pipeline on my/branch/abc .." in stderr
 
     with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
         do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,
+                                       completed=False, match=None, cancel=False,
                                        FROM="123"), loader)
     stdout, stderr = capfd.readouterr()
     assert "Checking source pipeline 123 .." in stderr
