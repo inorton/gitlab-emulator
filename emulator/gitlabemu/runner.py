@@ -184,7 +184,10 @@ def do_pipeline(options: argparse.Namespace, loader):
 
     if options.LIST or options.cancel:
         if options.LIST:
-            note(f"Recent pipelines from project '{project.name}' on {client.api_url}")
+            matching = ""
+            if matchers:
+                matching = f"matching {matchers}"
+            note(f"Recent pipelines from project '{project.name}' on {client.api_url} {matching}")
         elif options.cancel:
             note(f"Cancel pipelines in project '{project.name}' on {client.api_url} matching: {matchers}")
         page = 1
