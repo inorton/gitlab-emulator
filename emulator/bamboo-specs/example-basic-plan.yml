@@ -1,0 +1,101 @@
+---
+version: 2
+plan:
+  project-key: CIR
+  key: GBP
+  name: generic-bamboo-plan
+stages:
+- Build:
+    manual: false
+    final: false
+    jobs:
+    - list openssl
+- Test:
+    manual: false
+    final: false
+    jobs:
+    - list markdown
+list openssl:
+  key: JOB1
+  tasks:
+  - checkout:
+      path: openssl
+      force-clean-build: 'true'
+  - script:
+      interpreter: SHELL
+      scripts:
+      - ls -l
+      working-dir: openssl
+      description: script task
+  artifacts:
+  - name: markdown
+    location: openssl
+    pattern: '**/*.md'
+    shared: true
+    required: true
+  requirements:
+  - AGENT_LABEL: LINUX_DOCKER
+  artifact-subscriptions: []
+list markdown:
+  key: LM
+  tasks:
+  - checkout:
+      path: openssl
+      force-clean-build: 'true'
+      description: Checkout Default Repository
+  - script:
+      interpreter: SHELL
+      scripts:
+      - find . -type f
+      working-dir: markdown
+      description: list markdown
+  requirements:
+  - AGENT_LABEL: LINUX_DOCKER
+  artifact-subscriptions:
+  - artifact: markdown
+    destination: markdown
+repositories:
+- github-openssl:
+    type: git
+    url: https://github.com/openssl/openssl.git
+    branch: master
+    command-timeout-minutes: '180'
+    lfs: 'false'
+    verbose-logs: 'false'
+    use-shallow-clones: 'true'
+    cache-on-agents: 'false'
+    submodules: 'false'
+    ssh-key-applies-to-submodules: 'true'
+    fetch-all: 'false'
+    change-detection:
+      quiet-period:
+        quiet-period-seconds: '6000'
+        max-retries: '1'
+triggers: []
+branches:
+  create: manually
+  delete: never
+  link-to-jira: true
+notifications: []
+labels: []
+dependencies:
+  require-all-stages-passing: false
+  enabled-for-branches: true
+  block-strategy: none
+  plans: []
+other:
+  concurrent-build-plugin: system-default
+---
+version: 2
+plan:
+  key: CIR-GBP
+plan-permissions:
+- users:
+  - inb
+  permissions:
+  - view
+  - edit
+  - build
+  - clone
+  - admin
+...

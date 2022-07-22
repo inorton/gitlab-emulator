@@ -14,6 +14,7 @@ from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
 from .ansi import ANSI_GREEN, ANSI_RESET
+from .types import BaseJob
 
 
 class NoSuchJob(GitlabEmulatorError):
@@ -27,7 +28,7 @@ class NoSuchJob(GitlabEmulatorError):
         return "NoSuchJob {}".format(self.name)
 
 
-class Job(object):
+class Job(BaseJob):
     """
     A Gitlab Job
     """
@@ -45,7 +46,7 @@ class Job(object):
         self.stage = "test"
         self.variables = {}
         self.allow_add_variables = True
-        self.dependencies = []
+        self._dependencies = []
         self.needed_artifacts = []
         self._shell = None
 
@@ -62,6 +63,14 @@ class Job(object):
         self.timeout_seconds = 0
         self.monitor_thread = None
         self.exit_monitor = False
+
+    @property
+    def dependencies(self):
+        return self._dependencies
+
+    @dependencies.setter
+    def dependencies(self, value):
+        self._dependencies = value
 
     def interactive_mode(self):
         """Return True if in interactive mode"""

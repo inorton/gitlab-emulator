@@ -8,6 +8,7 @@ from gitlab.v4.objects import ProjectPipeline
 
 from .configloader import Loader, StringableOrderedDict, load_job
 from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git_current_branch, git_push_force_upstream
+from .types import BaseLoader
 
 
 def generate_artifact_fetch_job(
@@ -59,7 +60,7 @@ def generate_artifact_fetch_job(
     return generated
 
 
-def generate_pipeline_yaml(loader: Loader,
+def generate_pipeline_yaml(loader: BaseLoader,
                            *goals: str,
                            recurse: Optional[bool] = True) -> dict:
     """Generate a subset pipeline to build the given goals"""

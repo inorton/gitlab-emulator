@@ -3,47 +3,18 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
-from .errors import GitlabEmulatorError
 from .gitlab.types import RESERVED_TOP_KEYS
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
 from .yamlloader import GitlabReference, StringableOrderedDict
 from .userconfig import get_user_config_context
+from .types import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError, BaseLoader, BaseJob
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
 DEFAULT_UNSUPPORTED_KEYWORDS = []
 UNSUPPORTED_KEYWORDS = list(DEFAULT_UNSUPPORTED_KEYWORDS)
-
-
-class ConfigLoaderError(GitlabEmulatorError):
-    """
-    There was an error loading a gitlab configuration
-    """
-    pass
-
-
-class BadSyntaxError(ConfigLoaderError):
-    """
-    The yaml was somehow invalid
-    """
-
-    def __init__(self, message):
-        super(BadSyntaxError, self).__init__(message)
-
-
-class FeatureNotSupportedError(ConfigLoaderError):
-    """
-    The loaded configuration contained gitlab features locallab does not
-    yet support
-    """
-
-    def __init__(self, feature):
-        self.feature = feature
-
-    def __str__(self):
-        return "FeatureNotSupportedError ({})".format(self.feature)
 
 
 def check_unsupported(config):
@@ -442,7 +413,7 @@ def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=N
     return baseobj
 
 
-class Loader(object):
+class Loader(BaseLoader):
     """
     A configuration loader for gitlab pipelines
     """
@@ -451,7 +422,7 @@ class Loader(object):
         self.filename = None
         self.rootdir = None
         self.create_emulator_variables = emulator_variables
-        self.config = {}
+        self._config = {}
         self.included_files = []
 
         self._begun = False
@@ -459,6 +430,14 @@ class Loader(object):
         self._current_file = None
         self._job_sources = {}
         self._job_classes = {}
+
+    @property
+    def config(self):
+        return self._config
+
+    @config.setter
+    def config(self, value):
+        self._config = value
 
     def get_docker_image(self, jobname):
         return job_docker_image(self.config, jobname)
@@ -527,7 +506,7 @@ class Loader(object):
         """
         return get_job(self.config, name)
 
-    def load_job(self, name) -> "Job":
+    def load_job(self, name) -> BaseJob:
         """Return a loaded job object"""
         return load_job(self.config, name, allow_add_variables=self.create_emulator_variables)
 

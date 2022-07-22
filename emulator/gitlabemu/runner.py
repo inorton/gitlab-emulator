@@ -6,6 +6,7 @@ import argparse
 
 from gitlab import GitlabGetError
 
+import gitlabemu.types
 from . import configloader
 from .docker import has_docker
 from .gitlab.types import RESERVED_TOP_KEYS
@@ -419,7 +420,7 @@ def run(args=None):
 
         loader.load(fullpath)
 
-    except configloader.ConfigLoaderError as err:
+    except gitlabemu.types.ConfigLoaderError as err:
         die("Config error: " + str(err))
 
     if is_windows():  # pragma: linux no cover
