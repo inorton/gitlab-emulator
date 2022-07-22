@@ -37,6 +37,7 @@ class OrderedLoader(yaml.FullLoader):
         if firstpass is None:
             firstpass = StringableOrderedDict()
         self.first_pass = firstpass
+        self.add_constructor(u"!reference", reference_constructor)
 
 
 def reference_constructor(loader: OrderedLoader, node):
@@ -68,9 +69,6 @@ def reference_constructor(loader: OrderedLoader, node):
             return first_element.get(elementvalue)
         return first_element
     return reference
-
-
-yaml.add_constructor(u"!reference", reference_constructor)
 
 
 def ordered_load(stream, preloaded=None):

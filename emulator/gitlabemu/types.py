@@ -29,6 +29,10 @@ class BaseLoader(ABC):
         pass
 
     @abstractmethod
+    def get_stages(self) -> List[str]:
+        pass
+
+    @abstractmethod
     def get_job(self, name) -> dict:
         pass
 
@@ -39,6 +43,10 @@ class BaseLoader(ABC):
     @property
     @abstractmethod
     def config(self) -> dict:
+        pass
+
+    @abstractmethod
+    def load(self, filename):
         pass
 
 
