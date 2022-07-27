@@ -1,17 +1,21 @@
 import contextlib
 import os
+import random
+import re
 import shutil
+import subprocess
 import time
 import zipfile
 import requests
 import tempfile
-from typing import Optional, List, Set, Tuple
+import multiprocessing
+from typing import Optional, Set, Tuple, Iterable, List, Any
 from urllib.parse import urlparse
 from gitlab import Gitlab, GitlabGetError
-from gitlab.v4.objects import ProjectPipelineJob, Project
+from gitlab.v4.objects import Project
 from urllib3.exceptions import InsecureRequestWarning
 
-from .helpers import die, note, make_path_slug, get_git_remote_urls, is_linux
+from .helpers import die, note, make_path_slug, get_git_remote_urls, is_linux, git_current_branch
 from .userconfig import get_user_config_context
 
 
@@ -35,6 +39,12 @@ class GitlabIdent:
             attribs.append(f"id={self.pipeline}")
 
         return f"Pipeline {', '.join(attribs)}"
+
+
+class TaskError(Exception):
+    def __init__(self, task, inner):
+        self.task = task
+        self.inner = inner
 
 
 class PipelineError(Exception):
@@ -136,6 +146,27 @@ def parse_gitlab_from_arg(arg: str, prefer_gitref: Optional[bool] = False) -> Gi
                        gitref=gitref)
 
 
+def find_project_pipeline(project,
+                          pipeline: Optional[int] = 0,
+                          ref: Optional[str] = None):
+    """Get a pipeline from the current project"""
+    try:
+        if pipeline:
+            return project.pipelines.get(pipeline)
+        match = {}
+        if ref:
+            match["ref"] = ref
+
+        found = project.pipelines.list(sort="desc", order_by="updated_at", page=1, pagesize=1, **match)
+        if not found:
+            raise PipelineNotFound(str(match))
+        return found[0]
+
+    except GitlabGetError as err:
+        if err.response_code == 404:
+            raise PipelineNotFound(str(pipeline))
+
+
 def get_pipeline(fromline, secure: Optional[bool] = True):
     """Get a pipeline"""
     pipeline = None
@@ -151,7 +182,6 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
     if not ident.server:
         cwd = os.getcwd()
         gitlab, project, remotename = get_gitlab_project_client(cwd, secure)
-
     else:
         gitlab = gitlab_api(ident.server, secure=secure)
         # get project
@@ -163,7 +193,7 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
     # get pipeline
     if ident.pipeline:
         try:
-            pipeline = project.pipelines.get(ident.pipeline)
+            pipeline = find_project_pipeline(project, pipeline=ident.pipeline)
         except GitlabGetError as err:
             if err.response_code == 404:
                 raise PipelineNotFound(fromline)
@@ -195,78 +225,202 @@ def gitlab_session_head(session, geturl, **kwargs):
         return resp
 
 
+def get_one_file(session: requests.Session,
+                 url: str,
+                 outfile: str,
+                 headers: Optional[dict] = None) -> str:
+    """Download one file from a gitlab url and save it"""
+    outdir = os.path.dirname(outfile)
+    partfile = outfile + ".part"
+    if os.path.exists(outfile):
+        os.unlink(outfile)
+    os.makedirs(outdir, exist_ok=True)
+    with ca_bundle_error(
+            lambda: session.get(url, headers=headers, stream=True)) as resp:
+        resp.raise_for_status()
+        with open(partfile, "wb") as data:
+            shutil.copyfileobj(resp.raw, data, length=2 * 1024 * 1024)
+        shutil.move(partfile, outfile)
+    return outfile
+
+
+def unpack_one_artifact(temp_zip_file: str, outdir: str, name: str,
+                        progress: Optional[bool] = True):
+    """Extract a downloaded artifact zip"""
+    if progress:
+        note(f" Extracting artifacts from job '{name}' ..")
+    with open(temp_zip_file, "rb") as compressed:
+        with zipfile.ZipFile(compressed) as zf:
+            for item in zf.infolist():
+                savefile = os.path.join(outdir, item.filename)
+                if os.path.exists(savefile):
+                    note(f"  Warning: File {savefile} already exists, overwriting..")
+                if progress:
+                    note(f"  Saving {savefile} ..")
+                zf.extract(item, path=outdir)
+
+
+def multi_download_unpack_jobs(gitlab: Gitlab,
+                               project,
+                               outdir: str,
+                               jobs,
+                               callback: Optional[List[str]] = None,
+                               headers: Optional[dict] = None,
+                               export_mode: Optional[bool] = False,
+                               workers: Optional[int] = None):
+    """Download and unpack multiple jobs, use parallelization if in export mode"""
+    if workers is None:
+        workers = (multiprocessing.cpu_count() - 1)
+        if workers < 1:
+            workers = 1
+        if workers > 4:
+            workers = 4
+    if not export_mode:
+        workers = 1
+    downloads = []
+
+    for fetch_job in jobs:
+        artifact_url = None
+        if [x for x in fetch_job.artifacts if x["file_type"] == "archive"]:
+            artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{fetch_job.id}/artifacts"
+        jobdir = outdir
+        trace_url = None
+
+        if export_mode:
+            jobdir = os.path.join(outdir, sanitize_pathname(fetch_job.name))
+            trace_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{fetch_job.id}/trace"
+
+        downloads.append([fetch_job.name,
+                          gitlab.session.auth,
+                          callback,
+                          jobdir,
+                          artifact_url,
+                          trace_url,
+                          headers])
+    if export_mode:
+        random.shuffle(downloads)
+    progress = 0
+    sizes = []
+    times = []
+    started = time.monotonic()
+    with multiprocessing.Pool(processes=workers) as pool:
+        manager = multiprocessing.Manager()
+        printmutex = manager.Lock()
+        execmutex = manager.Lock()
+        tasks = []
+        for args in downloads:
+            args.append(printmutex)
+            args.append(execmutex)
+            task = pool.apply_async(downloader, args)
+            tasks.append(task)
+
+        for task in tasks:
+            try:
+                size, download_time = task.get()
+            except TaskError as err:
+                note(f"error! failed downloading {err.task}!")
+                raise err.inner
+            sizes.append(size)
+            times.append(download_time)
+            progress += 1
+            sofar = time.monotonic() - started
+            note(f"{int(sofar):-4}s {progress:-3}/{len(downloads):-3} completed.")
+    finished = time.monotonic()
+    duration = finished - started
+    total_downloaded = sum(sizes)
+    total_times = sum(times)
+    combined_rate = total_downloaded / total_times
+    note(f"All downloads complete: {int(total_downloaded/1024/1024)} mb.")
+    note(f"Combined transfer rate: {int(combined_rate/1024/1024)} mb/s.")
+    note(f"Total time {int(duration)} sec.")
+
+
+def sanitize_pathname(path: str) -> str:
+    path = path.lower()
+    path = re.sub(r"[^a-z\d\-.]", "_", path)
+    return path
+
+
+def downloader(jobname: str,
+               auth: Optional[Any],
+               cbscript: Optional[List[str]],
+               outdir: str,
+               archive_url: Optional[str],
+               trace_url: Optional[str],
+               hdrs: Optional[dict],
+               printlock: multiprocessing.Lock,
+               execlock: multiprocessing.Lock):
+    try:
+        session = requests.Session()
+        session.auth = auth
+        started = time.monotonic()
+        size = 0
+        archive_file = None
+        if archive_url:
+            archive_file = os.path.join(outdir, "archive.zip")
+            get_one_file(session, archive_url, archive_file, hdrs)
+            size += os.path.getsize(archive_file)
+        if trace_url:
+            trace_file = os.path.join(outdir, "trace.log")
+            get_one_file(session, trace_url, trace_file, hdrs)
+            size += os.path.getsize(trace_file)
+        ended = time.monotonic()
+        duration = ended - started
+        rate = size / duration
+
+        with printlock:
+            note(f"Fetching job {jobname} .. done {int(size / 1024)} kb, {int(rate / 1024)} kb/s")
+        if archive_file:
+            with printlock:
+                note(f"Unpack job {jobname} archive into {outdir} ..")
+            unpack_one_artifact(archive_file, outdir, jobname, progress=False)
+            os.unlink(archive_file)
+            with printlock:
+                note(f"Unpack job {jobname} archive into {outdir} .. done")
+        if cbscript:
+            args = []
+            for x in cbscript:
+                args.append(x.replace("%p", outdir))
+            with execlock:
+                with printlock:
+                    note(f"Executing '{' '.join(args)}'..")
+                subprocess.check_call(args, shell=False)
+        return size, duration
+    except Exception as err:
+        raise TaskError(jobname, err)
+
+
 def do_gitlab_fetch(from_pipeline: str,
-                    get_jobs: List[str],
+                    get_jobs: Iterable[str],
                     download_to: Optional[str] = None,
                     export_to: Optional[str] = False,
+                    callback: Optional[List[str]] = None,
                     tls_verify: Optional[bool] = True):
     """Fetch builds and logs from gitlab"""
     gitlab, project, pipeline = get_pipeline(from_pipeline, secure=tls_verify)
     gitlab.session.verify = tls_verify  # hmm ?
     pipeline_jobs = pipeline.jobs.list(all=True)
-    fetch_jobs = pipeline_jobs
+    known_jobs = [x.name for x in pipeline_jobs]
+    for item in get_jobs:
+        if item not in known_jobs:
+            die(f"Pipeline {pipeline.id} does not contain a job named '{item}'")
+    fetch_jobs = [x for x in pipeline_jobs if not get_jobs or x.name in get_jobs]
+
     assert export_to or download_to
     outdir = download_to
     if export_to:
         mode = "Exporting"
+        outdir = export_to
     else:
         mode = "Fetching"
-        fetch_jobs: List[ProjectPipelineJob] = [x for x in pipeline_jobs if x.name in get_jobs]
-
-    for fetch_job in fetch_jobs:
-        if export_to:
-            slug = make_path_slug(fetch_job.name)
-            outdir = os.path.join(export_to, slug)
-            os.makedirs(outdir, exist_ok=True)
-        reldir = os.path.relpath(outdir, os.getcwd())
-
-        headers = {}
-        if gitlab.private_token:
-            headers = {"PRIVATE-TOKEN": gitlab.private_token}
-
-        note(f"{mode} {fetch_job.name} artifacts from {from_pipeline}..")
-        archive_artifact = [x for x in fetch_job.artifacts if x["file_type"] == "archive"]
-        if archive_artifact:
-            artifact_compressed_size = archive_artifact[0]["size"]
-            artifact_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{fetch_job.id}/artifacts"
-            note(f"Get {artifact_url} ({int(artifact_compressed_size/1024)} kb) ..")
-            temp_zip_dir = tempfile.mkdtemp(dir=os.getcwd(), prefix=".temp-gle-download")
-            try:
-                started_fetch = time.time()
-                with ca_bundle_error(
-                        lambda: gitlab.session.get(artifact_url, headers=headers, stream=True)) as resp:
-                    resp.raise_for_status()
-                temp_zip_file = os.path.join(temp_zip_dir, "artifacts.zip")
-                with open(temp_zip_file, "wb") as zf:
-                    for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            zf.write(chunk)
-                with open(temp_zip_file, "rb") as compressed:
-                    with zipfile.ZipFile(compressed) as zf:
-                        for item in zf.infolist():
-                            note(f"Saving {reldir}/{item.filename} ..")
-                            zf.extract(item, path=outdir)
-                completed_fetch = time.time()
-                duration = completed_fetch - started_fetch
-                fetch_unpack_rate = artifact_compressed_size / duration
-                note("Fetched/Unpacked at {} kb/s ({} kb)".format(
-                    int(fetch_unpack_rate / 1024.0),
-                    int(artifact_compressed_size / 1024.0)
-                ))
-            finally:
-                shutil.rmtree(temp_zip_dir)
-        else:
-            note(f"Job {fetch_job.name} has no artifacts")
-
-        if export_to:
-            # also get the trace and junit reports
-            logfile = os.path.join(outdir, "trace.log")
-            note(f"Saving log to {reldir}/trace.log")
-            trace_url = f"{gitlab.api_url}/projects/{project.id}/jobs/{fetch_job.id}/trace"
-            with open(logfile, "wb") as logdata:
-                resp = gitlab.session.get(trace_url, headers=headers, stream=True)
-                resp.raise_for_status()
-                shutil.copyfileobj(resp.raw, logdata)
+    note(f"{mode} {len(fetch_jobs)} jobs from {pipeline.web_url}..")
+    headers = {}
+    if gitlab.private_token:
+        headers = {"PRIVATE-TOKEN": gitlab.private_token}
+    multi_download_unpack_jobs(gitlab, project, outdir, fetch_jobs,
+                               callback=callback,
+                               headers=headers,
+                               export_mode=export_to)
 
 
 def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab], Optional[Project], Optional[str]]:
@@ -275,6 +429,9 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
     ident: Optional[GitlabIdent] = None
     ssh_remotes: Set[str] = set()
     http_remotes: Set[str] = set()
+
+    if not remotes:
+        die(f"Folder {repo} has no remotes, is it a git repo?")
 
     for remote_name in remotes:
         host = None
@@ -313,3 +470,15 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
                     break
 
     return client, project, git_remote
+
+
+def get_current_project_client(tls_verify: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
+    cwd = os.getcwd()
+    client, project, remotename = get_gitlab_project_client(cwd, tls_verify)
+
+    if not client or not project:
+        die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
+
+    if not remotename:
+        die("Could not find a gitlab configuration that matches any of our git remotes")
+    return client, project, remotename

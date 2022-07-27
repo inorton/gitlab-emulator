@@ -367,9 +367,12 @@ def git_commit_sha(path: str) -> str:
 
 def git_remotes(path: str) -> List[str]:
     """Get the remote names of the given git repo"""
-    output = subprocess.check_output(
-        ["git", "-C", path, "remote"], encoding="utf-8", stderr=subprocess.DEVNULL)
-    return list(output.splitlines(keepends=False))
+    try:
+        output = subprocess.check_output(
+            ["git", "-C", path, "remote"], encoding="utf-8", stderr=subprocess.DEVNULL)
+        return list(output.splitlines(keepends=False))
+    except subprocess.CalledProcessError:
+        return []
 
 
 def git_remote_url(path: str, remote: str) -> str:
