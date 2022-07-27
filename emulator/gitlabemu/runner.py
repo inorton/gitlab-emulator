@@ -4,19 +4,16 @@ import sys
 import os
 import argparse
 
-from gitlab import GitlabGetError
-
 from . import configloader
 from .docker import has_docker
-from .gitlab.types import RESERVED_TOP_KEYS
-from .gitlab_client_api import PipelineError, PipelineInvalid, get_gitlab_project_client, parse_gitlab_from_arg
-from .generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline, \
-    generate_artifact_fetch_job
+from .gitlab_client_api import PipelineError, PipelineInvalid
 from .localfiles import restore_path_ownership
-from .helpers import is_apple, is_linux, is_windows, git_worktree, git_current_branch, clean_leftovers, die, note
+from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
+from .pipelines import pipelines_cmd, generate_pipeline
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
-from .yamlloader import ordered_dump
+from .glp.types import Match
+
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -82,7 +79,7 @@ parser.add_argument("--completed", default=False, action="store_true",
                     help="Show all currently completed jobs in the --from pipeline or all "
                          "completed pipelines with --pipeline --list")
 
-parser.add_argument("--match", default=None, type=str,
+parser.add_argument("--match", default=None, type=Match,
                     metavar="X=Y",
                     help="when using --pipeline with --list or --cancel, filter the results with this expression")
 
@@ -160,145 +157,29 @@ def execute_job(config, jobname, seen=None, recurse=False):
 
 def do_pipeline(options: argparse.Namespace, loader):
     """Run/List/Cancel gitlab pipelines in the current project"""
-    cwd = os.getcwd()
-    client, project, remotename = get_gitlab_project_client(cwd, not options.insecure)
-
-    if not client or not project:
-        die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
-
-    if not remotename:
-        die("Could not find a gitlab configuration that matches any of our git remotes")
-
-    more = False
     matchers = {}
     if options.completed:
         matchers["status"] = "success"
 
     if options.match:
-        fields = ["status", "ref"]
-        name, value = options.match.split("=", 1)
-        if name in fields:
-            matchers[name] = value
+        matchers[options.match.name] = options.match.value
+
     elif options.cancel:
         die("--pipeline --cancel requires --match x=y")
 
-    if options.LIST or options.cancel:
-        if options.LIST:
-            matching = ""
-            if matchers:
-                matching = f"matching {matchers}"
-            note(f"Recent pipelines from project '{project.name}' on {client.api_url} {matching}")
-        elif options.cancel:
-            note(f"Cancel pipelines in project '{project.name}' on {client.api_url} matching: {matchers}")
-        page = 1
-        pagesize = 16
-        if options.LIST:
-            print(f"{'# ID':<12} {'Status':<8} {'Git Ref':<42} Commit")
-        while True:
-            pipes = project.pipelines.list(sort="desc", order_by="updated_at", page=page, per_page=pagesize, **matchers)
-            for pipe in pipes:
-                if options.LIST:
-                    print(f"{pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
-                elif options.cancel:
-                    print(f"Cancelling {pipe.id:>12} {pipe.status:<8} {pipe.ref:<42} {pipe.sha}")
-                    pipe.cancel()
-            if not more: # just first page
-                break
-            if more and len(pipes) == pagesize:
-                page += 1
-    else:
-        pipeline = None
-        goals = [options.JOB]
-        download_jobs = {}
-        deps = {}
-        if options.EXTRA_JOBS:
-            goals.extend(options.EXTRA_JOBS)
-        note(f"Generate subset pipeline to build '{goals}'..")
-        recurse = True
-        if options.FROM:
-            recurse = False
-            ident = parse_gitlab_from_arg(options.FROM, prefer_gitref=True)
-            if ident.pipeline:
-                note(f"Checking source pipeline {ident.pipeline} ..")
-                try:
-                    pipeline = project.pipelines.get(ident.pipeline)
-                except GitlabGetError as err:
-                    die(f"Failed to read pipeline {ident.pipeline}, {err.error_message}")
-            elif ident.gitref:
-                note(f"Searching for latest pipeline on {ident.gitref} ..")
-                # find the newest pipeline for this git reference
-                found = project.pipelines.list(
-                    sort="desc",
-                    ref=ident.gitref,
-                    order_by="updated_at",
-                    page=1, per_page=5,
-                    status='success')
-                if not found:
-                    die(f"Could not find a completed pipeline for git reference {ident.gitref}")
-                pipeline = found[0]
-            else:
-                die(f"Cannot work out pipeline --from {options.FROM}")
+    jobs = []
+    if options.JOB:
+        jobs.append(options.JOB)
+    jobs.extend(options.EXTRA_JOBS)
+    if not jobs:
+        return pipelines_cmd(tls_verify=not options.insecure,
+                             matchers=matchers,
+                             do_cancel=options.cancel,
+                             do_list=options.LIST)
 
-            # now make sure the pipeline contains the jobs we need
-            pipeline_jobs = {}
-
-            for item in pipeline.jobs.list(all=True):
-                if item.status == "success":
-                    pipeline_jobs[item.name] = item
-
-            for goal in goals:
-                loaded = loader.load_job(goal)
-                for dep in loaded.dependencies:
-                    if dep not in pipeline_jobs:
-                        die(f"Pipeline did not contain a successful '{dep}' job needed by {goal}")
-                    else:
-                        from_job = pipeline_jobs[dep]
-                        if hasattr(from_job, "artifacts"):  # missing if it created no artifacts
-                            archives = [x for x in from_job.artifacts if x["file_type"] == "archive"]
-                            if archives:
-                                artifact_url = f"{client.api_url}/projects/{project.id}/jobs/{from_job.id}/artifacts"
-                                download_jobs[dep] = artifact_url
-                                if goal not in deps:
-                                    deps[goal] = []
-                                deps[goal].append(dep)
-
-        generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
-        jobs = [name for name in generated.keys() if name not in RESERVED_TOP_KEYS]
-        note(f"Will build jobs: {jobs} ..")
-        stages = generated.get("stages", ["test"])
-
-        for from_name in download_jobs:
-            fetch_job = generate_artifact_fetch_job(loader,
-                                                    stages[0],
-                                                    {from_name: download_jobs[from_name]},
-                                                    tls_verify=client.ssl_verify)
-            generated[from_name] = fetch_job
-
-        if deps:
-            for job in goals:
-                generated[job]["needs"] = deps.get(job, [])
-
-        branch_name = f"temp/{client.user.username}/{git_current_branch(cwd)}"
-        note(f"Creating temporary pipeline branch '{branch_name}'..")
-        commit = create_pipeline_branch(cwd,
-                                        remotename,
-                                        branch_name,
-                                        f"subset pipeline for {goals}",
-                                        {
-                                            ".gitlab-ci.yml": ordered_dump(generated)
-                                        })
-        if commit:
-            note(f"Custom build commit is {commit}")
-            note(f"Waiting for new pipeline to start..")
-            pipeline = wait_for_project_commit_pipeline(project, commit)
-            if not pipeline:
-                die("Could not find the pipeline for our change")
-            else:
-                note(f"Building: {pipeline.web_url}")
-
-        else:
-            die("Could not make a custom pipeline branch, "
-                "please make sure your local changes are committed first")
+    return generate_pipeline(loader, *jobs,
+                             use_from=options.FROM,
+                             tls_verify=not options.insecure)
 
 
 def do_gitlab_from(options: argparse.Namespace, loader):
@@ -401,10 +282,11 @@ def run(args=None):
     os.chdir(rootdir)
 
     hide_dot_jobs = not options.hidden
+    if options.pipeline or options.FROM:
+        loader = configloader.Loader(emulator_variables=False)
+        loader.load(fullpath)
     try:
         if options.pipeline:
-            loader = configloader.Loader(emulator_variables=False)
-            loader.load(fullpath)
             do_pipeline(options, loader)
             return
 
@@ -412,8 +294,6 @@ def run(args=None):
             die("--full and --parallel cannot be used together")
 
         if options.FROM:
-            loader = configloader.Loader(emulator_variables=False)
-            loader.load(fullpath)
             do_gitlab_from(options, loader)
             return
 

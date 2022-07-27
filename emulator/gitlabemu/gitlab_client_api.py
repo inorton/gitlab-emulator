@@ -276,6 +276,9 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
     ssh_remotes: Set[str] = set()
     http_remotes: Set[str] = set()
 
+    if not remotes:
+        die(f"Folder {repo} has no remotes, is it a git repo?")
+
     for remote_name in remotes:
         host = None
         project = None
@@ -313,3 +316,15 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
                     break
 
     return client, project, git_remote
+
+
+def get_current_project_client(tls_verify: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
+    cwd = os.getcwd()
+    client, project, remotename = get_gitlab_project_client(cwd, tls_verify)
+
+    if not client or not project:
+        die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
+
+    if not remotename:
+        die("Could not find a gitlab configuration that matches any of our git remotes")
+    return client, project, remotename
