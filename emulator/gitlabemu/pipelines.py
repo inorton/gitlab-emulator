@@ -2,9 +2,10 @@ import os
 from typing import Optional, Dict
 from gitlab import GitlabGetError
 
-from . import configloader
-from .generator import generate_pipeline_yaml, generate_artifact_fetch_job, create_pipeline_branch, \
-    wait_for_project_commit_pipeline
+from .generator import (generate_pipeline_yaml,
+                        generate_artifact_fetch_job,
+                        create_pipeline_branch,
+                        wait_for_project_commit_pipeline)
 from .gitlab.types import RESERVED_TOP_KEYS
 from .gitlab_client_api import parse_gitlab_from_arg, get_current_project_client
 from .helpers import note, die, git_current_branch

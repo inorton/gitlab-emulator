@@ -1,4 +1,4 @@
-"""Generate partial gitlab pipelines"""
+"""Generate partial gitlab pipelines using temporary branches"""
 import os
 from argparse import ArgumentParser, Namespace
 from .subcommand import Command
