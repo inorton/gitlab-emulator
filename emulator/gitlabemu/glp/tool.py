@@ -19,7 +19,4 @@ parser.add_subcommand(BuildSubsetCommand())
 
 def run(args: Optional[List[str]] = None) -> None:
     opts = parser.parse_args(args)
-    if not hasattr(opts, "func"):
-        parser.print_usage()
-        sys.exit(1)
     opts.func(opts)

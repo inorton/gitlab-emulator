@@ -1,10 +1,8 @@
 """Start gitlab pipelines"""
-import os
 from argparse import ArgumentParser, Namespace
 from .subcommand import Command
 from .types import NameValuePair
-from .. import configloader
-from ..pipelines import generate_pipeline, create_pipeline
+from ..pipelines import create_pipeline
 
 
 class BuildCommand(Command):
