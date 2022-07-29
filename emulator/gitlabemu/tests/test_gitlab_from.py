@@ -72,7 +72,12 @@ def test_mock_list_pipelines(requests_mock: Mocker, capfd: pytest.CaptureFixture
     run(["--list", "--completed", "--from", simple_path])
     stdout, stderr = capfd.readouterr()
     assert "job1\n" in stdout
-    assert "job2\n" in stdout
+    assert "job2\n"
+
+
+def test_mock_list_pipelines_unknown(requests_mock: Mocker, capfd: pytest.CaptureFixture):
+    os.environ["GITLAB_PRIVATE_TOKEN"] = "123"
+    project = mocked_gitlab.MockServer(requests_mock, MOCK_HOST).setup(jobnames=["job1", "job2"])
 
     unknown_path = f"{MOCK_HOST}/{project.path_with_namespace}/1"
     requests_mock.get(f"https://{MOCK_HOST}/api/v4/projects/{project.id}/pipelines/1",
