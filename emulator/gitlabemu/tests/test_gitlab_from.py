@@ -71,7 +71,6 @@ def test_mock_list_pipelines(requests_mock: Mocker, capfd: pytest.CaptureFixture
 
     run(["--list", "--completed", "--from", simple_path])
     stdout, stderr = capfd.readouterr()
-    assert f"Listing completed jobs in {simple_path}" in stderr
     assert "job1\n" in stdout
     assert "job2\n" in stdout
 

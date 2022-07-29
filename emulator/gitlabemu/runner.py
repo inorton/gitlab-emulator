@@ -6,7 +6,7 @@ import argparse
 
 from . import configloader
 from .docker import has_docker
-from .gitlab_client_api import PipelineError, PipelineInvalid
+from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs
@@ -218,6 +218,8 @@ def do_gitlab_from(options: argparse.Namespace, loader):
                             tls_verify=not options.insecure,
                             download_to=outdir,
                             export_to=options.export)
+        except PipelineNotFound:
+            die(str(PipelineNotFound(options.FROM)))
         except PipelineError as error:
             die(str(error))
 
