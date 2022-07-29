@@ -22,6 +22,7 @@ setup(
     packages=[
         "gitlabemu",
         "gitlabemu.gitlab",
+        "gitlabemu.glp",
     ],
     scripts=["locallab.py"],
     install_requires=requirements,

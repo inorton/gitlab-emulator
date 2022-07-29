@@ -28,6 +28,17 @@ emulator-linux-ubuntu1804-install:
     - pip3 install .
     - cd ..
     - gle -l
+    - glp --help
+
+emulator-linux-ubuntu2004-install:
+  extends:
+    - emulator-linux-ubuntu1804-install
+  image: ubuntu:20.04
+
+emulator-linux-ubuntu2204-install:
+  extends:
+    - emulator-linux-ubuntu1804-install
+  image: ubuntu:22.04
 
 emulator-linux-test:
   image:
