@@ -165,10 +165,6 @@ def generate_pipeline(loader, *goals,
                                                 tls_verify=client.ssl_verify)
         generated[from_name] = fetch_job
 
-    if deps:
-        for job in goals:
-            generated[job]["needs"] = deps.get(job, [])
-
     for varname in vars:
         generated["variables"][varname] = vars[varname]
 
