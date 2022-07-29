@@ -1,6 +1,7 @@
 """Tests for glp"""
+import os
 from unittest.mock import Mock, ANY
-
+import tempfile
 import pytest
 from pytest_mock import MockerFixture
 
@@ -21,7 +22,7 @@ def test_help(capsys):
         run(["--help"])
     stdout, _ = capsys.readouterr()
     assert "Gitlab Pipeline Tool" in stdout
-    assert "{list,cancel,build,subset}" in stdout
+    assert "{list,cancel,build,subset,jobs}" in stdout
 
     for cmd in ["list", "cancel", "build", "subset"]:
         with pytest.raises(SystemExit):
@@ -101,3 +102,20 @@ def test_cancel_tool(mocker: MockerFixture):
         tls_verify=True,
         do_cancel=True
     )
+
+
+def test_jobs_tool(capsys):
+    with pytest.raises(SystemExit):
+        run(["jobs", "--help"])
+    stdout, stderr = capsys.readouterr()
+    assert "List pipeline jobs" in stdout
+
+    with tempfile.TemporaryDirectory() as path:
+        os.chdir(path)
+        with pytest.raises(SystemExit) as err:
+            run(["jobs"])
+
+    assert err.value.code != 0
+    stdout, stderr = capsys.readouterr()
+    assert "has no remotes" in stderr
+    assert "is it a git repo?" in stderr

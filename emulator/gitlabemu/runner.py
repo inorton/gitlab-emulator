@@ -9,7 +9,7 @@ from .docker import has_docker
 from .gitlab_client_api import PipelineError, PipelineInvalid
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
-from .pipelines import pipelines_cmd, generate_pipeline
+from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
 from .glp.types import Match
@@ -196,15 +196,7 @@ def do_gitlab_from(options: argparse.Namespace, loader):
                 # print the jobs in the pipeline
                 if not pipeline:
                     raise PipelineInvalid(options.FROM)
-                jobs = list(pipeline.jobs.list(all=True))
-                if options.completed:
-                    jobs = [x for x in jobs if x.status == "success"]
-                    note(f"Listing completed jobs in {options.FROM}")
-                else:
-                    note(f"Listing jobs in {options.FROM}")
-                names = sorted([x.name for x in jobs])
-                for name in names:
-                    print(name)
+                print_pipeline_jobs(pipeline, completed=options.completed)
                 return
             download_jobs = []
             if options.download:

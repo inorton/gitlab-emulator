@@ -6,6 +6,7 @@ from .listtool import ListCommand
 from .canceltool import CancelCommand
 from .buildtool import BuildCommand
 from .subsettool import BuildSubsetCommand
+from .jobstool import JobListCommand
 
 parser = ArgumentParserEx(description=__doc__)
 parser.add_argument("--insecure", "-k", dest="tls_verify",
@@ -15,6 +16,7 @@ parser.add_subcommand(ListCommand())
 parser.add_subcommand(CancelCommand())
 parser.add_subcommand(BuildCommand())
 parser.add_subcommand(BuildSubsetCommand())
+parser.add_subcommand(JobListCommand())
 
 
 def run(args: Optional[List[str]] = None) -> None:

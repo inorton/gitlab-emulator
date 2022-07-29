@@ -12,6 +12,31 @@ from .helpers import note, die, git_current_branch
 from .yamlloader import ordered_dump
 
 
+def print_pipeline_jobs(pipeline,
+                        status: Optional[bool] = False,
+                        completed: Optional[bool] = False):
+    """print the jobs in the pipeline"""
+    jobs = list(pipeline.jobs.list(all=True))
+    if completed:
+        jobs = [x for x in jobs if x.status == "success"]
+        note(f"Listing completed jobs in {pipeline.web_url}")
+    else:
+        note(f"Listing jobs in {pipeline.web_url}")
+    jobdict = {}
+    for x in jobs:
+        jobdict[x.name] = x
+    names = sorted([x.name for x in jobs])
+
+    if status:
+        note(f"{'Name':48} Status")
+
+    for name in names:
+        if status:
+            print(f"{name:48} {jobdict[name].status}", flush=True)
+        else:
+            print(name, flush=True)
+
+
 def pipelines_cmd(tls_verify: Optional[bool] = True,
                   matchers: Optional[Dict[str, str]] = None,
                   do_list: Optional[bool] = False,
