@@ -106,6 +106,7 @@ def test_cancel_tool(mocker: MockerFixture):
     )
 
 
+@pytest.mark.usefixtures("posix_only")
 def test_jobs_tool(capsys, mocker: MockerFixture):
     with pytest.raises(SystemExit):
         run(["jobs", "--help"])
@@ -122,9 +123,19 @@ def test_jobs_tool(capsys, mocker: MockerFixture):
         assert "has no remotes" in stderr
         assert "is it a git repo?" in stderr
         project = mocker.Mock()
+        pipeline = mocker.Mock()
         project.pipelines.list.return_value = []
         mocker.patch("gitlabemu.glp.jobstool.git_current_branch", return_value="main")
         mocker.patch("gitlabemu.glp.jobstool.get_current_project_client", return_value=(None, project, "origin"))
 
         with pytest.raises(PipelineNotFound):
             run(["jobs"])
+
+        project.pipelines.list.return_value = [pipeline]
+        pipeline.jobs.list.return_value = [Namespace(name="job1", status="complete")]
+        _, _ = capsys.readouterr()
+
+        run(["jobs"])
+        stdout, stderr = capsys.readouterr()
+        assert "Searching for most recent pipeline on branch: main" in stderr
+        assert "job1" in stdout
