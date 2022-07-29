@@ -11,7 +11,7 @@ from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import ProjectPipelineJob, Project
 from urllib3.exceptions import InsecureRequestWarning
 
-from .helpers import die, note, make_path_slug, get_git_remote_urls, is_linux
+from .helpers import die, note, make_path_slug, get_git_remote_urls, is_linux, git_current_branch
 from .userconfig import get_user_config_context
 
 
@@ -136,6 +136,27 @@ def parse_gitlab_from_arg(arg: str, prefer_gitref: Optional[bool] = False) -> Gi
                        gitref=gitref)
 
 
+def find_project_pipeline(project,
+                          pipeline: Optional[int] = 0,
+                          ref: Optional[str] = None):
+    """Get a pipeline from the current project"""
+    try:
+        if pipeline:
+            return project.pipelines.get(pipeline)
+        match = {}
+        if ref:
+            match["ref"] = ref
+
+        found = project.pipelines.list(sort="desc", order_by="updated_at", page=1, pagesize=1, **match)
+        if not found:
+            raise PipelineNotFound(str(match))
+        return found[0]
+
+    except GitlabGetError as err:
+        if err.response_code == 404:
+            raise PipelineNotFound(str(pipeline))
+
+
 def get_pipeline(fromline, secure: Optional[bool] = True):
     """Get a pipeline"""
     pipeline = None
@@ -151,7 +172,6 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
     if not ident.server:
         cwd = os.getcwd()
         gitlab, project, remotename = get_gitlab_project_client(cwd, secure)
-
     else:
         gitlab = gitlab_api(ident.server, secure=secure)
         # get project
@@ -163,7 +183,7 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
     # get pipeline
     if ident.pipeline:
         try:
-            pipeline = project.pipelines.get(ident.pipeline)
+            pipeline = find_project_pipeline(project, pipeline=ident.pipeline)
         except GitlabGetError as err:
             if err.response_code == 404:
                 raise PipelineNotFound(fromline)

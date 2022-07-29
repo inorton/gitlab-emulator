@@ -1,10 +1,12 @@
 """Tests for glp"""
 import os
+from argparse import Namespace
 from unittest.mock import Mock, ANY
 import tempfile
 import pytest
 from pytest_mock import MockerFixture
 
+from ..gitlab_client_api import PipelineNotFound
 from ..glp.tool import run
 from ..glp.types import NameValuePair, Match, ArgumentTypeError
 
@@ -104,7 +106,7 @@ def test_cancel_tool(mocker: MockerFixture):
     )
 
 
-def test_jobs_tool(capsys):
+def test_jobs_tool(capsys, mocker: MockerFixture):
     with pytest.raises(SystemExit):
         run(["jobs", "--help"])
     stdout, stderr = capsys.readouterr()
@@ -115,7 +117,24 @@ def test_jobs_tool(capsys):
         with pytest.raises(SystemExit) as err:
             run(["jobs"])
 
-    assert err.value.code != 0
-    stdout, stderr = capsys.readouterr()
-    assert "has no remotes" in stderr
-    assert "is it a git repo?" in stderr
+        assert err.value.code != 0
+        stdout, stderr = capsys.readouterr()
+        assert "has no remotes" in stderr
+        assert "is it a git repo?" in stderr
+        project = mocker.Mock()
+        pipeline = mocker.Mock()
+        project.pipelines.list.return_value = []
+        mocker.patch("gitlabemu.glp.jobstool.git_current_branch", return_value="main")
+        mocker.patch("gitlabemu.glp.jobstool.get_current_project_client", return_value=(None, project, "origin"))
+
+        with pytest.raises(PipelineNotFound):
+            run(["jobs"])
+
+        project.pipelines.list.return_value = [pipeline]
+        pipeline.jobs.list.return_value = [Namespace(name="job1", status="complete")]
+        capsys.readouterr()
+
+        run(["jobs"])
+        stdout, stderr = capsys.readouterr()
+        assert "Searching for most recent pipeline on branch: main" in stderr
+        assert "job1" in stdout
