@@ -95,12 +95,6 @@ def gitlab_api(alias: str, secure=True) -> Gitlab:
         if "://" not in server:
             server = f"https://{server}"
 
-    ca_cert = os.getenv("CI_SERVER_TLS_CA_FILE", None)
-    if ca_cert is not None:
-        note("Using CI_SERVER_TLS_CA_FILE CA cert")
-        os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
-        secure = True
-
     if not token:
         token = os.getenv("GITLAB_PRIVATE_TOKEN", None)
         if token:

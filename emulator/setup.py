@@ -4,7 +4,7 @@ VERSION = "1.1.0"
 
 requirements = [
     "pyyaml>=5.1",
-    "requests>=2.23.0",
+    "requests>=2.25.0",
     "requests-toolbelt>=0.9.1",
     "python-gitlab>=3.2.0; python_version>='3.7'",
     "python-gitlab==2.10.1; python_version<='3.6'",
