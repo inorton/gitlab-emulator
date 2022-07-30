@@ -53,9 +53,9 @@ def pipelines_cmd(tls_verify: Optional[bool] = True,
             matching = ""
             if matchers:
                 matching = f"matching {matchers}"
-            note(f"Recent pipelines from project '{project.name}' on {client.api_url} {matching}")
+            note(f"Recent pipelines from project '{project.path_with_namespace}' on {client.api_url} {matching}")
         elif do_cancel:
-            note(f"Cancel pipelines in project '{project.name}' on {client.api_url} matching: {matchers}")
+            note(f"Cancel pipelines in project '{project.path_with_namespace}' on {client.api_url} matching: {matchers}")
         page = 1
         seen = 0
         pagesize = 10

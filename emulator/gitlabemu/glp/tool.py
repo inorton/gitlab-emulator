@@ -25,7 +25,7 @@ def override_server(server: str) -> str:
 
 parser = ArgumentParserEx(description=__doc__)
 parser.add_argument("--project", type=override_server,
-                    help="Use this gitlab project instead of the the current git repo")
+                    help="Use this gitlab project instead of the the current git repo, eg SERVER/GROUP/PROJECT")
 parser.add_argument("--insecure", "-k", dest="tls_verify",
                     default=True, action="store_false",
                     help="Turn off SSL/TLS cert validation")

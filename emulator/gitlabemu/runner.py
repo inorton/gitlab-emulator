@@ -298,10 +298,10 @@ def run(args=None):
                 if options.FROM:
                     do_gitlab_from(options, loader)
                     return
-
-                loader.load(fullpath)
             except configloader.ConfigLoaderError as err:
                 die("Config error: " + str(err))
+    else:
+        loader.load(fullpath)
 
     if is_windows():  # pragma: linux no cover
         windows_shell = "powershell"
