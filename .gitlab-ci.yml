@@ -28,6 +28,17 @@ emulator-linux-ubuntu1804-install:
     - pip3 install .
     - cd ..
     - gle -l
+    - glp --help
+
+emulator-linux-ubuntu2004-install:
+  extends:
+    - emulator-linux-ubuntu1804-install
+  image: ubuntu:20.04
+
+emulator-linux-ubuntu2204-install:
+  extends:
+    - emulator-linux-ubuntu1804-install
+  image: ubuntu:22.04
 
 emulator-linux-test:
   image:
@@ -67,11 +78,14 @@ emulator-apple-test:
     - pip install -r test_requirements.txt
     - cd emulator
     - pip install -e .
-    - python3 -m pytest  --junitxml=test-results.xml -vv . --cov-config .coveragerc.apple
+    - python3 -m pytest  --junitxml=test-results.xml -vv . --cov-config .coveragerc.apple  --cov-report=xml:pytest-coverage.xml
   artifacts:
     reports:
       junit:
         - emulator/test-results.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: emulator/pytest-coverage.xml
 
 emulator-linux-run:
   variables:

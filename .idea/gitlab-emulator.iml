@@ -8,12 +8,12 @@
       <excludeFolder url="file://$MODULE_DIR$/builds" />
       <excludeFolder url="file://$MODULE_DIR$/emulator/build" />
       <excludeFolder url="file://$MODULE_DIR$/emulator/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/emulator/gitlab_emulator.egg-info" />
       <excludeFolder url="file://$MODULE_DIR$/runner/tmpksvxl6ib" />
       <excludeFolder url="file://$MODULE_DIR$/runner/tmpui4ymd2v" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
-      <excludeFolder url="file://$MODULE_DIR$/emulator/gitlab_emulator.egg-info" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.7 (gitlab-emulator)" jdkType="Python SDK" />
+    <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="gitlab-python-runner" />
   </component>

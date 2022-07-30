@@ -69,17 +69,29 @@ def mock_git_origin(mocker, project):
 
 
 def test_mocked_pipeline_error_no_server(capfd: pytest.CaptureFixture, mocker):
-    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(None, None, None))
+    mocker.patch("gitlabemu.gitlab_client_api.get_gitlab_project_client", return_value=(None, None, None))
     with pytest.raises(SystemExit):
-        do_pipeline(argparse.Namespace(insecure=True), None)
+        do_pipeline(argparse.Namespace(insecure=True,
+                                       JOB=None,
+                                       LIST=True,
+                                       EXTRA_JOBS=[],
+                                       cancel=False,
+                                       completed=False,
+                                       match=[]), None)
     stdout, stderr = capfd.readouterr()
     assert "Could not find a gitlab server configuration," in stderr
 
 
 def test_mocked_pipeline_error_no_remote(capfd: pytest.CaptureFixture, mocker):
-    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, True, None))
+    mocker.patch("gitlabemu.gitlab_client_api.get_gitlab_project_client", return_value=(True, True, None))
     with pytest.raises(SystemExit):
-        do_pipeline(argparse.Namespace(insecure=True), None)
+        do_pipeline(argparse.Namespace(insecure=True,
+                                       JOB=None,
+                                       LIST=True,
+                                       EXTRA_JOBS=[],
+                                       cancel=False,
+                                       completed=False,
+                                       match=[]), None)
     stdout, stderr = capfd.readouterr()
     assert "Could not find a gitlab configuration that matches any of our git remotes" in stderr
 
@@ -88,7 +100,8 @@ def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, tmp_path, mo
     os.environ["GLE_CONFIG"] = str(tmp_path / "config.yml")
     loader = Loader()
     project = mocker.MagicMock()
-    mocker.patch("gitlabemu.runner.get_gitlab_project_client", return_value=(True, project, "bob"))
+    mocker.patch("gitlabemu.gitlab_client_api.get_gitlab_project_client",
+                 return_value=(True, project, "bob"))
 
     with pytest.raises(NoSuchJob):  # we have not loaded a yaml file so have no jobs,
         do_pipeline(argparse.Namespace(insecure=True, EXTRA_JOBS=[], JOB="bob", LIST=False,

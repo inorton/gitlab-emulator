@@ -71,7 +71,6 @@ def test_mock_list_pipelines(requests_mock: Mocker, capfd: pytest.CaptureFixture
 
     run(["--list", "--completed", "--from", simple_path])
     stdout, stderr = capfd.readouterr()
-    assert f"Listing completed jobs in {simple_path}" in stderr
     assert "job1\n" in stdout
     assert "job2\n" in stdout
 
@@ -84,7 +83,7 @@ def test_mock_list_pipelines(requests_mock: Mocker, capfd: pytest.CaptureFixture
     assert f"Cannot find pipeline '{unknown_path}'" in stderr
 
 
-@pytest.mark.usefixtures("posix_only")
+@pytest.mark.usefixtures("linux_only")
 def test_mock_download(requests_mock: Mocker, capfd: pytest.CaptureFixture):
     """Test downloading individual job artifacts"""
     os.environ["GITLAB_PRIVATE_TOKEN"] = "aaaaa"
@@ -101,7 +100,7 @@ def test_mock_download(requests_mock: Mocker, capfd: pytest.CaptureFixture):
         assert os.path.isfile(f"artifact.{job.name}.txt")
 
 
-@pytest.mark.usefixtures("posix_only")
+@pytest.mark.usefixtures("linux_only")
 def test_mock_from(requests_mock: Mocker, capfd: pytest.CaptureFixture):
     """Test downloading the artifacts needed by a local job"""
     os.environ["GITLAB_PRIVATE_TOKEN"] = "aaaaa"
@@ -128,7 +127,7 @@ def test_mock_from(requests_mock: Mocker, capfd: pytest.CaptureFixture):
     assert not os.path.isfile("artifact.job2.txt")
 
 
-@pytest.mark.usefixtures("posix_only")
+@pytest.mark.usefixtures("linux_only")
 def test_mock_export(requests_mock: Mocker, capfd: pytest.CaptureFixture):
     """Test exporting a whole pipeline including traces"""
     os.chdir(MOCK_PROJECT_DIR)
@@ -141,10 +140,10 @@ def test_mock_export(requests_mock: Mocker, capfd: pytest.CaptureFixture):
     run(["--export", "savedir", "--from", simple_path])
     _, stderr = capfd.readouterr()
 
-    assert f"Exporting job1 artifacts from {simple_path}" in stderr
-    assert f"Exporting job2 artifacts from {simple_path}" in stderr
-    assert "Saving log to savedir/job1/trace.log" in stderr
-    assert "Saving log to savedir/job2/trace.log" in stderr
+    assert "Fetching job job1 .. done" in stderr
+    assert "Fetching job job2 .. done" in stderr
+    assert "Unpack job job1 archive into savedir/job1" in stderr
+    assert "Unpack job job2 archive into savedir/job2" in stderr
     export_dir = os.path.join(MOCK_PROJECT_DIR, "savedir")
     assert os.path.exists(export_dir)
     for job in pipeline.jobs:

@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "1.0.5"
+VERSION = "1.1.0"
 
 requirements = [
     "pyyaml>=5.1",
@@ -22,6 +22,7 @@ setup(
     packages=[
         "gitlabemu",
         "gitlabemu.gitlab",
+        "gitlabemu.glp",
     ],
     scripts=["locallab.py"],
     install_requires=requirements,
@@ -32,6 +33,7 @@ setup(
         "console_scripts": [
             "gle=gitlabemu.runner:run",
             "gle-config=gitlabemu.configtool:main",
+            "glp=gitlabemu.glp.tool:run",
         ]
     }
 )

@@ -13,7 +13,12 @@ EMULATOR_DIR = os.path.dirname(os.path.dirname(TESTS_DIR))
 
 
 @pytest.fixture(scope="session")
-def top_dir():
+def repo_root() -> str:
+    return os.path.dirname(EMULATOR_DIR)
+
+
+@pytest.fixture(scope="session")
+def top_dir() -> str:
     return os.path.dirname(EMULATOR_DIR)
 
 
