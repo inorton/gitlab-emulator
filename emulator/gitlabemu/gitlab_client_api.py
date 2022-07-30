@@ -8,14 +8,17 @@ import time
 import zipfile
 import requests
 import tempfile
+import certifi
 import multiprocessing
+from functools import lru_cache
+from threading import RLock
 from typing import Optional, Set, Tuple, Iterable, List, Any
 from urllib.parse import urlparse
 from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import Project
 from urllib3.exceptions import InsecureRequestWarning
 
-from .helpers import die, note, make_path_slug, get_git_remote_urls, is_linux, git_current_branch
+from .helpers import die, note, get_git_remote_urls, is_linux
 from .userconfig import get_user_config_context
 
 
@@ -200,29 +203,43 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
 
     return gitlab, project, pipeline
 
+_CA_FIXUP_LOCK = RLock()
+
+
+@lru_cache(1)
+def get_ca_bundle() -> str:
+    bundles = []
+    for env in ["REQUESTS_CA_BUNDLE", "CI_SERVER_TLS_CA_FILE"]:
+        bundle = os.getenv(env, None)
+        if bundle and os.path.isfile(bundle):
+            bundles.append(bundle)
+
+    certs = certifi.contents()
+    for bundle in bundles:
+        with open(bundle, "r") as data:
+            certs += data.read()
+    return certs
+
 
 @contextlib.contextmanager
-def ca_bundle_error(func: callable):
-    try:
-        if is_linux():
-            certs = "/etc/ssl/certs/ca-certificates.crt"
-            if os.path.exists(certs):
-                os.environ["REQUESTS_CA_BUNDLE"] = certs
-        yield func()
-    except requests.exceptions.SSLError:  # pragma: no cover
-        # validation was requested but cert was invalid,
-        # tty again without the gitlab-supplied CA cert and try the system ca certs
-        if "REQUESTS_CA_BUNDLE" not in os.environ:
-            raise
-        note(f"warning: Encountered TLS/SSL error, retrying with only system ca certs")
-        del os.environ["REQUESTS_CA_BUNDLE"]
-        yield func()
+def posix_cert_fixup():
+    with _CA_FIXUP_LOCK:
+        with tempfile.TemporaryDirectory() as tempdir:
+            certs = get_ca_bundle()
+            new_bundle = os.path.join(tempdir, "ca-certs.pem")
+            with open(new_bundle, "w") as data:
+                data.write(certs)
+            os.environ["REQUESTS_CA_BUNDLE"] = new_bundle
+            try:
+                yield
+            finally:
+                del os.environ["REQUESTS_CA_BUNDLE"]
 
 
 def gitlab_session_head(session, geturl, **kwargs):
     """HEAD using requests to try different CA options"""
-    with ca_bundle_error(lambda: session.head(geturl, **kwargs)) as resp:
-        return resp
+    with posix_cert_fixup():
+        return session.head(geturl, **kwargs)
 
 
 def get_one_file(session: requests.Session,
@@ -235,8 +252,8 @@ def get_one_file(session: requests.Session,
     if os.path.exists(outfile):
         os.unlink(outfile)
     os.makedirs(outdir, exist_ok=True)
-    with ca_bundle_error(
-            lambda: session.get(url, headers=headers, stream=True)) as resp:
+    with posix_cert_fixup():
+        resp = session.get(url, headers=headers, stream=True)
         resp.raise_for_status()
         with open(partfile, "wb") as data:
             shutil.copyfileobj(resp.raw, data, length=2 * 1024 * 1024)
