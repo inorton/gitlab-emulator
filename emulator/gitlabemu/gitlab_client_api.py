@@ -22,6 +22,10 @@ from .helpers import die, note, get_git_remote_urls, is_linux
 from .userconfig import get_user_config_context
 
 
+GITLAB_SERVER_ENV = "GLE_GITLAB_SERVER"
+GITLAB_PROJECT_ENV = "GLE_GITLAB_PROJECT"
+
+
 class GitlabIdent:
     def __init__(self, server=None, project=None, pipeline=None, gitref=None):
         self.server: Optional[str] = server
@@ -206,6 +210,7 @@ def get_ca_bundle() -> str:
     for env in ["REQUESTS_CA_BUNDLE", "CI_SERVER_TLS_CA_FILE"]:
         bundle = os.getenv(env, None)
         if bundle and os.path.isfile(bundle):
+            note(f"Using extra CAs from {env} in {bundle}")
             bundles.append(bundle)
 
     certs = certifi.contents()
@@ -218,16 +223,21 @@ def get_ca_bundle() -> str:
 @contextlib.contextmanager
 def posix_cert_fixup():
     with _CA_FIXUP_LOCK:
-        with tempfile.TemporaryDirectory() as tempdir:
-            certs = get_ca_bundle()
-            new_bundle = os.path.join(tempdir, "ca-certs.pem")
-            with open(new_bundle, "w") as data:
-                data.write(certs)
-            os.environ["REQUESTS_CA_BUNDLE"] = new_bundle
-            try:
-                yield
-            finally:
-                del os.environ["REQUESTS_CA_BUNDLE"]
+        if "GLE_CA_BUNDLE" not in os.environ:
+            with tempfile.TemporaryDirectory() as tempdir:
+                os.environ["GLE_CA_BUNDLE"] = "1"
+                certs = get_ca_bundle()
+                new_bundle = os.path.join(tempdir, "ca-certs.pem")
+                with open(new_bundle, "w") as data:
+                    data.write(certs)
+                os.environ["REQUESTS_CA_BUNDLE"] = new_bundle
+                try:
+                    yield
+                finally:
+                    del os.environ["GLE_CA_BUNDLE"]
+                    del os.environ["REQUESTS_CA_BUNDLE"]
+        else:
+            yield
 
 
 def gitlab_session_head(session, geturl, **kwargs):
@@ -436,33 +446,40 @@ def do_gitlab_fetch(from_pipeline: str,
 
 def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab], Optional[Project], Optional[str]]:
     """Get the gitlab client, project and git remote name for the given git repo"""
-    remotes = get_git_remote_urls(repo)
-    ident: Optional[GitlabIdent] = None
-    ssh_remotes: Set[str] = set()
-    http_remotes: Set[str] = set()
+    override_server = os.getenv(GITLAB_SERVER_ENV)
+    override_project = os.getenv(GITLAB_PROJECT_ENV)
 
-    if not remotes:
-        die(f"Folder {repo} has no remotes, is it a git repo?")
+    if override_server and override_project:
+        ident = GitlabIdent(override_server, override_project)
+        remotes = []
+    else:
+        remotes = get_git_remote_urls(repo)
+        ident: Optional[GitlabIdent] = None
+        ssh_remotes: Set[str] = set()
+        http_remotes: Set[str] = set()
 
-    for remote_name in remotes:
-        host = None
-        project = None
-        remote_url = remotes[remote_name]
-        if remote_url.startswith("git@") and remote_url.endswith(".git"):
-            ssh_remotes.add(remote_name)
-            if ":" in remote_url:
-                lhs, rhs = remote_url.split(":", 1)
-                host = lhs.split("@", 1)[1]
-                project = rhs.rsplit(".", 1)[0]
-        elif "://" in remote_url and remote_url.startswith("http"):
-            http_remotes.add(remote_url)
-            parsed = urlparse(remote_url)
-            host = parsed.hostname
-            project = parsed.path.rsplit(".", 1)[0]
+        if not remotes:
+            die(f"Folder {repo} has no remotes, is it a git repo?")
 
-        if host and project:
-            ident = GitlabIdent(server=host, project=project)
-            break
+        for remote_name in remotes:
+            host = None
+            project = None
+            remote_url = remotes[remote_name]
+            if remote_url.startswith("git@") and remote_url.endswith(".git"):
+                ssh_remotes.add(remote_name)
+                if ":" in remote_url:
+                    lhs, rhs = remote_url.split(":", 1)
+                    host = lhs.split("@", 1)[1]
+                    project = rhs.rsplit(".", 1)[0]
+            elif "://" in remote_url and remote_url.startswith("http"):
+                http_remotes.add(remote_url)
+                parsed = urlparse(remote_url)
+                host = parsed.hostname
+                project = parsed.path.rsplit(".", 1)[0]
+
+            if host and project:
+                ident = GitlabIdent(server=host, project=project)
+                break
 
     client = None
     project = None
@@ -472,6 +489,12 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
         api = gitlab_api(ident.server, secure=secure)
         api.auth()
         for proj in api.projects.list(membership=True, all=True):
+            if ident.project:
+                if proj.path_with_namespace == ident.project:
+                    project = proj
+                    client = api
+                    break
+
             project_remotes = [proj.ssh_url_to_repo, proj.http_url_to_repo]
             for remote in remotes:
                 if remotes[remote] in project_remotes:
@@ -483,13 +506,15 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
     return client, project, git_remote
 
 
-def get_current_project_client(tls_verify: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
+def get_current_project_client(tls_verify: Optional[bool] = True,
+                               need_remote: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
     cwd = os.getcwd()
     client, project, remotename = get_gitlab_project_client(cwd, tls_verify)
 
-    if not client or not project:
+    if not (client and project):
         die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
 
-    if not remotename:
-        die("Could not find a gitlab configuration that matches any of our git remotes")
+    if need_remote:
+        if not remotename:
+            die("Could not find a gitlab configuration that matches any of our git remotes")
     return client, project, remotename

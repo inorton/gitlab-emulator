@@ -44,7 +44,7 @@ def pipelines_cmd(tls_verify: Optional[bool] = True,
                   limit: Optional[int] = 10,
                   ):
     """List/Cancel/Generate pipelines"""
-    client, project, remotename = get_current_project_client(tls_verify=tls_verify)
+    client, project, _ = get_current_project_client(tls_verify=tls_verify, need_remote=False)
     if not matchers:
         matchers = {}
 
