@@ -3,6 +3,7 @@ import os
 import sys
 from argparse import ArgumentError
 from typing import Optional, List
+
 from .subcommand import ArgumentParserEx
 from .buildtool import BuildCommand
 from .canceltool import CancelCommand
@@ -11,6 +12,8 @@ from .jobstool import JobListCommand
 from .listtool import ListCommand
 from .subsettool import SubsetCommand
 from ..gitlab_client_api import GITLAB_SERVER_ENV, GITLAB_PROJECT_ENV, posix_cert_fixup
+from ..configloader import ConfigLoaderError
+from ..helpers import die
 
 
 def override_server(server: str) -> str:
@@ -47,5 +50,8 @@ parser.set_defaults(func=top_level_usage)
 
 def run(args: Optional[List[str]] = None) -> None:
     opts = parser.parse_args(args)
-    with posix_cert_fixup():
-        opts.func(opts)
+    try:
+        with posix_cert_fixup():
+            opts.func(opts)
+    except ConfigLoaderError as err:
+        die(str(err))
