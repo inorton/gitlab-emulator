@@ -281,13 +281,12 @@ def run(args=None):
     fullpath = os.path.abspath(yamlfile)
     rootdir = os.path.dirname(fullpath)
     os.chdir(rootdir)
-
-    hide_dot_jobs = not options.hidden
-    if options.pipeline or options.FROM:
-        loader = configloader.Loader(emulator_variables=False)
-        loader.load(fullpath)
-        with posix_cert_fixup():
-            try:
+    try:
+        hide_dot_jobs = not options.hidden
+        if options.pipeline or options.FROM:
+            loader = configloader.Loader(emulator_variables=False)
+            loader.load(fullpath)
+            with posix_cert_fixup():
                 if options.pipeline:
                     do_pipeline(options, loader)
                     return
@@ -298,10 +297,10 @@ def run(args=None):
                 if options.FROM:
                     do_gitlab_from(options, loader)
                     return
-            except configloader.ConfigLoaderError as err:
-                die("Config error: " + str(err))
-    else:
-        loader.load(fullpath)
+        else:
+            loader.load(fullpath)
+    except configloader.ConfigLoaderError as err:
+        die("Config error: " + str(err))
 
     if is_windows():  # pragma: linux no cover
         windows_shell = "powershell"

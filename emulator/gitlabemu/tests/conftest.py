@@ -23,7 +23,7 @@ def top_dir() -> str:
 
 
 @pytest.fixture(scope="function")
-def in_tests():
+def in_tests() -> str:
     initdir = os.getcwd()
     os.chdir(TESTS_DIR)
     yield os.getcwd()
@@ -31,19 +31,19 @@ def in_tests():
 
 
 @pytest.fixture(scope="session")
-def linux_only():
+def linux_only() -> None:
     if platform.system() != "Linux":
         pytest.skip("not a Linux system")
 
 
 @pytest.fixture(scope="session")
-def windows_only():
+def windows_only() -> None:
     if platform.system() != "Windows":
         pytest.skip("not a Windows system")
 
 
 @pytest.fixture(scope="session")
-def posix_only():
+def posix_only() -> None:
     if platform.system() == "Windows":
         pytest.skip("not a POSIX platform")
     try:
@@ -54,7 +54,7 @@ def posix_only():
 
 
 @pytest.fixture(scope="session")
-def has_docker():
+def has_docker() -> None:
     try:
         subprocess.check_output(["docker", "info"])
     except Exception as err:
@@ -62,7 +62,7 @@ def has_docker():
 
 
 @pytest.fixture(scope="session")
-def linux_docker():
+def linux_docker() -> None:
     check_docker("linux")
 
 
