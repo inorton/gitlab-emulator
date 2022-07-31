@@ -20,7 +20,7 @@ class JobListCommand(Command):
 
     def run(self, opts: Namespace):
         cwd = os.getcwd()
-        client, project, _ = get_current_project_client(tls_verify=opts.tls_verify)
+        client, project, _ = get_current_project_client(tls_verify=opts.tls_verify, need_remote=False)
         branch = None
         if opts.PIPELINE is None:
             branch = git_current_branch(cwd)

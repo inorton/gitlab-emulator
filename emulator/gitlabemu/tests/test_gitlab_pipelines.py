@@ -28,7 +28,7 @@ def test_mocked_list(top_dir: str,
     run(["-C", top_dir, "--pipeline", "--list"])
 
     stdout, stderr = capfd.readouterr()
-    assert project.name in stderr
+    assert project.path_with_namespace in stderr
     assert project.server.url in stderr
 
     assert str(pipeline.id) in stdout
@@ -80,20 +80,6 @@ def test_mocked_pipeline_error_no_server(capfd: pytest.CaptureFixture, mocker):
                                        match=[]), None)
     stdout, stderr = capfd.readouterr()
     assert "Could not find a gitlab server configuration," in stderr
-
-
-def test_mocked_pipeline_error_no_remote(capfd: pytest.CaptureFixture, mocker):
-    mocker.patch("gitlabemu.gitlab_client_api.get_gitlab_project_client", return_value=(True, True, None))
-    with pytest.raises(SystemExit):
-        do_pipeline(argparse.Namespace(insecure=True,
-                                       JOB=None,
-                                       LIST=True,
-                                       EXTRA_JOBS=[],
-                                       cancel=False,
-                                       completed=False,
-                                       match=[]), None)
-    stdout, stderr = capfd.readouterr()
-    assert "Could not find a gitlab configuration that matches any of our git remotes" in stderr
 
 
 def test_pipeline_error_other_project(capfd: pytest.CaptureFixture, tmp_path, mocker):

@@ -6,7 +6,7 @@ import argparse
 
 from . import configloader
 from .docker import has_docker
-from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound
+from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
@@ -281,25 +281,24 @@ def run(args=None):
     fullpath = os.path.abspath(yamlfile)
     rootdir = os.path.dirname(fullpath)
     os.chdir(rootdir)
-
-    hide_dot_jobs = not options.hidden
-    if options.pipeline or options.FROM:
-        loader = configloader.Loader(emulator_variables=False)
-        loader.load(fullpath)
     try:
-        if options.pipeline:
-            do_pipeline(options, loader)
-            return
+        hide_dot_jobs = not options.hidden
+        if options.pipeline or options.FROM:
+            loader = configloader.Loader(emulator_variables=False)
+            loader.load(fullpath)
+            with posix_cert_fixup():
+                if options.pipeline:
+                    do_pipeline(options, loader)
+                    return
 
-        if options.FULL and options.parallel:
-            die("--full and --parallel cannot be used together")
+                if options.FULL and options.parallel:
+                    die("--full and --parallel cannot be used together")
 
-        if options.FROM:
-            do_gitlab_from(options, loader)
-            return
-
-        loader.load(fullpath)
-
+                if options.FROM:
+                    do_gitlab_from(options, loader)
+                    return
+        else:
+            loader.load(fullpath)
     except configloader.ConfigLoaderError as err:
         die("Config error: " + str(err))
 

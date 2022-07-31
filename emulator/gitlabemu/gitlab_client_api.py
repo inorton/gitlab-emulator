@@ -8,15 +8,22 @@ import time
 import zipfile
 import requests
 import tempfile
+import certifi
 import multiprocessing
+from functools import lru_cache
+from threading import RLock
 from typing import Optional, Set, Tuple, Iterable, List, Any
 from urllib.parse import urlparse
 from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import Project
 from urllib3.exceptions import InsecureRequestWarning
 
-from .helpers import die, note, make_path_slug, get_git_remote_urls, is_linux, git_current_branch
+from .helpers import die, note, get_git_remote_urls, is_linux
 from .userconfig import get_user_config_context
+
+
+GITLAB_SERVER_ENV = "GLE_GITLAB_SERVER"
+GITLAB_PROJECT_ENV = "GLE_GITLAB_PROJECT"
 
 
 class GitlabIdent:
@@ -91,12 +98,6 @@ def gitlab_api(alias: str, secure=True) -> Gitlab:
         server = alias
         if "://" not in server:
             server = f"https://{server}"
-
-    ca_cert = os.getenv("CI_SERVER_TLS_CA_FILE", None)
-    if ca_cert is not None:
-        note("Using CI_SERVER_TLS_CA_FILE CA cert")
-        os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
-        secure = True
 
     if not token:
         token = os.getenv("GITLAB_PRIVATE_TOKEN", None)
@@ -200,29 +201,49 @@ def get_pipeline(fromline, secure: Optional[bool] = True):
 
     return gitlab, project, pipeline
 
+_CA_FIXUP_LOCK = RLock()
+
+
+@lru_cache(1)
+def get_ca_bundle() -> str:
+    bundles = []
+    for env in ["REQUESTS_CA_BUNDLE", "CI_SERVER_TLS_CA_FILE"]:
+        bundle = os.getenv(env, None)
+        if bundle and os.path.isfile(bundle):
+            note(f"Using extra CAs from {env} in {bundle}")
+            bundles.append(bundle)
+
+    certs = certifi.contents()
+    for bundle in bundles:
+        with open(bundle, "r") as data:
+            certs += data.read()
+    return certs
+
 
 @contextlib.contextmanager
-def ca_bundle_error(func: callable):
-    try:
-        if is_linux():
-            certs = "/etc/ssl/certs/ca-certificates.crt"
-            if os.path.exists(certs):
-                os.environ["REQUESTS_CA_BUNDLE"] = certs
-        yield func()
-    except requests.exceptions.SSLError:  # pragma: no cover
-        # validation was requested but cert was invalid,
-        # tty again without the gitlab-supplied CA cert and try the system ca certs
-        if "REQUESTS_CA_BUNDLE" not in os.environ:
-            raise
-        note(f"warning: Encountered TLS/SSL error, retrying with only system ca certs")
-        del os.environ["REQUESTS_CA_BUNDLE"]
-        yield func()
+def posix_cert_fixup():
+    with _CA_FIXUP_LOCK:
+        if "GLE_CA_BUNDLE" not in os.environ:
+            with tempfile.TemporaryDirectory() as tempdir:
+                os.environ["GLE_CA_BUNDLE"] = "1"
+                certs = get_ca_bundle()
+                new_bundle = os.path.join(tempdir, "ca-certs.pem")
+                with open(new_bundle, "w") as data:
+                    data.write(certs)
+                os.environ["REQUESTS_CA_BUNDLE"] = new_bundle
+                try:
+                    yield
+                finally:
+                    del os.environ["GLE_CA_BUNDLE"]
+                    del os.environ["REQUESTS_CA_BUNDLE"]
+        else:
+            yield
 
 
 def gitlab_session_head(session, geturl, **kwargs):
     """HEAD using requests to try different CA options"""
-    with ca_bundle_error(lambda: session.head(geturl, **kwargs)) as resp:
-        return resp
+    with posix_cert_fixup():
+        return session.head(geturl, **kwargs)
 
 
 def get_one_file(session: requests.Session,
@@ -235,8 +256,8 @@ def get_one_file(session: requests.Session,
     if os.path.exists(outfile):
         os.unlink(outfile)
     os.makedirs(outdir, exist_ok=True)
-    with ca_bundle_error(
-            lambda: session.get(url, headers=headers, stream=True)) as resp:
+    with posix_cert_fixup():
+        resp = session.get(url, headers=headers, stream=True)
         resp.raise_for_status()
         with open(partfile, "wb") as data:
             shutil.copyfileobj(resp.raw, data, length=2 * 1024 * 1024)
@@ -425,33 +446,40 @@ def do_gitlab_fetch(from_pipeline: str,
 
 def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab], Optional[Project], Optional[str]]:
     """Get the gitlab client, project and git remote name for the given git repo"""
-    remotes = get_git_remote_urls(repo)
-    ident: Optional[GitlabIdent] = None
-    ssh_remotes: Set[str] = set()
-    http_remotes: Set[str] = set()
+    override_server = os.getenv(GITLAB_SERVER_ENV)
+    override_project = os.getenv(GITLAB_PROJECT_ENV)
 
-    if not remotes:
-        die(f"Folder {repo} has no remotes, is it a git repo?")
+    if override_server and override_project:
+        ident = GitlabIdent(override_server, override_project)
+        remotes = []
+    else:
+        remotes = get_git_remote_urls(repo)
+        ident: Optional[GitlabIdent] = None
+        ssh_remotes: Set[str] = set()
+        http_remotes: Set[str] = set()
 
-    for remote_name in remotes:
-        host = None
-        project = None
-        remote_url = remotes[remote_name]
-        if remote_url.startswith("git@") and remote_url.endswith(".git"):
-            ssh_remotes.add(remote_name)
-            if ":" in remote_url:
-                lhs, rhs = remote_url.split(":", 1)
-                host = lhs.split("@", 1)[1]
-                project = rhs.rsplit(".", 1)[0]
-        elif "://" in remote_url and remote_url.startswith("http"):
-            http_remotes.add(remote_url)
-            parsed = urlparse(remote_url)
-            host = parsed.hostname
-            project = parsed.path.rsplit(".", 1)[0]
+        if not remotes:
+            die(f"Folder {repo} has no remotes, is it a git repo?")
 
-        if host and project:
-            ident = GitlabIdent(server=host, project=project)
-            break
+        for remote_name in remotes:
+            host = None
+            project = None
+            remote_url = remotes[remote_name]
+            if remote_url.startswith("git@") and remote_url.endswith(".git"):
+                ssh_remotes.add(remote_name)
+                if ":" in remote_url:
+                    lhs, rhs = remote_url.split(":", 1)
+                    host = lhs.split("@", 1)[1]
+                    project = rhs.rsplit(".", 1)[0]
+            elif "://" in remote_url and remote_url.startswith("http"):
+                http_remotes.add(remote_url)
+                parsed = urlparse(remote_url)
+                host = parsed.hostname
+                project = parsed.path.rsplit(".", 1)[0]
+
+            if host and project:
+                ident = GitlabIdent(server=host, project=project)
+                break
 
     client = None
     project = None
@@ -461,6 +489,12 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
         api = gitlab_api(ident.server, secure=secure)
         api.auth()
         for proj in api.projects.list(membership=True, all=True):
+            if ident.project:
+                if proj.path_with_namespace == ident.project:
+                    project = proj
+                    client = api
+                    break
+
             project_remotes = [proj.ssh_url_to_repo, proj.http_url_to_repo]
             for remote in remotes:
                 if remotes[remote] in project_remotes:
@@ -472,13 +506,15 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
     return client, project, git_remote
 
 
-def get_current_project_client(tls_verify: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
+def get_current_project_client(tls_verify: Optional[bool] = True,
+                               need_remote: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
     cwd = os.getcwd()
     client, project, remotename = get_gitlab_project_client(cwd, tls_verify)
 
-    if not client or not project:
+    if not (client and project):
         die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
 
-    if not remotename:
-        die("Could not find a gitlab configuration that matches any of our git remotes")
+    if need_remote:
+        if not remotename:
+            die("Could not find a gitlab configuration that matches any of our git remotes")
     return client, project, remotename

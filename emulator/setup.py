@@ -1,16 +1,17 @@
 from distutils.core import setup
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 requirements = [
     "pyyaml>=5.1",
-    "requests>=2.23.0",
+    "requests>=2.25.0",
     "requests-toolbelt>=0.9.1",
     "python-gitlab>=3.2.0; python_version>='3.7'",
     "python-gitlab==2.10.1; python_version<='3.6'",
+    "certifi>=2022.6"
 ]
 requirements.extend([f"gitpython>=3.1; platform_system=='{p}'" for p in ["Darwin", "Windows", "Linux"]])
-requirements.extend([f"docker>=5.0.2; platform_system=='{p}'" for p in ["Darwin", "Windows", "Linux"]])
+requirements.extend([f"docker>=5.0.3; platform_system=='{p}'" for p in ["Darwin", "Windows", "Linux"]])
 
 setup(
     name="gitlab-emulator",
