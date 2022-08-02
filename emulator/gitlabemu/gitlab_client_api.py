@@ -24,6 +24,7 @@ from .userconfig import get_user_config_context
 
 GITLAB_SERVER_ENV = "GLE_GITLAB_SERVER"
 GITLAB_PROJECT_ENV = "GLE_GITLAB_PROJECT"
+SYSTEM_CA_CERTS = "/etc/ssl/certs/ca-certificates.crt"
 
 
 class GitlabIdent:
@@ -212,8 +213,10 @@ def get_ca_bundle() -> str:
         if bundle and os.path.isfile(bundle):
             note(f"Using extra CAs from {env} in {bundle}")
             bundles.append(bundle)
-
     certs = certifi.contents()
+    if os.path.exists(SYSTEM_CA_CERTS) and not os.path.samefile(SYSTEM_CA_CERTS, certifi.where()):
+        with open(SYSTEM_CA_CERTS, "r") as etc_certs:
+            certs += etc_certs.read()
     for bundle in bundles:
         with open(bundle, "r") as data:
             certs += data.read()

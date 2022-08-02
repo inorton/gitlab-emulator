@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 
 requirements = [
     "pyyaml>=5.1",
@@ -16,7 +16,7 @@ requirements.extend([f"docker>=5.0.3; platform_system=='{p}'" for p in ["Darwin"
 setup(
     name="gitlab-emulator",
     version=VERSION,
-    description="Run a subset of .gitlab-ci.yml jobs locally",
+    description="Run/Inspect a .gitlab-ci.yml jobs and pipelines locally",
     author="Ian Norton",
     author_email="inorton@gmail.com",
     url="https://gitlab.com/cunity/gitlab-emulator",
