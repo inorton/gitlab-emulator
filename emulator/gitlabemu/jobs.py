@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import threading
 import time
+
+from .artifacts import GitlabArtifacts
 from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
@@ -47,6 +49,7 @@ class Job(object):
         self.allow_add_variables = True
         self.dependencies = []
         self.needed_artifacts = []
+        self.artifacts = GitlabArtifacts()
         self._shell = None
 
         if is_windows():  # pragma: linux no cover
@@ -185,6 +188,8 @@ class Job(object):
         self.configure_job_variable("CI_JOB_STAGE", self.stage)
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
         self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
+
+        self.artifacts.load(job.get("artifacts", {}))
 
     def configure_job_variable(self, name, value):
         """
