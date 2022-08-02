@@ -4,6 +4,7 @@ import sys
 import os
 import argparse
 
+import gitlabemu.errors
 from . import configloader
 from .docker import has_docker
 from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
@@ -299,7 +300,7 @@ def run(args=None):
                     return
         else:
             loader.load(fullpath)
-    except configloader.ConfigLoaderError as err:
+    except gitlabemu.errors.ConfigLoaderError as err:
         die("Config error: " + str(err))
 
     if is_windows():  # pragma: linux no cover

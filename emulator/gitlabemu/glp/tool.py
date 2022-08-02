@@ -12,7 +12,7 @@ from .jobstool import JobListCommand
 from .listtool import ListCommand
 from .subsettool import SubsetCommand
 from ..gitlab_client_api import GITLAB_SERVER_ENV, GITLAB_PROJECT_ENV, posix_cert_fixup
-from ..configloader import ConfigLoaderError
+from ..errors import ConfigLoaderError
 from ..helpers import die
 
 

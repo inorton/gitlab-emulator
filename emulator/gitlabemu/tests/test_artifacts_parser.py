@@ -1,6 +1,8 @@
 """Test that we can get artifacts"""
+import pytest
 
 from ..artifacts import GitlabArtifacts
+from ..errors import BadSyntaxError
 
 
 def test_parse_simple():
@@ -25,3 +27,21 @@ def test_parse_simple():
         "coverage_format": "cobertura",
         "path": "coverage.xml"
     }
+
+
+def test_parse_string_path():
+    """Test parsing when given a path string instead of list"""
+    g = GitlabArtifacts()
+    with pytest.raises(BadSyntaxError):
+        g.load({"paths": "file.xml"})
+
+
+def test_junit_string_path():
+    """Test junit reports when given a string instead of a list"""
+    g = GitlabArtifacts()
+    g.load({"reports": {
+        "junit": "file.xml"
+    }})
+
+    assert g.reports["junit"] == ["file.xml"]
+

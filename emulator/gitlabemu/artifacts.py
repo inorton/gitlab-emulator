@@ -1,4 +1,6 @@
 """Represent job artifacts and reports"""
+from .errors import BadSyntaxError
+
 
 class GitlabArtifacts:
     def __init__(self):
@@ -22,4 +24,7 @@ class GitlabArtifacts:
         if isinstance(self.reports.get("junit", []), str):
             # is a string, canonicalize as a list
             self.reports["junit"] = [self.reports["junit"]]
+
+        if not isinstance(self.paths, list):
+            raise BadSyntaxError(f"artifacts:paths must be a list of paths, got {self.paths} ({type(self.paths)} instead)")
 
