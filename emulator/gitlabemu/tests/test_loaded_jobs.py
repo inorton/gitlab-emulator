@@ -19,3 +19,7 @@ def test_load_expected(top_dir):
         "coverage_format": "cobertura",
         "path": "emulator/pytest-coverage.xml"
     }
+
+    quick = loader.load_job("quick")
+    assert quick.artifacts
+    assert quick.artifacts.paths == ["date.txt"]
