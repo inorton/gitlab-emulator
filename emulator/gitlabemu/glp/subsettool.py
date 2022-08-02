@@ -39,6 +39,6 @@ class SubsetCommand(Command):
         loader.load(fullpath)
 
         # generate a subset pipeline
-        generate_pipeline(loader, *jobs, vars=vars,
+        generate_pipeline(loader, *jobs, variables=vars,
                           use_from=opts.FROM,
                           tls_verify=opts.tls_verify)

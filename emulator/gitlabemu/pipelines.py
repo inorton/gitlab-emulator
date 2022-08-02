@@ -90,7 +90,7 @@ def create_pipeline(vars: Optional[Dict[str, str]] = None,
 
 
 def generate_pipeline(loader, *goals,
-                      vars: Optional[Dict[str, str]] = None,
+                      variables: Optional[Dict[str, str]] = None,
                       use_from: Optional[str] = None,
                       tls_verify: Optional[bool] = True):
     """Generate and push a subset pipeline"""
@@ -165,8 +165,8 @@ def generate_pipeline(loader, *goals,
                                                 tls_verify=client.ssl_verify)
         generated[from_name] = fetch_job
 
-    for varname in vars:
-        generated["variables"][varname] = vars[varname]
+    for varname in variables:
+        generated["variables"][varname] = variables[varname]
 
     branch_name = f"temp/{client.user.username}/{git_current_branch(cwd)}"
     note(f"Creating temporary pipeline branch '{branch_name}'..")

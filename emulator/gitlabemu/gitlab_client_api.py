@@ -498,13 +498,11 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
                     client = api
                     break
 
-            project_remotes = [proj.ssh_url_to_repo, proj.http_url_to_repo]
-            for remote in remotes:
-                if remotes[remote] in project_remotes:
-                    git_remote = remote
-                    client = api
-                    project = proj
-                    break
+        project_remotes = [project.ssh_url_to_repo, project.http_url_to_repo]
+        for remote in remotes:
+            if remotes[remote] in project_remotes:
+                git_remote = remote
+                break
 
     return client, project, git_remote
 
