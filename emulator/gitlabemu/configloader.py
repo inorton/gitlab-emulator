@@ -3,7 +3,7 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
-from .errors import GitlabEmulatorError
+from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
@@ -15,35 +15,6 @@ DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
 DEFAULT_UNSUPPORTED_KEYWORDS = []
 UNSUPPORTED_KEYWORDS = list(DEFAULT_UNSUPPORTED_KEYWORDS)
-
-
-class ConfigLoaderError(GitlabEmulatorError):
-    """
-    There was an error loading a gitlab configuration
-    """
-    pass
-
-
-class BadSyntaxError(ConfigLoaderError):
-    """
-    The yaml was somehow invalid
-    """
-
-    def __init__(self, message):
-        super(BadSyntaxError, self).__init__(message)
-
-
-class FeatureNotSupportedError(ConfigLoaderError):
-    """
-    The loaded configuration contained gitlab features locallab does not
-    yet support
-    """
-
-    def __init__(self, feature):
-        self.feature = feature
-
-    def __str__(self):
-        return "FeatureNotSupportedError ({})".format(self.feature)
 
 
 def check_unsupported(config):

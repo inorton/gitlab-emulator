@@ -4,6 +4,8 @@ Test the configloader
 import os
 
 import pytest
+
+import gitlabemu.errors
 from .. import configloader
 from .. import yamlloader
 
@@ -94,6 +96,6 @@ def test_load_extends():
 def test_missing_extends():
     """Test that extending a non-existing job does not hang"""
     loader = configloader.Loader()
-    with pytest.raises(configloader.BadSyntaxError) as err:
+    with pytest.raises(gitlabemu.errors.BadSyntaxError) as err:
         loader.load(os.path.join(HERE, "invalid", "extends-missing.yaml"))
     assert "Job 'job2' extends 'thing' which does not exist" in str(err.value)
