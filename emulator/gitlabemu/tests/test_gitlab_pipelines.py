@@ -10,7 +10,7 @@ from requests_mock import Mocker
 from ..jobs import NoSuchJob
 from ..runner import run, do_pipeline
 from ..configloader import Loader
-from ..generator import generate_pipeline_yaml, create_pipeline_branch, wait_for_project_commit_pipeline
+from ..generator import generate_pipeline_yaml, create_pipeline_branch
 from ..helpers import git_commit_sha
 from .mocked_gitlab import MockServer, MOCK_HOST
 

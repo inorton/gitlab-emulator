@@ -12,7 +12,7 @@ import certifi
 import multiprocessing
 from functools import lru_cache
 from threading import RLock
-from typing import Optional, Set, Tuple, Iterable, List, Any
+from typing import Optional, Set, Tuple, Iterable, List, Any, Dict
 from urllib.parse import urlparse
 from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import Project
@@ -20,7 +20,7 @@ from urllib3.exceptions import InsecureRequestWarning
 
 from .helpers import die, note, get_git_remote_urls, is_linux
 from .userconfig import get_user_config_context
-
+from .userconfigdata import GitlabServer
 
 GITLAB_SERVER_ENV = "GLE_GITLAB_SERVER"
 GITLAB_PROJECT_ENV = "GLE_GITLAB_PROJECT"
@@ -28,11 +28,12 @@ SYSTEM_CA_CERTS = "/etc/ssl/certs/ca-certificates.crt"
 
 
 class GitlabIdent:
-    def __init__(self, server=None, project=None, pipeline=None, gitref=None):
+    def __init__(self, server=None, project=None, pipeline=None, gitref=None, secure=True):
         self.server: Optional[str] = server
         self.project: Optional[str] = project
         self.pipeline: Optional[int] = pipeline
         self.gitref: Optional[str] = gitref
+        self.secure: Optional[bool] = secure
 
     def __str__(self):
         ret = ""
@@ -100,10 +101,10 @@ def gitlab_api(alias: str, secure=True) -> Gitlab:
         if "://" not in server:
             server = f"https://{server}"
 
-    if not token:
-        token = os.getenv("GITLAB_PRIVATE_TOKEN", None)
-        if token:
-            note("Using GITLAB_PRIVATE_TOKEN for authentication")
+    environment_token = os.getenv("GITLAB_PRIVATE_TOKEN", None)
+    if environment_token:
+        token = environment_token
+        note("Using GITLAB_PRIVATE_TOKEN for authentication")
 
     if not token:
         die(f"Could not find a configured token for {alias} or GITLAB_PRIVATE_TOKEN not set")
@@ -447,6 +448,39 @@ def do_gitlab_fetch(from_pipeline: str,
                                export_mode=export_to)
 
 
+def remote_servers(remotes: Dict[str, str]) -> Dict[str, str]:
+    """From a map of git remotes, Get a map of git remotes to server addresses"""
+    servers: Dict[str, str] = {}
+    for remote_name in remotes:
+        remote_url = remotes[remote_name]
+        if remote_url.startswith("git@") and remote_url.endswith(".git"):
+            if ":" in remote_url:
+                lhs, rhs = remote_url.split(":", 1)
+                host = lhs.split("@", 1)[1]
+                project_path = rhs.rsplit(".", 1)[0].lstrip("/")
+                servers[remote_name] = f"{host}/{project_path}"
+        elif "://" in remote_url and remote_url.startswith("http"):
+            parsed = urlparse(remote_url)
+            host = parsed.hostname
+            project_path = parsed.path.rsplit(".", 1)[0].lstrip("/")
+            servers[remote_name] = f"{host}/{project_path}"
+    return servers
+
+
+def find_gitlab_project_config(servers: Dict[str, str]) -> Optional[GitlabIdent]:
+    """From a list of git remotes and project servers addresses find the named gitlab config entry if any"""
+    ctx = get_user_config_context()
+    ident: Optional[GitlabIdent] = None
+    for remote in servers:
+        remote_host, remote_path = servers[remote].split("/", 1)
+        https_remote = f"https://{remote_host}"
+        for cfg in ctx.gitlab.servers:
+            if cfg.server == https_remote:
+                ident = GitlabIdent(server=remote_host, project=remote_path, secure=cfg.tls_verify)
+                break
+    return ident
+
+
 def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab], Optional[Project], Optional[str]]:
     """Get the gitlab client, project and git remote name for the given git repo"""
     override_server = os.getenv(GITLAB_SERVER_ENV)
@@ -456,38 +490,29 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
     git_remote = None
 
     if override_server and override_project:
-        ident = GitlabIdent(override_server, override_project)
+        ident = GitlabIdent(server=override_server, project=override_project)
         remotes = []
     else:
+        # in here, we need to figure out the gitlab server by looking
+        # at the available git remotes
         remotes = get_git_remote_urls(repo)
-        ident: Optional[GitlabIdent] = None
-        ssh_remotes: Set[str] = set()
-        http_remotes: Set[str] = set()
-
         if not remotes:
             die(f"Folder {repo} has no remotes, is it a git repo?")
 
-        for remote_name in remotes:
-            host = None
-            project_path = None
-            remote_url = remotes[remote_name]
-            if remote_url.startswith("git@") and remote_url.endswith(".git"):
-                ssh_remotes.add(remote_name)
-                if ":" in remote_url:
-                    lhs, rhs = remote_url.split(":", 1)
-                    host = lhs.split("@", 1)[1]
-                    project = rhs.rsplit(".", 1)[0]
-            elif "://" in remote_url and remote_url.startswith("http"):
-                http_remotes.add(remote_url)
-                parsed = urlparse(remote_url)
-                host = parsed.hostname
-                project_path = parsed.path.rsplit(".", 1)[0]
+        possible_servers = remote_servers(remotes)
+        ident = find_gitlab_project_config(possible_servers)
+        if ident and ident.secure:
+            secure = ident.secure
 
-            if host and project_path:
-                ident = GitlabIdent(server=host, project=project_path.lstrip("/"))
-                break
+        if not ident:
+            note(f"Could not find a gitlab config for {repo}")
+            if len(possible_servers) == 1:
+                gitlab_host, gitlab_path = list(possible_servers.values())[0].split("/", 1)
+                git_remote = list(possible_servers.keys())[0]
+                ident = GitlabIdent(server=gitlab_host, project=gitlab_path)
 
     if ident:
+        # we have an ident, try to find the gitlab config
         api = gitlab_api(ident.server, secure=secure)
         api.auth()
         for proj in api.projects.list(membership=True, all=True):
@@ -509,6 +534,7 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
 
 def get_current_project_client(tls_verify: Optional[bool] = True,
                                need_remote: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
+    """Get the requested/current gitlab client, gitlab project and optional git remote"""
     cwd = os.getcwd()
     client, project, remotename = get_gitlab_project_client(cwd, tls_verify)
 
