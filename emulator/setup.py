@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "1.1.3"
+VERSION = "1.1.4"
 
 requirements = [
     "pyyaml>=5.1",
