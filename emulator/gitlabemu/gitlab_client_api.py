@@ -451,6 +451,9 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
     """Get the gitlab client, project and git remote name for the given git repo"""
     override_server = os.getenv(GITLAB_SERVER_ENV)
     override_project = os.getenv(GITLAB_PROJECT_ENV)
+    client = None
+    project = None
+    git_remote = None
 
     if override_server and override_project:
         ident = GitlabIdent(override_server, override_project)
@@ -466,7 +469,7 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
 
         for remote_name in remotes:
             host = None
-            project = None
+            project_path = None
             remote_url = remotes[remote_name]
             if remote_url.startswith("git@") and remote_url.endswith(".git"):
                 ssh_remotes.add(remote_name)
@@ -478,15 +481,11 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
                 http_remotes.add(remote_url)
                 parsed = urlparse(remote_url)
                 host = parsed.hostname
-                project = parsed.path.rsplit(".", 1)[0]
+                project_path = parsed.path.rsplit(".", 1)[0]
 
-            if host and project:
-                ident = GitlabIdent(server=host, project=project)
+            if host and project_path:
+                ident = GitlabIdent(server=host, project=project_path.lstrip("/"))
                 break
-
-    client = None
-    project = None
-    git_remote = None
 
     if ident:
         api = gitlab_api(ident.server, secure=secure)
@@ -498,11 +497,12 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
                     client = api
                     break
 
-        project_remotes = [project.ssh_url_to_repo, project.http_url_to_repo]
-        for remote in remotes:
-            if remotes[remote] in project_remotes:
-                git_remote = remote
-                break
+        if remotes and project:
+            project_remotes = [project.ssh_url_to_repo, project.http_url_to_repo]
+            for remote in remotes:
+                if remotes[remote] in project_remotes:
+                    git_remote = remote
+                    break
 
     return client, project, git_remote
 

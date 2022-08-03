@@ -67,7 +67,7 @@ def test_subset_command(repo_root: str, mocker: MockerFixture):
     generate.assert_called_once_with(
         ANY,
         "quick",
-        vars={"SPEED": "fast"},
+        variables={"SPEED": "fast"},
         use_from=None,
         tls_verify=True
     )
