@@ -1,0 +1,46 @@
+# test the inherit keyword
+
+variables:
+  COLOR: red
+  SIZE: big
+
+default:
+  image: ruby:3.0
+  before_script:
+    - df -h
+
+job1:
+  script:
+    - uname -a
+
+job2:
+  # should have no COLOR variable,
+  # should have no before_script,
+  inherit:
+    default:
+      - image
+  script:
+    - echo hello
+
+job3:
+  # should have no COLOR variable
+  # should have no before_script
+  # should have same script as job2
+  extends:
+    - job2
+
+job4:
+  # should have no SIZE variable
+  inherit:
+    variables:
+      - COLOR
+  script:
+    - ls -l foo
+
+job5:
+  # should have no variables
+  # should inherit the default image
+  inherit:
+    variables: false
+  script:
+    - uname -r
