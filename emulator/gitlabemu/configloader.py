@@ -129,6 +129,10 @@ def validate(config):
 
         job = get_job(config, name)
 
+        # check that script is set
+        if "script" not in job:
+            raise BadSyntaxError(f"Job '{name}' does not have a 'script' element.")
+
         # check that the stage exists
         if job["stage"] not in stages:
             raise ConfigLoaderError("job {} has stage {} does not exist".format(name, job["stage"]))
@@ -558,7 +562,7 @@ class Loader(object):
 
         return objdata
 
-    def load(self, filename):
+    def load(self, filename: str) -> None:
         """
         Load a pipeline configuration from disk
         :param filename:
