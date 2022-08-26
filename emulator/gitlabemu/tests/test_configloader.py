@@ -99,3 +99,11 @@ def test_missing_extends():
     with pytest.raises(gitlabemu.errors.BadSyntaxError) as err:
         loader.load(os.path.join(HERE, "invalid", "extends-missing.yaml"))
     assert "Job 'job2' extends 'thing' which does not exist" in str(err.value)
+
+
+def test_missing_script():
+    """Test that forgetting to add script to a job raises an error"""
+    loader = configloader.Loader()
+    with pytest.raises(gitlabemu.errors.BadSyntaxError) as err:
+        loader.load(os.path.join(HERE, "invalid", "script-missing.yaml"))
+    assert "Job 'job' does not have a 'script' element." in str(err.value)
