@@ -216,6 +216,9 @@ class DockerJob(Job):
                 value = ""
             ret[name] = str(value)
 
+        for name in self.extra_variables:
+            ret[name] = self.extra_variables[name]
+
         return ret
 
     def run_script(self, lines):
