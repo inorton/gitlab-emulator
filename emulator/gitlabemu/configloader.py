@@ -178,6 +178,8 @@ def do_single_extend_recursive(alljobs: dict, default_job: Dict[str, Any], name:
     pipeline_variables = alljobs.get("variables", {})
 
     base_jobs = stringlist_if_string(unextended.get("extends", []))
+    if name in base_jobs:
+        raise BadSyntaxError(f"Job '{name}' cannot extend itself")
 
     for base in base_jobs:
         if base not in alljobs:
@@ -195,12 +197,26 @@ def do_single_extend_recursive(alljobs: dict, default_job: Dict[str, Any], name:
                     # with a map, eg
                     #  image: imagename:latest  ->  image:
                     #                                 name: imagename:latest
-                    new_obj[keyname] = StringableOrderedDict()
+                    new_obj[keyname] = {}
+                if keyname in unextended:
+                    value.update(unextended[keyname])
                 new_obj[keyname].update(value)
+
             else:
-                # this is a scalar or list, copy it unless this job overrides it
+                # this is a scalar or list, copy it
                 if keyname not in unextended:
                     new_obj[keyname] = value
+
+    # override any lists and values set in this map that were also pulled in via extends
+    for override_key, override_value in unextended.items():
+        if isinstance(override_value, dict):
+            extended_value = new_obj.get(override_key, None)
+            if isinstance(extended_value, dict):
+                # merge it
+                new_obj[override_key].update(override_value)
+            else:
+                # replace it
+                new_obj[override_key] = override_value
 
     inherit_control = new_obj.get("inherit", {})
     inherit_variables = inherit_control.get("variables", list(pipeline_variables.keys()))
