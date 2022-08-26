@@ -35,12 +35,33 @@ job4:
     variables:
       - COLOR
   script:
-    - ls -l foo
+    - echo COLOR="$COLOR"
+    - echo SIZE="$SIZE"
 
 job5:
   # should have no variables
-  # should inherit the default image
+  # should inherit the default image and before_script
   inherit:
     variables: false
   script:
-    - uname -r
+    - echo COLOR="$COLOR"
+    - echo SIZE="$SIZE"
+
+
+job6:
+  # should have only $SIZE==small
+  # should inherit the default image and before_script
+  variables:
+    SIZE: small
+  script:
+    - echo COLOR="$COLOR"
+    - echo SIZE="$SIZE"
+
+job7:
+  # should have $SIZE==small
+  # should have $COLOR==blue
+  # should inherit the default image and before_script
+  extends:
+    - job6
+  variables:
+    COLOR: blue

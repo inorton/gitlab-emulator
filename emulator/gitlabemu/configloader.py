@@ -3,6 +3,8 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
+from typing import Dict, Any
+
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS
 from .jobs import NoSuchJob, Job
@@ -130,8 +132,9 @@ def validate(config):
         job = get_job(config, name)
 
         # check that script is set
-        if "script" not in job:
-            raise BadSyntaxError(f"Job '{name}' does not have a 'script' element.")
+        if "trigger" not in job:
+            if "script" not in job:
+                raise BadSyntaxError(f"Job '{name}' does not have a 'script' element.")
 
         # check that the stage exists
         if job["stage"] not in stages:
@@ -163,6 +166,26 @@ def validate(config):
                     raise ConfigLoaderError("artifacts->reports must be a map")
 
 
+def extend_one_job(alljobs: dict, default_job: Dict[str, Any], name: str) -> Dict[str, Any]:
+    """Do all the extends and !reference expansion for a single job"""
+    assert name in alljobs
+    new_obj = {
+        "variables": {}
+    }
+    pipeline_variables = alljobs.get("variables", {})
+    inherit_control = alljobs[name].get("inherit", {})
+    inherit_variables = inherit_control.get("variables", list(pipeline_variables))
+    inherit_elements = inherit_control.get("default", list(default_job.keys()))
+    needs = alljobs[name].get("needs", [])
+
+    for varname in inherit_variables:
+        if varname in pipeline_variables:
+            new_obj["variables"][varname] = pipeline_variables.get(varname)
+
+
+    return new_obj
+
+
 def do_extends(alljobs: dict):
     """
     Process all the extends and !reference directives recursively
@@ -184,16 +207,32 @@ def do_extends(alljobs: dict):
     jobnames = [x for x in alljobs.keys() if x not in RESERVED_TOP_KEYS] + ["default"]
     resolved = set()
     resolved.add("default")
+    job_inherit_variables = {}
 
     while len(resolved) < len(jobnames):
         for name in jobnames:
             if name not in resolved:
                 if isinstance(alljobs[name], dict):
-                    extends = alljobs[name].get("extends", ["default"])
-                    if type(extends) == str:
-                        bases = [extends]
-                    else:
-                        bases = extends
+                    new_obj = StringableOrderedDict()
+
+                    inherit_control = alljobs[name].get("inherit", {})
+                    inherit_variables = inherit_control.get("variables", True)
+                    job_inherit_variables[name] = inherit_variables
+                    inherit_elements = inherit_control.get("default", True)
+                    bases = []
+                    if inherit_elements is True:
+                        bases = ["default"]
+                    elif len(inherit_elements):
+                        for inherit_name in inherit_elements:
+                            value = default_job.get(inherit_name, None)
+                            if value is not None:
+                                new_obj[inherit_name] = copy.deepcopy(value)
+                    extends = alljobs[name].get("extends", [])
+                    if extends:
+                        if type(extends) == str:
+                            bases.append(extends)
+                        else:
+                            bases.extend(extends)
 
                     for basename in bases:
                         if basename not in jobnames:
@@ -205,7 +244,6 @@ def do_extends(alljobs: dict):
                         continue
 
                     # do the extends work
-                    new_obj = StringableOrderedDict()
                     for base in bases + [name]:
                         baseobj = copy.deepcopy(alljobs[base])
                         for item in baseobj:
@@ -230,6 +268,15 @@ def do_extends(alljobs: dict):
         for name in alljobs:
             if name not in RESERVED_TOP_KEYS:
                 variables = alljobs[name].get("variables", {})
+                if not job_inherit_variables[name]:
+                    variables = {}
+                elif isinstance(job_inherit_variables[name], list):
+                    # inherit only some variables
+                    top_vars = alljobs.get("variables", {})
+                    for item in top_vars:
+                        if item in job_inherit_variables[name]:
+                            variables[item] = top_vars[item]
+
                 if isinstance(variables, GitlabReference):
                     ref: GitlabReference = variables
                     variables = dict(alljobs[ref.job].get(ref.element, {}))
