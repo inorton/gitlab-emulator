@@ -1,6 +1,8 @@
 """
 Preserve order of keys
 """
+import json
+
 import yaml
 from collections import OrderedDict
 from yaml.resolver import BaseResolver
@@ -9,6 +11,9 @@ from yaml.resolver import BaseResolver
 class StringableOrderedDict(OrderedDict):
     def __str__(self):
         return str(dict(self))
+
+    def __repr__(self):
+        return json.dumps(self)
 
 
 class ReferenceError(Exception):

@@ -151,10 +151,7 @@ class Job(object):
         self.script = job.get("script", [])
         all_after = config.get("after_script", [])
         self.after_script = job.get("after_script", all_after)
-        self.variables = config.get("variables", {})
-        job_vars = job.get("variables", {})
-        for varname in job_vars:
-            self.variables[varname] = job_vars[varname]
+        self.variables = job.get("variables", {})
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         needed = job.get("needs", job.get("dependencies", []))

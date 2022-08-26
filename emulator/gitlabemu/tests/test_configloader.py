@@ -8,6 +8,7 @@ import pytest
 import gitlabemu.errors
 from .. import configloader
 from .. import yamlloader
+from ..docker import DockerJob
 
 HERE = os.path.dirname(__file__)
 TOPDIR = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
@@ -74,23 +75,22 @@ def test_load_extends():
     assert "image" not in job2
     assert job2["before_script"][0] == "base2"
 
-    top = loader.get_job("top")
+    top = loader.load_job("top")
+    assert top.image == "baseimage:image"
+    assert top.before_script[0] == "middle before_script"
+    assert top.script[0] == "top script"
+    assert top.variables
+    assert "BASE" in top.variables
+    assert "COLOR" in top.variables
+    assert top.variables["BASE"] == "baseimage"
+    assert top.variables["COLOR"] == "purple"
 
-    assert top["image"] == "baseimage:image"
-    assert top["before_script"][0] == "middle before_script"
-    assert top["script"][0] == "top script"
-    assert top["variables"]
-    assert "BASE" in top["variables"]
-    assert "COLOR" in top["variables"]
-    assert top["variables"]["BASE"] == "baseimage"
-    assert top["variables"]["COLOR"] == "purple"
+    last = loader.load_job("last")
 
-    last = loader.get_job("last")
-
-    assert last["image"] == "busybox:latest"
-    assert last["after_script"] == ["echo template-basic after_script"]
-    assert last["before_script"] == top["before_script"]
-    assert last["script"] == top["script"]
+    assert last.image == "busybox:latest"
+    assert last.after_script == ["echo template-basic after_script"]
+    assert last.before_script == top.before_script
+    assert last.script == top.script
 
 
 def test_missing_extends():
@@ -114,11 +114,11 @@ def test_inherit():
     loader = configloader.Loader()
     loader.load(os.path.join(HERE, "test-inherit.yaml"))
 
-    job1 = loader.load_job("job1")
-    job2 = loader.load_job("job2")
-    job3 = loader.load_job("job3")
-    job4 = loader.load_job("job4")
-    job5 = loader.load_job("job5")
+    job1: DockerJob = loader.load_job("job1")
+    job2: DockerJob = loader.load_job("job2")
+    job3: DockerJob = loader.load_job("job3")
+    job4: DockerJob = loader.load_job("job4")
+    job5: DockerJob = loader.load_job("job5")
 
     assert job1.image == "ruby:3.0"
     assert job1.before_script == ["df -h"]
@@ -129,14 +129,15 @@ def test_inherit():
 
     assert job3.image == job2.image
     assert job3.before_script == job2.before_script
-    assert job3.variables == job2.variables
+    assert job3.variables["COLOR"] == "red"
+    assert job3.variables["SIZE"] == "big"
 
     assert "COLOR" in job4.variables
     assert "SIZE" not in job4.variables
     assert job4.before_script == ["df -h"]
-    assert job4.script == ["ls -l foo"]
+    assert job4.script == ['echo COLOR="$COLOR"', 'echo SIZE="$SIZE"']
 
-    assert "COLOR" not in job4.variables
+    assert "COLOR" not in job5.variables
     assert "SIZE" not in job5.variables
-    assert job4.before_script == ["df -h"]
-    assert job4.script == ["uname -r"]
+    assert job5.before_script == ["df -h"]
+    assert job5.script == ["echo job5 script"]

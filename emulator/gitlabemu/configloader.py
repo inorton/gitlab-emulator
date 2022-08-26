@@ -3,10 +3,11 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS
+from .helpers import stringlist_if_string
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
@@ -166,22 +167,60 @@ def validate(config):
                     raise ConfigLoaderError("artifacts->reports must be a map")
 
 
-def extend_one_job(alljobs: dict, default_job: Dict[str, Any], name: str) -> Dict[str, Any]:
+def do_single_extend_recursive(alljobs: dict, default_job: Dict[str, Any], name: str) -> Dict[str, Any]:
     """Do all the extends and !reference expansion for a single job"""
     assert name in alljobs
-    new_obj = {
-        "variables": {}
-    }
+    unextended = alljobs.get(name)
+    new_obj = copy.deepcopy(unextended)
+    default_job = copy.deepcopy(default_job)
+    if "variables" not in new_obj:
+        new_obj["variables"] = {}
     pipeline_variables = alljobs.get("variables", {})
-    inherit_control = alljobs[name].get("inherit", {})
-    inherit_variables = inherit_control.get("variables", list(pipeline_variables))
-    inherit_elements = inherit_control.get("default", list(default_job.keys()))
-    needs = alljobs[name].get("needs", [])
 
-    for varname in inherit_variables:
-        if varname in pipeline_variables:
-            new_obj["variables"][varname] = pipeline_variables.get(varname)
+    base_jobs = stringlist_if_string(unextended.get("extends", []))
 
+    for base in base_jobs:
+        if base not in alljobs:
+            raise BadSyntaxError(f"Job '{name}' extends '{base}' which does not exist")
+        if "extends" in alljobs[base]:
+            baseobj = do_single_extend_recursive(dict(alljobs), default_job, base)
+        else:
+            baseobj = copy.deepcopy(alljobs[base])
+
+        for keyname, value in baseobj.items():
+            if isinstance(value, dict):
+                # this is a hash, merge the keys and values
+                if keyname not in new_obj or not isinstance(new_obj[keyname], dict):
+                    # sometimes a string value can be replaced
+                    # with a map, eg
+                    #  image: imagename:latest  ->  image:
+                    #                                 name: imagename:latest
+                    new_obj[keyname] = StringableOrderedDict()
+                new_obj[keyname].update(value)
+            else:
+                # this is a scalar or list, copy it unless this job overrides it
+                if keyname not in unextended:
+                    new_obj[keyname] = value
+
+    inherit_control = new_obj.get("inherit", {})
+    inherit_variables = inherit_control.get("variables", list(pipeline_variables.keys()))
+    inherit_default = inherit_control.get("default", list(default_job.keys()))
+
+    if inherit_variables:  # can be False or a list
+        inheritable_variables = {}
+        for varname in inherit_variables:
+            if varname in pipeline_variables:
+                inheritable_variables[varname] = pipeline_variables[varname]
+
+        for varname, varvalue in inheritable_variables.items():
+            if varname not in new_obj["variables"]:
+                new_obj["variables"][varname] = varvalue
+
+    if inherit_default: # can be False or a list
+        for valuekey in inherit_default:
+            if valuekey not in new_obj:
+                if valuekey in default_job:
+                    new_obj[valuekey] = copy.deepcopy(default_job[valuekey])
 
     return new_obj
 
@@ -203,115 +242,55 @@ def do_extends(alljobs: dict):
         if default_services:
             alljobs["default"]["services"] = default_services
             del alljobs["services"]
+        default_job = alljobs["default"]
 
     jobnames = [x for x in alljobs.keys() if x not in RESERVED_TOP_KEYS] + ["default"]
-    resolved = set()
-    resolved.add("default")
-    job_inherit_variables = {}
 
-    while len(resolved) < len(jobnames):
-        for name in jobnames:
-            if name not in resolved:
-                if isinstance(alljobs[name], dict):
-                    new_obj = StringableOrderedDict()
+    unextended = copy.deepcopy(alljobs)
+    for name in jobnames:
+        new_job = do_single_extend_recursive(unextended, default_job, name)
+        alljobs[name] = new_job
 
-                    inherit_control = alljobs[name].get("inherit", {})
-                    inherit_variables = inherit_control.get("variables", True)
-                    job_inherit_variables[name] = inherit_variables
-                    inherit_elements = inherit_control.get("default", True)
-                    bases = []
-                    if inherit_elements is True:
-                        bases = ["default"]
-                    elif len(inherit_elements):
-                        for inherit_name in inherit_elements:
-                            value = default_job.get(inherit_name, None)
-                            if value is not None:
-                                new_obj[inherit_name] = copy.deepcopy(value)
-                    extends = alljobs[name].get("extends", [])
-                    if extends:
-                        if type(extends) == str:
-                            bases.append(extends)
+    # process !reference
+    for name in alljobs:
+        if name not in RESERVED_TOP_KEYS:
+            variables = alljobs[name].get("variables", {})
+
+            if isinstance(variables, GitlabReference):
+                ref: GitlabReference = variables
+                variables = dict(alljobs[ref.job].get(ref.element, {}))
+
+            for varname in variables:
+                if isinstance(variables[varname], GitlabReference):
+                    ref = variables[varname]
+                    # get a variable from another job
+                    if not ref.value:
+                        raise BadSyntaxError("reference {} does not specify a variable name to copy".format(ref))
+                    variables[varname] = alljobs[ref.job].get(ref.element, {})[ref.value]
+
+            for varname in variables:
+                if isinstance(variables[varname], GitlabReference):
+                    raise BadSyntaxError("Only one level of !reference is allowed")
+
+            alljobs[name]["variables"] = dict(variables)
+            for scriptpart in ["before_script", "script", "after_script"]:
+                if scriptpart in alljobs[name]:
+                    scriptlines = alljobs[name][scriptpart]
+                    newlines = []
+                    for line in scriptlines:
+                        if isinstance(line, bool):
+                            print(f"warning, line: {line} in job {name} evaluates to a yaml boolean, you probably want to quote \"true\" or \"false\"")
+                            line = str(line).lower()
+                        if isinstance(line, GitlabReference):
+                            ref: GitlabReference = line
+                            newlines.extend(alljobs[ref.job].get(ref.element, []))
                         else:
-                            bases.extend(extends)
-
-                    for basename in bases:
-                        if basename not in jobnames:
-                            raise BadSyntaxError("Job '{}' extends '{}' which does not exist".format(name, basename))
-
-                    unresolved = set([base for base in bases if base not in resolved])
-                    if unresolved:
-                        # still need to resolve one of the bases, come back later..
-                        continue
-
-                    # do the extends work
-                    for base in bases + [name]:
-                        baseobj = copy.deepcopy(alljobs[base])
-                        for item in baseobj:
-                            value = baseobj[item]
-                            if isinstance(value, dict):
-                                # this is a hash, merge the keys and values
-                                if item not in new_obj or not isinstance(new_obj[item], dict):
-                                    # sometimes a string value can be replaced
-                                    # with a map, eg
-                                    #  image: imagename:latest  ->  image:
-                                    #                                 name: imagename:latest
-                                    new_obj[item] = StringableOrderedDict()
-
-                                for keyname in value:
-                                    new_obj[item][keyname] = value[keyname]
-                            else:
-                                # this is a scalar or list, replace it
-                                new_obj[item] = value
-                    alljobs[name] = new_obj
-                    resolved.add(name)
-
-        for name in alljobs:
-            if name not in RESERVED_TOP_KEYS:
-                variables = alljobs[name].get("variables", {})
-                if not job_inherit_variables[name]:
-                    variables = {}
-                elif isinstance(job_inherit_variables[name], list):
-                    # inherit only some variables
-                    top_vars = alljobs.get("variables", {})
-                    for item in top_vars:
-                        if item in job_inherit_variables[name]:
-                            variables[item] = top_vars[item]
-
-                if isinstance(variables, GitlabReference):
-                    ref: GitlabReference = variables
-                    variables = dict(alljobs[ref.job].get(ref.element, {}))
-
-                for varname in variables:
-                    if isinstance(variables[varname], GitlabReference):
-                        ref = variables[varname]
-                        # get a variable from another job
-                        if not ref.value:
-                            raise BadSyntaxError("reference {} does not specify a variable name to copy".format(ref))
-                        variables[varname] = alljobs[ref.job].get(ref.element, {})[ref.value]
-
-                for varname in variables:
-                    if isinstance(variables[varname], GitlabReference):
-                        raise BadSyntaxError("Only one level of !reference is allowed")
-
-                alljobs[name]["variables"] = dict(variables)
-                for scriptpart in ["before_script", "script", "after_script"]:
-                    if scriptpart in alljobs[name]:
-                        scriptlines = alljobs[name][scriptpart]
-                        newlines = []
-                        for line in scriptlines:
-                            if isinstance(line, bool):
-                                print(f"warning, line: {line} in job {name} evaluates to a yaml boolean, you probably want to quote \"true\" or \"false\"")
-                                line = str(line).lower()
-                            if isinstance(line, GitlabReference):
-                                ref: GitlabReference = line
-                                newlines.extend(alljobs[ref.job].get(ref.element, []))
-                            else:
-                                newlines.append(line)
-                        # check for more than one level of nesting
-                        for line in newlines:
-                            if isinstance(line, GitlabReference):
-                                raise BadSyntaxError("Only one level of !reference is allowed")
-                        alljobs[name][scriptpart] = list(newlines)
+                            newlines.append(line)
+                    # check for more than one level of nesting
+                    for line in newlines:
+                        if isinstance(line, GitlabReference):
+                            raise BadSyntaxError("Only one level of !reference is allowed")
+                    alljobs[name][scriptpart] = list(newlines)
 
 
 def get_stages(config):
@@ -549,7 +528,7 @@ class Loader(object):
         """
         return get_job(self.config, name)
 
-    def load_job(self, name) -> "Job":
+    def load_job(self, name) -> Union["Job", "DockerJob"]:
         """Return a loaded job object"""
         return load_job(self.config, name, allow_add_variables=self.create_emulator_variables)
 

@@ -14,7 +14,7 @@ job1:
     - uname -a
 
 job2:
-  # should have no COLOR variable,
+  # should have all variables,
   # should have no before_script,
   inherit:
     default:
@@ -23,9 +23,7 @@ job2:
     - echo hello
 
 job3:
-  # should have no COLOR variable
-  # should have no before_script
-  # should have same script as job2
+  # should be functionally identical to job2
   extends:
     - job2
 
@@ -44,24 +42,4 @@ job5:
   inherit:
     variables: false
   script:
-    - echo COLOR="$COLOR"
-    - echo SIZE="$SIZE"
-
-
-job6:
-  # should have only $SIZE==small
-  # should inherit the default image and before_script
-  variables:
-    SIZE: small
-  script:
-    - echo COLOR="$COLOR"
-    - echo SIZE="$SIZE"
-
-job7:
-  # should have $SIZE==small
-  # should have $COLOR==blue
-  # should inherit the default image and before_script
-  extends:
-    - job6
-  variables:
-    COLOR: blue
+    - echo job5 script
