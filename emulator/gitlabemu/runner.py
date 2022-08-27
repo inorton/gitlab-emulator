@@ -123,9 +123,11 @@ def apply_user_config(loader: configloader.Loader, is_docker: bool):
     :return:
     """
     ctx: UserContext = get_user_config_context()
+    if ".gle-extra_variables" not in loader.config:
+        loader.config[".gle-extra_variables"] = {}
 
     for name in ctx.variables:
-        loader.config["variables"][name] = ctx.variables[name]
+        loader.config[".gle-extra_variables"][name] = ctx.variables[name]
 
     if is_docker:
         jobvars = ctx.docker.variables
@@ -133,7 +135,7 @@ def apply_user_config(loader: configloader.Loader, is_docker: bool):
         jobvars = ctx.local.variables
 
     for name in jobvars:
-        loader.config["variables"][name] = jobvars[name]
+        loader.config[".gle-extra_variables"][name] = jobvars[name]
 
 
 def execute_job(config, jobname, seen=None, recurse=False):
@@ -282,8 +284,8 @@ def run(args=None):
     fullpath = os.path.abspath(yamlfile)
     rootdir = os.path.dirname(fullpath)
     os.chdir(rootdir)
+    hide_dot_jobs = not options.hidden
     try:
-        hide_dot_jobs = not options.hidden
         if options.pipeline or options.FROM:
             loader = configloader.Loader(emulator_variables=False)
             loader.load(fullpath)
@@ -368,7 +370,7 @@ def run(args=None):
             patt = re.compile(item)
             for name in os.environ:
                 if patt.search(name):
-                    loader.config["variables"][name] = os.environ.get(name)
+                    loader.config[".gle-extra_variables"][name] = os.environ.get(name)
 
         for item in options.var:
             var = item.split("=", 1)
@@ -379,7 +381,7 @@ def run(args=None):
                 value = os.environ.get(name, None)
 
             if value is not None:
-                loader.config["variables"][name] = value
+                loader.config[".gle-extra_variables"][name] = value
 
         if options.enter_shell:
             if options.FULL:

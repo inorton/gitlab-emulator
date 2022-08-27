@@ -159,9 +159,12 @@ runner-python3-linux-test:
     - cd runner
     - pip install -e .
     - gitlab-runner.py --help
-    - python3 -m pytest .
+    - python3 -m pytest . --junitxml=test-results.xml
     - python3 -m build
   artifacts:
+    paths:
+      - runner/test-results.xml
+      - runner/dist/*.whl
     reports:
       junit:
         - runner/test-results.xml

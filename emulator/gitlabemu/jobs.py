@@ -46,6 +46,7 @@ class Job(object):
         self.tags = []
         self.stage = "test"
         self.variables = {}
+        self.extra_variables = {}
         self.allow_add_variables = True
         self.dependencies = []
         self.needed_artifacts = []
@@ -151,10 +152,8 @@ class Job(object):
         self.script = job.get("script", [])
         all_after = config.get("after_script", [])
         self.after_script = job.get("after_script", all_after)
-        self.variables = config.get("variables", {})
-        job_vars = job.get("variables", {})
-        for varname in job_vars:
-            self.variables[varname] = job_vars[varname]
+        self.variables = job.get("variables", {})
+        self.extra_variables = config.get(".gle-extra_variables", {})
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         needed = job.get("needs", job.get("dependencies", []))
@@ -193,7 +192,7 @@ class Job(object):
 
     def configure_job_variable(self, name, value):
         """
-        Set job variable defaults. If the variable is not present in self.variables, set it to the given value. If the variable is present in os.environ, use that value instead
+        Set job variable defaults. If the variable is not present in self.extra_variables, set it to the given value. If the variable is present in os.environ, use that value instead
         :return:
         """
         if not self.allow_add_variables:
@@ -204,10 +203,10 @@ class Job(object):
         value = str(value)
 
         # set job related env vars
-        if name not in self.variables:
+        if name not in self.extra_variables:
             if name in os.environ:
                 value = os.environ[name]  # prefer env variables if set
-            self.variables[name] = value
+            self.extra_variables[name] = value
 
     def abort(self):
         """
@@ -261,6 +260,8 @@ class Job(object):
             if value is None:
                 value = ""
             envs[name] = str(value)
+        for name in self.extra_variables:
+            envs[name] = self.extra_variables[name]
         return envs
 
     def get_script_fileext(self):

@@ -1,0 +1,4 @@
+job:
+  image: alpine:latest
+  before_script:
+    - echo hello

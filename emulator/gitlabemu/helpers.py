@@ -7,7 +7,7 @@ import sys
 import re
 import platform
 import subprocess
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 from .errors import DockerExecError
 from .resnamer import resource_owner_alive, is_gle_resource
@@ -398,3 +398,10 @@ def git_top_level(repo: str) -> str:
 
 def git_push_force_upstream(repo: str, remote: str, branch: str):  # pragma: no cover
     subprocess.check_call(["git", "-C", repo, "push", "--force", "-q", "--set-upstream", remote, branch])
+
+
+def stringlist_if_string(value: Union[str, list]) -> list:
+    """If value is a string, return a one element list, else return value"""
+    if isinstance(value, str):
+        return [value]
+    return value

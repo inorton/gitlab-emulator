@@ -3,10 +3,14 @@ include:
 
 .base1:
   image: base1:image
+  script:
+    - base1 script
 
 .base2:
   before_script:
     - base2
+  script:
+    - base2 script
 
 job1:
   extends:
@@ -20,6 +24,8 @@ baseimage:
   image: baseimage:image
   variables:
     BASE: baseimage
+  script:
+    - baseimage script
 
 basebefore:
   variables:
