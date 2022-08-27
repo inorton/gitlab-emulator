@@ -25,6 +25,23 @@ class GenericContainerSpec(ToDict):
         }
 
 
+class GenericContainerServiceSpec(GenericContainerSpec):
+    def __init__(self):
+        super(GenericContainerServiceSpec, self).__init__()
+        self.alias: Optional[str] = None
+        self.command: List[str] = []
+        self.variables: Dict[str, str] = {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        basedata = super(GenericContainerServiceSpec, self).to_dict()
+        basedata.update({
+            "alias": self.alias,
+            "command": self.command,
+            "variables": self.variables
+        })
+        return basedata
+
+
 class GenericDependency(ToDict):
     def __init__(self):
         self.job: str = ""
@@ -60,6 +77,7 @@ class GenericJob(ToDict):
             "set_variables": self.set_variables,
             "machine_tags": self.machine_tags,
             "container": self.container.to_dict(),
+            "services": [x.to_dict() for x in self.services],
             "job_script": {
                 "lines": self.job_script_lines,
                 "exit_on_nonzero": True,
@@ -80,6 +98,7 @@ class GenericJob(ToDict):
         self.machine_tags: List[str] = []
         self.set_variables: Dict[str, str] = {}
         self.container: GenericContainerSpec = GenericContainerSpec()
+        self.services: List[GenericContainerServiceSpec] = []
         self.job_script_lines: List[str] = []
         self.finally_script_lines: List[str] = []
         self.artifacts: GenericArtifacts = GenericArtifacts()
@@ -119,4 +138,10 @@ class GenericJob(ToDict):
             else:
                 self.container.image = image["name"]
                 self.container.entrypoint = image.get("entrypoint", [])
-
+            if job.services:
+                for service in job.services:
+                    svc = GenericContainerServiceSpec()
+                    svc.variables.update(self.set_variables)
+                    svc.image = service.get("name")
+                    svc.alias = service.get("alias", None)
+                    self.services.append(svc)
