@@ -1,5 +1,6 @@
 """Mock the GitlabAPI using requests-mock"""
 import abc
+import json
 import os
 import random
 import urllib.parse
@@ -166,6 +167,11 @@ class Project(MockedIDPathResource):
         ]:
             self.mocks.append(self.mocker.get(url, json=self.list_callback))
 
+        create_pipeline_url = f"{self.server.url}/api/v4/projects/{self.id}/pipeline"
+        self.mocks.append(
+            self.mocker.post(create_pipeline_url, json=self.create_pipeline_callback)
+        )
+
     @property
     def group(self) -> Group:
         return cast(Group, self.parent)
@@ -195,6 +201,20 @@ class Project(MockedIDPathResource):
         context.status_code = 200
         context.headers["content-type"] = "application/json"
         return [x.json() for x in self.pipelines]
+
+    def create_pipeline_callback(self, request, context):
+        context.status_code = 200
+        context.headers["content-type"] = "application/json"
+        req = json.loads(request.text)
+        newid = random.randint(2000, 4000)
+        return {
+            "id": newid,
+            "iid": random.randint(2000, 4000),
+            "project_id": self.id,
+            "ref": req["ref"],
+            "sha": "ab" * 20,
+            "web_url": f"{self.server.url}/{self.path_with_namespace}/pipelines/{newid}"
+        }
 
     def json(self):
         return {

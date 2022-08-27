@@ -9,6 +9,7 @@ from requests_mock import Mocker
 
 from ..jobs import NoSuchJob
 from ..runner import run, do_pipeline
+from ..glp.tool import run as glp_run
 from ..configloader import Loader
 from ..generator import generate_pipeline_yaml, create_pipeline_branch
 from ..helpers import git_commit_sha
@@ -154,3 +155,18 @@ def test_mocked_branch_creation(tmp_path, mocker):
     assert commit
     assert restored_commit == initial_commit
     assert commit != restored_commit
+
+
+def test_mocked_generate_pipeline(top_dir: str,
+                                  mocker,
+                                  requests_mock: Mocker,
+                                  capfd: pytest.CaptureFixture):
+    pipeline, project = mock_project_pipeline(requests_mock)
+    mock_git_origin(mocker, project)
+    os.chdir(top_dir)
+    glp_run(["build"])
+    stdout, stderr = capfd.readouterr()
+    assert "Creating pipeline for " in stderr
+    assert "Created pipeline " in stderr
+
+    glp_run(["subset", "quick"])
