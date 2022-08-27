@@ -24,9 +24,9 @@ def test_help(capsys):
         run(["--help"])
     stdout, _ = capsys.readouterr()
     assert "Gitlab Pipeline Tool" in stdout
-    assert "{build,cancel,export,jobs,list,subset}" in stdout
+    assert "{build,cancel,dump,export,jobs,list,subset}" in stdout
 
-    for cmd in ["build", "list", "cancel", "export", "jobs", "subset"]:
+    for cmd in ["build", "list", "cancel", "dump", "export", "jobs", "subset"]:
         with pytest.raises(SystemExit):
             run([cmd, "--help"])
 
