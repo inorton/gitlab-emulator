@@ -169,4 +169,11 @@ def test_mocked_generate_pipeline(top_dir: str,
     assert "Creating pipeline for " in stderr
     assert "Created pipeline " in stderr
 
+    # try a subset
+    create_pb = mocker.patch("gitlabemu.pipelines.create_pipeline_branch", autospec=True, return_value="aa" * 20)
+    waiter = mocker.patch("gitlabemu.pipelines.wait_for_project_commit_pipeline", autospec=True)
     glp_run(["subset", "quick"])
+    stdout, stderr = capfd.readouterr()
+    assert "Generate subset pipeline to build '('quick',)'.." in stderr
+    assert "Creating temporary pipeline branch 'temp/mock_user" in stderr
+    assert "Waiting for new pipeline to start" in stderr
