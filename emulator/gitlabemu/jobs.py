@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from typing import Optional
 
 from .artifacts import GitlabArtifacts
 from .logmsg import info, fatal
@@ -52,6 +53,7 @@ class Job(object):
         self.needed_artifacts = []
         self.artifacts = GitlabArtifacts()
         self._shell = None
+        self._parallel = None
 
         if is_windows():  # pragma: linux no cover
             self._shell = "powershell"
@@ -131,6 +133,10 @@ class Job(object):
             interp = "/bin/bash"
         return [interp, scriptfile]
 
+    @property
+    def parallel(self) -> Optional[int]:
+        return self._parallel
+
     def load(self, name, config):
         """
         Load a job from a dictionary
@@ -175,6 +181,7 @@ class Job(object):
 
         jobname = self.name
         parallel = config[self.name].get("parallel", None)
+        self._parallel = parallel
         if parallel is not None:
             pindex = config.get(".gitlabemu-parallel-index", 1)
             ptotal = config.get(".gitlabemu-parallel-total", 1)

@@ -7,6 +7,7 @@ from typing import Optional, List
 from .subcommand import ArgumentParserEx
 from .buildtool import BuildCommand
 from .canceltool import CancelCommand
+from .dumptool import DumpCommand
 from .exporttool import ExportCommand
 from .jobstool import JobListCommand
 from .listtool import ListCommand
@@ -34,6 +35,7 @@ parser.add_argument("--insecure", "-k", dest="tls_verify",
                     help="Turn off SSL/TLS cert validation")
 parser.add_subcommand(BuildCommand())
 parser.add_subcommand(CancelCommand())
+parser.add_subcommand(DumpCommand())
 parser.add_subcommand(ExportCommand())
 parser.add_subcommand(JobListCommand())
 parser.add_subcommand(ListCommand())
