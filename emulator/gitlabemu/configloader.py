@@ -6,7 +6,7 @@ import copy
 from typing import Dict, Any, Union
 
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
-from .gitlab.types import RESERVED_TOP_KEYS
+from .gitlab.types import RESERVED_TOP_KEYS, DEFAULT_JOB_KEYS
 from .helpers import stringlist_if_string
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
@@ -264,6 +264,11 @@ def do_extends(alljobs: dict):
 
     unextended = copy.deepcopy(alljobs)
     for name in jobnames:
+        if name == "default":
+            unexpected_keys = [x for x in alljobs["default"].keys() if x in DEFAULT_JOB_KEYS]
+            if unexpected_keys:
+                raise BadSyntaxError(f"default config contains unknown keys: {unexpected_keys}")
+            continue
         new_job = do_single_extend_recursive(unextended, default_job, name)
         alljobs[name] = new_job
 
@@ -288,7 +293,8 @@ def do_extends(alljobs: dict):
                 if isinstance(variables[varname], GitlabReference):
                     raise BadSyntaxError("Only one level of !reference is allowed")
 
-            alljobs[name]["variables"] = dict(variables)
+            if name != "default":
+                alljobs[name]["variables"] = dict(variables)
             for scriptpart in ["before_script", "script", "after_script"]:
                 if scriptpart in alljobs[name]:
                     scriptlines = alljobs[name][scriptpart]

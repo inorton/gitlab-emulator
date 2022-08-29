@@ -182,3 +182,16 @@ RESERVED_TOP_KEYS = ["stages",
                      "default",
                      ".gitlab-emulator-workspace"
                      ]
+
+DEFAULT_JOB_KEYS = [
+    "after_script",
+    "artifacts",
+    "before_script",
+    "cache",
+    "image",
+    "interruptible",
+    "retry",
+    "services",
+    "tags",
+    "timeout",
+]
