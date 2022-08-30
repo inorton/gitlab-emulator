@@ -265,7 +265,7 @@ def do_extends(alljobs: dict):
     unextended = copy.deepcopy(alljobs)
     for name in jobnames:
         if name == "default":
-            unexpected_keys = [x for x in alljobs["default"].keys() if x in DEFAULT_JOB_KEYS]
+            unexpected_keys = [x for x in alljobs["default"].keys() if x not in DEFAULT_JOB_KEYS]
             if unexpected_keys:
                 raise BadSyntaxError(f"default config contains unknown keys: {unexpected_keys}")
             continue
