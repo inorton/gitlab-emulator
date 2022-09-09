@@ -63,6 +63,8 @@ def pipelines_cmd(tls_verify: Optional[bool] = True,
             print(f"{'# ID':<12} {'Status':<8} {'Commit':<40} Git Ref", flush=True)
         while seen < limit:
             pipes = project.pipelines.list(sort="desc", order_by="updated_at", page=page, per_page=pagesize, **matchers)
+            if not pipes:
+                break
             for pipe in pipes:
                 if seen >= limit:
                     break
@@ -168,7 +170,7 @@ def generate_pipeline(loader, *goals,
     for varname in variables:
         generated["variables"][varname] = variables[varname]
 
-    branch_name = f"temp/{client.user.username}/{git_current_branch(cwd)}"
+    branch_name = generate_subset_branch_name(client, cwd)
     note(f"Creating temporary pipeline branch '{branch_name}'..")
     commit = create_pipeline_branch(cwd,
                                     remotename,
@@ -189,6 +191,15 @@ def generate_pipeline(loader, *goals,
     else:
         die("Could not make a custom pipeline branch, "
             "please make sure your local changes are committed first")
+
+
+def get_subset_prefix() -> str:
+    return "temp/"
+
+def generate_subset_branch_name(client, cwd):
+    """Get the subset name of the current branch"""
+    branch_name = f"{get_subset_prefix()}{client.user.username}/{git_current_branch(cwd)}"
+    return branch_name
 
 
 def export_cmd(pipeline: str, outdir: str, *jobs, tls_verify: Optional[bool] = True, exec_export: Optional[List[str]] = None):

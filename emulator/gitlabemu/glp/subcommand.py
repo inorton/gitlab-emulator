@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from typing import Optional
-from .types import Match
+from .types import Match, RefMatch
 
 
 class ArgumentParserEx(ArgumentParser):
@@ -55,10 +55,17 @@ class Command(ABC):
 class MatcherCommand(Command, ABC):
     def setup(self, parser: ArgumentParser) -> None:
         parser.add_argument("--match",
+                            dest="match",
                             type=Match,
                             action="append",
                             default=[],
                             help="Filter pipelines by status/ref")
+        parser.add_argument("--ref",
+                            metavar="REFERENCE",
+                            dest="match",
+                            type=RefMatch,
+                            action="append",
+                            help="Filter pipelines by ref (shortcut for --match ref=REFERENCE")
         parser.add_argument("--limit",
                             type=int,
                             default=10,
