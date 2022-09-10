@@ -1,18 +1,22 @@
 """Generate partial gitlab pipelines using temporary branches"""
 import os
 from argparse import ArgumentParser, Namespace
-from .subcommand import Command
+
+from .subcommand import Command, MatcherCommand
 from .types import NameValuePair
 from .. import configloader
-from ..pipelines import generate_pipeline
+from ..gitlab_client_api import get_current_project_client
+from ..helpers import die
+from ..pipelines import generate_pipeline, generate_subset_branch_name, get_subset_prefix, pipelines_cmd
 
 
-class SubsetCommand(Command):
+class SubsetCommand(MatcherCommand):
     name = "subset"
     description = __doc__
 
     def setup(self, parser: ArgumentParser) -> None:
-        parser.add_argument("JOB", nargs="+",
+        super(SubsetCommand, self).setup(parser)
+        parser.add_argument("JOB", nargs="*",
                             type=str,
                             default=[],
                             help="Generate a temporary pipeline including JOB (may be repeated)")
@@ -28,17 +32,68 @@ class SubsetCommand(Command):
                             type=str,
                             metavar="PIPELINE",
                             help="Re-use artifacts from a pipeline")
+        parser.add_argument("--branches",
+                            default=False, action="store_true",
+                            help="List subset branch names (see also --match)")
+        parser.add_argument("--clean",
+                            default=False, action="store_true",
+                            help="Delete leftover subset branches from the gitlab repo")
 
     def run(self, opts: Namespace):
-        vars = {}
+        variables = {}
         for item in opts.variables:
-            vars[item.name] = item.value
+            variables[item.name] = item.value
         jobs = opts.JOB
-        fullpath = os.path.abspath(configloader.find_ci_config(os.getcwd()))
-        loader = configloader.Loader(emulator_variables=False)
-        loader.load(fullpath)
+        # only allow clean if there are no jobs
+        if jobs:
+            if opts.clean or opts.match:
+                die("Cannot --clean or --match and run a build at the same time")
+        else:
+            if opts.FROM:
+                die("--from requires one or more jobs")
 
-        # generate a subset pipeline
-        generate_pipeline(loader, *jobs, variables=vars,
-                          use_from=opts.FROM,
-                          tls_verify=opts.tls_verify)
+        if len(jobs):
+            fullpath = os.path.abspath(configloader.find_ci_config(os.getcwd()))
+            loader = configloader.Loader(emulator_variables=False)
+            loader.load(fullpath)
+            # generate a subset pipeline
+            generate_pipeline(loader, *jobs, variables=variables,
+                              use_from=opts.FROM,
+                              tls_verify=opts.tls_verify)
+        else:
+            client, project, remotename = get_current_project_client(tls_verify=opts.tls_verify)
+
+            reference = generate_subset_branch_name(client, os.getcwd())
+            match = {}
+            if opts.match:
+                if opts.match[0].name == "ref":
+                    reference = f"{get_subset_prefix()}{opts.match[0].value}"
+            match["ref"] = reference
+            if opts.clean or opts.branches:
+                search = f"^{reference}"
+                if opts.branches:
+                    # search for all subsets
+                    search = f"^{get_subset_prefix()}"
+                branches = project.branches.list(search=search, all=True)
+                if search:
+                    if not opts.branches:
+                        branches = [x for x in branches if x.name == reference]
+                branches = [x for x in branches if x.commit.get("title", "").startswith("subset pipeline for ")]
+                if opts.clean:
+                    for branch in branches:
+                        # if the branch isn't running
+                        pipelines = project.pipelines.list(ref=branch.commit.get("id"), all=True)
+                        if not pipelines:
+                            print(f"Deleting branch: {branch.name} ", flush=True)
+                            branch.delete()
+                        else:
+                            print(f"Not cleaning, branch '{branch.name}' is currently running a pipeline")
+                else:
+                    for branch in branches:
+                        print(branch.name)
+            else:
+                # print pipelines for this branch:
+                pipelines_cmd(tls_verify=opts.tls_verify,
+                              matchers=match,
+                              limit=opts.limit,
+                              do_list=True)

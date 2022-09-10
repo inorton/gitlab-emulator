@@ -24,3 +24,8 @@ class Match(NameValuePair):
         super(Match, self).__init__(text)
         if self.name not in self.NAMES:
             raise ArgumentTypeError(f"'{self.name}' is not one of {self.NAMES}")
+
+
+class RefMatch(Match):
+    def __init__(self, text: str):
+        super(RefMatch, self).__init__(f"ref={text}")
