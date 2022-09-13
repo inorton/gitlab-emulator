@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -162,14 +163,13 @@ class DockerTool(object):
 
         if pipe:
             proc = subprocess.Popen(cmdline,
-                                    cwd=cwd,
                                     shell=False,
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
             return proc
         else:
-            return subprocess.call(cmdline, cwd=cwd, shell=False)
+            return subprocess.call(cmdline, shell=False)
 
 
 class DockerJob(Job):
@@ -183,6 +183,15 @@ class DockerJob(Job):
         self.container = None
         self.entrypoint = None
         self.docker = DockerTool()
+
+    @property
+    def inside_workspace(self) -> str:
+        if is_windows():
+            # if the workspace is not on c:, map it to a c: location in the container
+            if not self.workspace.lower().startswith("c:"):
+                basename = os.path.basename(self.workspace)
+                return f"c:\\b\\{basename}"
+        return self.workspace
 
     def load(self, name, config):
         super(DockerJob, self).load(name, config)
@@ -242,7 +251,7 @@ class DockerJob(Job):
             while attempts > 0:
                 try:
                     cmdline = self.shell_command(target_script)
-                    task = self.docker.exec(self.workspace, cmdline, user=user)
+                    task = self.docker.exec(self.inside_workspace, cmdline, user=user)
                     self.communicate(task, script=None)
                     break
                 except DockerExecError:
@@ -282,7 +291,7 @@ class DockerJob(Job):
         """
         if not is_windows():
             try:
-                self.docker.check_call(self.workspace, ["which", "bash"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self.docker.check_call(self.inside_workspace, ["which", "bash"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 return True
             except subprocess.CalledProcessError:
                 pass
@@ -330,7 +339,7 @@ class DockerJob(Job):
         try:
             tty = sys.stdin.isatty()
             if not run_before:
-                self.docker.exec(self.workspace, cmdline, tty=tty, user=uid, pipe=False)
+                self.docker.exec(self.inside_workspace, cmdline, tty=tty, user=uid, pipe=False)
             else:
                 print("Running before_script..", flush=True)
                 # create the before script, copy it to the container and run it
@@ -339,7 +348,7 @@ class DockerJob(Job):
                     script.write(make_script(self.before_script + cmdline))
                 try:
                     self.docker.add_file(script_file, script_file)
-                    self.docker.exec(self.workspace, ["/bin/sh", script_file], tty=tty, user=uid, pipe=False)
+                    self.docker.exec(self.inside_workspace, ["/bin/sh", script_file], tty=tty, user=uid, pipe=False)
                 finally:
                     os.unlink(script_file)
 
@@ -385,7 +394,7 @@ class DockerJob(Job):
                 for item in volumes:
                     info("- {}".format(item))
 
-            self.docker.volumes = volumes + ["{}:{}".format(self.workspace, self.workspace)]
+            self.docker.volumes = volumes + [f"{self.workspace}:{self.inside_workspace}:rw"]
 
             self.docker.run()
 
