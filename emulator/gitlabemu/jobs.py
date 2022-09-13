@@ -54,7 +54,7 @@ class Job(object):
         self.artifacts = GitlabArtifacts()
         self._shell = None
         self._parallel = None
-
+        self._config = None
         if is_windows():  # pragma: linux no cover
             self._shell = "powershell"
         else:
@@ -177,14 +177,24 @@ class Job(object):
         if "timeout" in config[self.name]:
             self.timeout_seconds = parse_timeout(config[self.name].get("timeout"))
 
-        self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
-
-        jobname = self.name
         parallel = config[self.name].get("parallel", None)
         self._parallel = parallel
-        if parallel is not None:
-            pindex = config.get(".gitlabemu-parallel-index", 1)
-            ptotal = config.get(".gitlabemu-parallel-total", 1)
+        self._config = dict(config)
+        self.set_job_variables()
+        self.artifacts.load(job.get("artifacts", {}))
+
+    def get_config(self, name: str):
+        return self._config.get(name)
+
+    def set_job_variables(self):
+        self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
+        self.configure_job_variable("CI_CONFIG_PATH", self.get_config("ci_config_file"))
+        self.configure_job_variable("CI_PROJECT_DIR", self.workspace)
+        self.configure_job_variable("CI_BUILDS_DIR", os.path.dirname(self.workspace))
+        jobname = self.name
+        if self._parallel is not None:
+            pindex = self._config.get(".gitlabemu-parallel-index", 1)
+            ptotal = self._config.get(".gitlabemu-parallel-total", 1)
             # set 1 parallel job
             jobname += " {}/{}".format(pindex, ptotal)
             self.configure_job_variable("CI_NODE_INDEX", str(pindex))
@@ -194,8 +204,6 @@ class Job(object):
         self.configure_job_variable("CI_JOB_STAGE", self.stage)
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
         self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
-
-        self.artifacts.load(job.get("artifacts", {}))
 
     def configure_job_variable(self, name, value):
         """

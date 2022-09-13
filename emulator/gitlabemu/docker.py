@@ -188,20 +188,31 @@ class DockerJob(Job):
     def inside_workspace(self) -> str:
         if is_windows():
             # if the workspace is not on c:, map it to a c: location in the container
-            if not self.workspace.lower().startswith("c:"):
-                basename = os.path.basename(self.workspace)
-                return f"c:\\b\\{basename}"
+            # or if the path is quite long
+            if not self.workspace.lower().startswith("c:") or len(self.workspace) > 32:
+                return f"c:\\b\\{os.path.basename(self.workspace)[:14]}"
+        else:
+            if len(self.workspace) > 80:
+                # truncate really long paths even on linux
+                return f"/b/{os.path.basename(self.workspace)[:64]}"
+
         return self.workspace
 
     def load(self, name, config):
         super(DockerJob, self).load(name, config)
         all_images = config.get("image", None)
         self.image = config[name].get("image", all_images)
+        self.services = get_services(config, name)
+
+    def set_job_variables(self):
+        super(DockerJob, self).set_job_variables()
         image_source = self.image
         if isinstance(self.image, dict):
             image_source = self.image.get("name")
         self.configure_job_variable("CI_JOB_IMAGE", image_source)
-        self.services = get_services(config, name)
+        self.configure_job_variable("CI_DISPOSABLE_ENVIRONMENT", "true")
+        self.configure_job_variable("CI_PROJECT_DIR", self.inside_workspace)
+        self.configure_job_variable("CI_BUILDS_DIR", os.path.dirname(self.inside_workspace))
 
     def abort(self):
         """
