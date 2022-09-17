@@ -8,6 +8,9 @@ start2:
     - start1
   script:
     - echo stageless-start-2
+  artifacts:
+    paths:
+      - file.txt
 
 middle:
   needs:

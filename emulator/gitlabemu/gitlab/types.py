@@ -5,7 +5,7 @@ See https://gitlab.com/gitlab-org/gitlab-runner/-/blob/main/common/network.go fo
 """
 from typing import List, Optional
 
-
+# pragma: no-cover
 class GitlabType:
     """
     Base class for gitlab response types.
@@ -160,7 +160,7 @@ class IncludeFile(GitlabType):
     def from_value(cls, value):
         result = None
         if value:
-            result = IncludeFile()
+            result = cls()
             if isinstance(value, dict):
                 result.from_dict(value)
             if isinstance(value, str):
