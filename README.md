@@ -16,7 +16,7 @@ Supported Gitlab v14.1 (and earlier) features:
 
 Requirements:
 
- * Python 3.7 or later (preferrably 3.8+)
+ * Python 3.8 or later (preferrably 3.8+)
  * requests
  * pyyaml
 

@@ -43,7 +43,7 @@ emulator-linux-ubuntu2204-install:
 
 emulator-linux-test_py3.8:
   image:
-    name: docker:stable-dind
+    name: docker:19.03.12-dind
     entrypoint: [""]
   stage: build
   coverage: '/Total coverage: \d+\.\d+%/'

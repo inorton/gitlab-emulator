@@ -8,7 +8,7 @@ def test_load_expected(top_dir):
     yamlfile = os.path.join(top_dir, ".gitlab-ci.yml")
     loader.load(yamlfile)
 
-    job = loader.load_job("emulator-linux-test")
+    job = loader.load_job("emulator-linux-test_py3.10")
     assert job.artifacts
     assert job.artifacts.when == "always"
     assert job.artifacts.paths == []
