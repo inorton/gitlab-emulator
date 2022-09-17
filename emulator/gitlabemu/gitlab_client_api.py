@@ -542,6 +542,6 @@ def get_current_project_client(tls_verify: Optional[bool] = True,
         die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
 
     if need_remote:
-        if not remotename:
+        if not remotename:  # pragma: no-cover
             die("Could not find a gitlab configuration that matches any of our git remotes")
     return client, project, remotename

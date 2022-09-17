@@ -40,9 +40,10 @@ emulator-linux-ubuntu2204-install:
     - emulator-linux-ubuntu1804-install
   image: ubuntu:22.04
 
-emulator-linux-test:
+
+emulator-linux-test_py3.8:
   image:
-    name: docker:stable-dind
+    name: docker:19.03.12-dind
     entrypoint: [""]
   stage: build
   coverage: '/Total coverage: \d+\.\d+%/'
@@ -68,6 +69,12 @@ emulator-linux-test:
       coverage_report:
         coverage_format: cobertura
         path: emulator/pytest-coverage.xml
+
+emulator-linux-test_py3.10:
+  extends: emulator-linux-test_py3.8
+  image:
+    name: docker:20.10.18-dind-alpine3.16
+    entrypoint: [ "" ]
 
 
 emulator-apple-test:
@@ -235,7 +242,7 @@ from-gitlab-list:
   stage: last
   image: python:3.7
   needs:
-    - job: emulator-linux-test
+    - job: emulator-linux-test_py3.10
       artifacts: false
   before_script:
     - python3 -m venv /tmp/venv
@@ -249,7 +256,7 @@ from-gitlab-export:
   stage: last
   image: python:3.7
   needs:
-    - job: emulator-linux-test
+    - job: emulator-linux-test_py3.10
       artifacts: false
   before_script:
     - python3 -m venv /tmp/venv
