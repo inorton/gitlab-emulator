@@ -389,6 +389,7 @@ def run(args=None):
         loader.config["enter_shell"] = options.enter_shell
         loader.config["before_script_enter_shell"] = options.before_script_enter_shell
         loader.config["shell_is_user"] = options.shell_is_user
+        loader.config["ci_config_file"] = os.path.relpath(fullpath, rootdir)
 
         if options.before_script_enter_shell and is_windows():  # pragma: no cover
             die("--before-script is not yet supported on windows")

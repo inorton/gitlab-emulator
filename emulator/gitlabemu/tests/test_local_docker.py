@@ -10,6 +10,8 @@ import pytest
 import uuid
 import os
 
+from pytest_mock import MockerFixture
+
 from ..helpers import ProcessLineProxyThread
 from ..runner import run
 from ..errors import DockerExecError
@@ -50,6 +52,25 @@ def test_variables_var(linux_docker, capsys):
     assert "TOPGUN=F14" not in out
     assert f"TOPGUN_MAV=I feel the need..." in out
     assert f"TOPGUN_GOOSE=... the need for speed!" in out
+
+
+@pytest.mark.usefixtures("linux_only")
+def test_job_workspace_longpath():
+    job = DockerJob()
+    job.workspace = "/foo/bar/baz"
+
+    assert job.inside_workspace == "/foo/bar/baz"
+
+    # check large paths get shortened
+    job.workspace = "/foo/" + str(uuid.uuid4()) * 3 + "/bar"
+
+    assert job.inside_workspace == "/b/bar"
+
+def test_job_workspace_non_c_path(mocker: MockerFixture):
+    job = DockerJob()
+    job.workspace = "f:\\git\\work"
+    mocker.patch("gitlabemu.docker.is_windows", return_value=True)
+    assert job.inside_workspace == "c:\\b\\work"
 
 
 def test_self(linux_docker, capsys):
