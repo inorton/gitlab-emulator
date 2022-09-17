@@ -17,7 +17,7 @@ def test_help(capsys):
         run()
     assert err.value.code != 0
     _, stderr = capsys.readouterr()
-    assert "error: invalid choice" in stderr
+    assert "invalid choice" in stderr
     assert "usage:" in stderr
 
     with pytest.raises(SystemExit):
