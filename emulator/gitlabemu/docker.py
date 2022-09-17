@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -187,10 +186,12 @@ class DockerJob(Job):
     @property
     def inside_workspace(self) -> str:
         if is_windows():
+            import ntpath
             # if the workspace is not on c:, map it to a c: location in the container
             # or if the path is quite long
             if not self.workspace.lower().startswith("c:") or len(self.workspace) > 32:
-                return f"c:\\b\\{os.path.basename(self.workspace)[:14]}"
+                basedir = ntpath.basename(self.workspace)
+                return f"c:\\b\\{basedir}"[:14]
         else:
             if len(self.workspace) > 80:
                 # truncate really long paths even on linux
@@ -343,6 +344,7 @@ class DockerJob(Job):
                 image_base = image_base.split("/")[-1].split("@")[0]
             self.docker.add_env("PS1", f"{cmdline} `whoami`@{image_base}:$PWD $ ")
         else:
+            # pragma: linux no cover
             # make interactive shells work on windows
             uid = ""
 
