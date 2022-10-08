@@ -1,0 +1,5 @@
+optional-job:
+  image: alpine:3.14
+  stage: test
+  script:
+    - df -h

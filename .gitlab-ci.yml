@@ -1,6 +1,10 @@
 include:
   - local: ci-includes/alpine-image.yml
   - local: ci-includes/subdir/jobs.yml
+  - local: ci-includes/optional.yml
+    rules:
+      - if: $INCLUDE_OPTIONAL == "true"
+
 
 variables:
   DOCKER_TLS_CERTDIR: ""
