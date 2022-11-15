@@ -137,6 +137,9 @@ class ParserStateText(ParserState):
                     if char == quoted:
                         # end quote (also end of token)
                         token.complete = True
+                        # now strip the quotes if they are not regex marks
+                        if char != "/":
+                            token.value = token.value[1:-1]
                         break
                 elif char == ")":
                     token.complete = True
