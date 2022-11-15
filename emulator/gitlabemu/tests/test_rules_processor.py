@@ -179,3 +179,20 @@ def test_simple_eval_cmp():
 
     result = rule.evaluate({"COLOR": "blue"})
     assert result
+
+
+def test_logical_eval():
+    text = '$COLOR == "blue" || $COLOR == "red"'
+    tokens = lexer.Parser().parse(text)
+    rule = syntax.Rule(text, tokens)
+    result = rule.evaluate({})
+    assert not result
+
+    result = rule.evaluate({"COLOR": "green"})
+    assert not result
+
+    result = rule.evaluate({"COLOR": "red"})
+    assert result
+
+    result = rule.evaluate({"COLOR": "blue"})
+    assert result

@@ -231,6 +231,12 @@ class Rule:
                 return match is None
             elif rhs != "":
                 raise SyntaxError(f"variable {expr.right.value} expanded to an invalid regex '{rhs}' at offset {expr.right.pos}")
+        elif expr.op in ["||", "&&"]:
+            lhs = self.evaluate_expr(expr.left, variables)
+            rhs = self.evaluate_expr(expr.right, variables)
+            if expr.op == "&&":
+                return lhs and rhs
+            return lhs or rhs
 
         return False
 
