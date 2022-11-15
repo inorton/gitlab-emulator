@@ -147,7 +147,8 @@ class Rule:
         self.text = text
         self.tokens: List[Token] = list(tokens)
         # parse the tokens into an expression tree
-        self.current_context: Optional[TreeNode] = None
+        self.current_context: Optional[TreeNode] = TreeNode()
+        self.current_context.op = "expr"
 
     @property
     def root(self) -> TreeNode:
@@ -171,43 +172,48 @@ class Rule:
             result = p(self.tokens)
             if result is not None:
                 # we have parsed some syntax! now what?
-                if self.current_context is None:
+                if self.current_context.op == "expr":
+                    if not self.current_context.left:
+                        # collapse upwards
+                        self.current_context = result
+                        break
+
+                if isinstance(p, CloseBrace):
+                    # if the current expression has no operator the result can be collapsed into it's parent
+                    #
+                    # ie, the expression is:
+                    #   '($foo == "x")'
+                    # it becomes:
+                    #   $foo == "x"
+                    parent = self.current_context.parent
+                    if self.current_context.op == "expr":
+                        assert self.current_context.left
+                        assert not self.current_context.right
+
+                        self.current_context = self.current_context.left
+                        self.current_context.parent = parent
+
+                    result = self.current_context
+
+                elif isinstance(p, OpenBrace):
+                    result.parent = self.current_context
+                    self.current_context.put(result)
                     self.current_context = result
+                elif isinstance(p, BooleanAnd):
+                    result.parent = self.current_context.parent
+                    result.put(self.current_context)
+                    self.current_context = result
+                elif isinstance(p, BareVariable):
+                    self.current_context.put(result)
+                elif isinstance(p, Compare):
+                    self.current_context.put(result)
                 else:
-                    if isinstance(p, CloseBrace):
-                        # if the current expression has no operator the result can be collapsed into it's parent
-                        #
-                        # ie, the expression is:
-                        #   '($foo == "x")'
-                        # it becomes:
-                        #   $foo == "x"
-                        parent = self.current_context.parent
-                        if self.current_context.op == "expr":
-                            assert self.current_context.left
-                            assert not self.current_context.right
-
-                            self.current_context = self.current_context.left
-                            self.current_context.parent = parent
-                        else:
-                            assert True
-                            # self.current_context = self.current_context.parent
-                        result = self.current_context
-
-                    elif isinstance(p, OpenBrace):
-                        result.parent = self.current_context
-                        self.current_context.put(result)
-                        self.current_context = result
-                    elif isinstance(p, BooleanAnd):
-                        result.parent = self.current_context.parent
-                        result.put(self.current_context)
-                        self.current_context = result
-                    elif isinstance(p, BareVariable):
-                        self.current_context.put(result)
-                    elif isinstance(p, Compare):
-                        self.current_context.put(result)
-                    else:
-                        raise SyntaxError("unknown result!")
+                    raise SyntaxError("unknown result!")
                 break
+
+        # if we closed an expression and braces are redundant, collapse upwards
+
+
 
         return result
 

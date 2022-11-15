@@ -19,7 +19,6 @@ def test_syntax_parse_simple_cmp(left: str, op: str, right: str):
     result = rule.parse_one()
     assert result, "failed to get a syntax node"
     assert not rule.tokens, "unexpected tokens remaining"
-    assert result == rule.root
     assert result.op == op
     assert result.left.value == left
     assert result.right.value == right
@@ -33,7 +32,6 @@ def test_syntax_parse_simple_defined():
     result = rule.parse_one()
     assert result, "failed to get a syntax node"
     assert not rule.tokens, "unexpected tokens remaining"
-    assert result == rule.root
     assert result.op == "defined"
     assert result.left.value == '$COLOR'
     assert not result.right
@@ -50,10 +48,8 @@ def test_parse_boolean_defined_expr():
     assert result.left.value == "$COLOR"
     assert not result.right
     assert len(rule.tokens) > 0
-    assert rule.root == result
 
     result = rule.parse_one()
-    assert rule.root == result
     assert result.op == "&&"
     assert result.left
     assert result.left.op == "defined"
@@ -88,7 +84,6 @@ def test_parse_boolean_cmp_expr():
     assert result.left.value == "$NAME"
     assert result.right.value == '"fred"'
     assert rule.tokens
-    assert rule.root == result
 
     result = rule.parse_one()
     assert result.op == "||"
@@ -96,7 +91,6 @@ def test_parse_boolean_cmp_expr():
     assert result.left.left.value == "$NAME"
     assert result.left.right.value == '"fred"'
     assert not result.right
-    assert rule.root == result
     assert result.left.parent == result
 
     result = rule.parse_one()
@@ -118,15 +112,11 @@ def test_parse_boolean_braces():
     tokens = lex.parse(text)
     rule = syntax.Rule(text, tokens)
     result = rule.parse_one()
-    assert result.depth == 1
     assert result.op is "expr"
     assert result.left is None
     assert result.right is None
-    assert rule.root == result
     assert rule.tokens
     result = rule.parse_one()
-    assert result.depth == 2
-    assert result.parent == rule.root
     assert result.op == "=="
     assert isinstance(result.left, Token)
     assert result.left.value == "$NAME"
@@ -151,7 +141,6 @@ def test_parse_boolean_braces():
     result = rule.parse_one()
     assert result
     assert rule.root.right == result
-    assert result.parent == rule.root
     assert result.op == "defined"
     assert result.left.value == "$CLASS"
     assert not result.right
