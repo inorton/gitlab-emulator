@@ -20,8 +20,8 @@ def test_syntax_parse_simple_cmp(left: str, op: str, right: str):
     assert result, "failed to get a syntax node"
     assert not rule.tokens, "unexpected tokens remaining"
     assert result.op == op
-    assert result.left.value == left
-    assert result.right.value == right
+    assert result.left.value == left.strip('"')
+    assert result.right.value == right.strip('"')
 
 def test_syntax_parse_simple_defined():
     """Test we can parse a single defined var"""
@@ -82,14 +82,14 @@ def test_parse_boolean_cmp_expr():
     result = rule.parse_one()
     assert result.op == "=="
     assert result.left.value == "$NAME"
-    assert result.right.value == '"fred"'
+    assert result.right.value == "fred"
     assert rule.tokens
 
     result = rule.parse_one()
     assert result.op == "||"
     assert result.left.op == "=="
     assert result.left.left.value == "$NAME"
-    assert result.left.right.value == '"fred"'
+    assert result.left.right.value == "fred"
     assert not result.right
     assert result.left.parent == result
 
@@ -97,7 +97,7 @@ def test_parse_boolean_cmp_expr():
     assert not rule.tokens
     assert result.op == "=="
     assert result.left.value == "$NAME"
-    assert result.right.value == '"joan"'
+    assert result.right.value == "joan"
     root = rule.root
     assert root != result
     assert result.parent == root
@@ -121,13 +121,13 @@ def test_parse_boolean_braces():
     assert isinstance(result.left, Token)
     assert result.left.value == "$NAME"
     assert isinstance(result.right, Token)
-    assert result.right.value == '"fred"'
+    assert result.right.value == "fred"
     assert rule.tokens
 
     result = rule.parse_one()
     assert result.op == "=="
     assert result.left.value == "$NAME"
-    assert result.right.value == '"fred"'
+    assert result.right.value == "fred"
     assert rule.tokens
 
     result = rule.parse_one()
@@ -202,9 +202,21 @@ def test_complex_logical_full_eval():
     text = '$COLOR == "blue" && ($SIZE =~ /small/ || $SIZE =~ /very/) && $SHAPE'
     tokens = lexer.Parser().parse(text)
     rule = syntax.Rule(text, tokens)
+    rule.parse()
+    assert not rule.tokens
+    assert rule.root
+
     result = rule.evaluate({
         "COLOR": "blue",
         "SIZE": "very-large",
         "SHAPE": "cube"
     })
     assert result
+
+    result = rule.evaluate({
+        "COLOR": "green",
+        "SIZE": "very-large",
+        "SHAPE": "cube"
+    })
+    assert not result
+

@@ -181,7 +181,6 @@ class Rule:
                 if isinstance(p, CloseBrace):
                     result = self.current_context
                 elif isinstance(p, OpenBrace):
-                    result.parent = self.current_context
                     self.current_context.put(result)
                     self.current_context = result
                 elif isinstance(p, BooleanAnd):
