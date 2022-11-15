@@ -28,4 +28,9 @@ PARENS_EXPRESSIONS = {
         '$PRESENT_VARIABLE', '=~', '/my var/', '||', '(', '$EMPTY_VARIABLE', '=~', '/nope/', ')'],
     '($PRESENT_VARIABLE && (null || $EMPTY_VARIABLE == ""))': [
         '(', '$PRESENT_VARIABLE', '&&', '(', 'null', '||', '$EMPTY_VARIABLE', '==', '""', ')', ')'],
+
+    # added by me to get more coverage
+    '($VARIABLE) || $ANOTHER': [
+        '(', '$VARIABLE', ')', '||', '$ANOTHER'
+    ]
 }

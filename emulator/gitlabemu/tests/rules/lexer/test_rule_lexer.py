@@ -1,7 +1,7 @@
 from typing import List
 
 import pytest
-from ....rules.lexer import Parser
+from ....rules.lexer import Parser, Token
 from .cases import JOINED_EXPRESSIONS, PARENS_EXPRESSIONS
 
 
@@ -29,5 +29,30 @@ def test_grouped_tokenization(exp: str, expected: List[str]):
     assert strings == expected
 
 
+def test_unterminated_quotes():
+    parser = Parser()
+    for q in '\'"/':
+        with pytest.raises(SyntaxError):
+            parser.parse(f"{q}FOO")
 
+def test_parser_repr():
+    parser = Parser()
+    tokens = parser.parse("")
+    assert not tokens
+    repr_text = repr(parser)
+    assert "Parser, remaining: []" == repr_text
+
+
+def test_parser_token_repr():
+    token = Token()
+    token.value = "$VAR"
+    assert token.__repr__() == "Token [$VAR] (incomplete)"
+    token.complete = True
+    assert token.__repr__() == "Token [$VAR]"
+
+
+def test_parser_token_error():
+    with pytest.raises(ValueError):
+        token = Token()
+        x = token.first
 

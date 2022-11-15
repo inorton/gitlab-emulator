@@ -1,8 +1,7 @@
 """Parse gitlab rule expression strings into lexical tokens"""
-import re
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 
 WHITESPACE = " \t\r\n"
@@ -30,13 +29,6 @@ class Token:
     def __str__(self):
         return str(self.value)
 
-    def __eq__(self, other):
-        if isinstance(other, Token):
-            return self.value == other.value
-        if isinstance(other, str):
-            return self.value == other
-        return False
-
     @property
     def first(self) -> str:
         if len(self.value):
@@ -52,6 +44,9 @@ class Parser:
         self._len = 0
         self._pos = 0
 
+    def __repr__(self):  # pragma: no cover
+        return f"Parser, remaining: [{self.text[self._pos:]}]"
+
     @property
     def eof(self) -> bool:
         return self.pos >= self._len
@@ -61,9 +56,10 @@ class Parser:
         return self._pos
 
     def peek(self) -> str:
+        value = ""
         if not self.eof:
-            return self.text[self.pos]
-        return ""
+            value = self.text[self.pos]
+        return value
 
     def advance(self) -> None:
         if not self.eof:
@@ -96,11 +92,11 @@ class ParserState(ABC):
     @abstractmethod
     def parse(self) -> Optional[Token]:
         """Parse the current token, advance the parser position and return the token if any"""
-        pass
 
     @staticmethod
     def is_whitespace(char: str) -> bool:
-        return char and char in WHITESPACE
+        result = char and char in WHITESPACE
+        return result
 
     def skip_whitespace(self):
         while self.is_whitespace(self.parser.peek()):
@@ -132,10 +128,13 @@ class ParserStateText(ParserState):
                 if quoted is not None:
                     # string is in quotes, read until we see the closing quote char
                     self.read(token)
-                    if char == "\\":
-                        # escaped char, read the next char
-                        self.read(token)
-                    elif char == quoted:
+
+                    # gitlab doesn't support escape chars (yet)
+                    #if char == "\\":
+                    #    # escaped char, read the next char
+                    #    self.read(token)
+
+                    if char == quoted:
                         # end quote (also end of token)
                         token.complete = True
                         break
