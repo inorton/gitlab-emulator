@@ -2,6 +2,7 @@
 
 Partly guided and inspired by https://jayconrod.com/posts/38/a-simple-interpreter-from-scratch-in-python-part-2
 """
+import re
 #
 # Gitlab rule expressions only really have comparison and boolean operators and basic grouping,
 #
@@ -177,24 +178,8 @@ class Rule:
                         # collapse upwards
                         self.current_context = result
                         break
-
                 if isinstance(p, CloseBrace):
-                    # if the current expression has no operator the result can be collapsed into it's parent
-                    #
-                    # ie, the expression is:
-                    #   '($foo == "x")'
-                    # it becomes:
-                    #   $foo == "x"
-                    parent = self.current_context.parent
-                    if self.current_context.op == "expr":
-                        assert self.current_context.left
-                        assert not self.current_context.right
-
-                        self.current_context = self.current_context.left
-                        self.current_context.parent = parent
-
                     result = self.current_context
-
                 elif isinstance(p, OpenBrace):
                     result.parent = self.current_context
                     self.current_context.put(result)
@@ -210,15 +195,44 @@ class Rule:
                 else:
                     raise SyntaxError("unknown result!")
                 break
-
-        # if we closed an expression and braces are redundant, collapse upwards
-
-
-
         return result
 
     def evaluate(self, variables: Dict[str, str]) -> bool:
-        assert False
+        if self.tokens:
+            self.parse()
+        return self.evaluate_expr(self.root, variables)
+
+    @staticmethod
+    def expand_variable(text: str, variables: Dict[str, str]) -> str:
+        if text.startswith("$"):
+            name = text[1:]
+            return variables.get(name, "")
+        return text
+
+    def evaluate_expr(self, expr: TreeNode, variables: Dict[str, str]) -> bool:
+        if expr.op == "defined":
+            value = self.expand_variable(expr.left.value, variables)
+            if value:
+                return True
+        elif expr.op in ["==", "!="]:
+            lhs = self.expand_variable(expr.left.value, variables)
+            rhs = self.expand_variable(expr.right.value, variables)
+            if expr.op == "==":
+                return lhs == rhs
+            return lhs != rhs
+        elif expr.op in ["=~", "!~"]:
+            lhs = self.expand_variable(expr.left.value, variables)
+            rhs = self.expand_variable(expr.right.value, variables)
+            if rhs.startswith("/"):
+                rhs = re.compile(rhs)
+                match = rhs.search(lhs)
+                if expr.op == "=~":
+                    return match is not None
+                return match is None
+            elif rhs != "":
+                raise SyntaxError(f"variable {expr.right.value} expanded to an invalid regex '{rhs}' at offset {expr.right.pos}")
+
+        return False
 
 
 class RuleParser:

@@ -149,8 +149,33 @@ def test_parse_boolean_braces():
 
 
 def test_parse_full_complex():
-    text = '($BUILD_TYPE == "release" || $BUILD_TYPE == "hotfix") && $PLATFORM == "Linux"'
+    text = '($BUILD_TYPE == "release" || ($BUILD_TYPE == "hotfix")) && $PLATFORM == "Linux"'
     tokens = lexer.Parser().parse(text)
     rule = syntax.Rule(text, tokens)
     rule.parse()
-    assert True
+    assert rule.root.op == "&&"
+
+
+def test_simple_eval_defined():
+    text = "$FOO"
+    tokens = lexer.Parser().parse(text)
+    rule = syntax.Rule(text, tokens)
+    result = rule.evaluate({"FOO": "red"})
+    assert result
+
+    result = rule.evaluate({"BAR": "red"})
+    assert not result
+
+
+def test_simple_eval_cmp():
+    text = '$COLOR == "blue"'
+    tokens = lexer.Parser().parse(text)
+    rule = syntax.Rule(text, tokens)
+    result = rule.evaluate({"FOO": "red"})
+    assert not result
+
+    result = rule.evaluate({"COLOR": "red"})
+    assert not result
+
+    result = rule.evaluate({"COLOR": "blue"})
+    assert result
