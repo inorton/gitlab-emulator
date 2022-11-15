@@ -224,7 +224,7 @@ class Rule:
             lhs = self.expand_variable(expr.left.value, variables)
             rhs = self.expand_variable(expr.right.value, variables)
             if rhs.startswith("/"):
-                rhs = re.compile(rhs)
+                rhs = re.compile(rhs[1:-1])
                 match = rhs.search(lhs)
                 if expr.op == "=~":
                     return match is not None

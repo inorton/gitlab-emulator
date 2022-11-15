@@ -196,3 +196,15 @@ def test_logical_eval():
 
     result = rule.evaluate({"COLOR": "blue"})
     assert result
+
+
+def test_complex_logical_full_eval():
+    text = '$COLOR == "blue" && ($SIZE =~ /small/ || $SIZE =~ /very/) && $SHAPE'
+    tokens = lexer.Parser().parse(text)
+    rule = syntax.Rule(text, tokens)
+    result = rule.evaluate({
+        "COLOR": "blue",
+        "SIZE": "very-large",
+        "SHAPE": "cube"
+    })
+    assert result
