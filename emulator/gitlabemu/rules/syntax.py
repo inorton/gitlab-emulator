@@ -181,7 +181,9 @@ class Rule:
                     self.current_context = result
                     break
                 # we have parsed some syntax! now what?
-                if isinstance(p, Brace):
+                if isinstance(p, OpenBrace):
+                    pass
+                if isinstance(p, CloseBrace):
                     pass
                 elif isinstance(p, Boolean):
                     # start a new expression
