@@ -16,6 +16,13 @@ class Token:
         self.value: str = ""
         self.pos: int = 0
         self.complete = False
+        self.quoted = False
+
+    @property
+    def text(self):
+        if self.quoted:
+            return self.value[1:-1]
+        return self.value
 
     def __len__(self) -> int:
         return len(self.value)
@@ -137,9 +144,7 @@ class ParserStateText(ParserState):
                     if char == quoted:
                         # end quote (also end of token)
                         token.complete = True
-                        # now strip the quotes if they are not regex marks
-                        if char != "/":
-                            token.value = token.value[1:-1]
+                        token.quoted = True
                         break
                 elif char == ")":
                     token.complete = True

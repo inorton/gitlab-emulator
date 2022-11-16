@@ -99,8 +99,8 @@ class Compare(Parser):
                 return result
         return None
 
-class BooleanAnd(Parser):
-    op = "&&"
+class Boolean(Parser):
+    op = "XX"
 
     def __call__(self, tokens: List[Token]) -> Optional[TreeNode]:
         if len(tokens) > 0:
@@ -110,25 +110,31 @@ class BooleanAnd(Parser):
                 return result
         return None
 
+class BooleanAnd(Boolean):
+    op = "&&"
 
-class BooleanOr(BooleanAnd):
+
+class BooleanOr(Boolean):
     op = "||"
 
 
-class OpenBrace(Parser):
-    brace = "("
+class Brace(Parser):
+    brace = "xx"
 
     def __call__(self, tokens: List[Token]) -> Optional[TreeNode]:
         if len(tokens) > 0:
             if tokens[0].value == self.brace:
                 result = TreeNode()
-                result.op = "expr"
+                result.op = self.brace
                 tokens.pop(0)
                 return result
         return None
 
+class OpenBrace(Brace):
+    brace = "("
 
-class CloseBrace(OpenBrace):
+
+class CloseBrace(Brace):
     brace = ")"
 
 
@@ -148,8 +154,7 @@ class Rule:
         self.text = text
         self.tokens: List[Token] = list(tokens)
         # parse the tokens into an expression tree
-        self.current_context: Optional[TreeNode] = TreeNode()
-        self.current_context.op = "expr"
+        self.current_context: Optional[TreeNode] = None
 
     @property
     def root(self) -> TreeNode:
@@ -172,18 +177,14 @@ class Rule:
             p = parser()
             result = p(self.tokens)
             if result is not None:
-                # we have parsed some syntax! now what?
-                if self.current_context.op == "expr":
-                    if not self.current_context.left:
-                        # collapse upwards
-                        self.current_context = result
-                        break
-                if isinstance(p, CloseBrace):
-                    result = self.current_context
-                elif isinstance(p, OpenBrace):
-                    self.current_context.put(result)
+                if self.current_context is None:
                     self.current_context = result
-                elif isinstance(p, BooleanAnd):
+                    break
+                # we have parsed some syntax! now what?
+                if isinstance(p, Brace):
+                    pass
+                elif isinstance(p, Boolean):
+                    # start a new expression
                     result.parent = self.current_context.parent
                     result.put(self.current_context)
                     self.current_context = result
@@ -194,6 +195,12 @@ class Rule:
                 else:
                     raise SyntaxError("unknown result!")
                 break
+
+        if isinstance(p, Brace):
+            if self.current_context:
+                if self.current_context.op in ["(", ")"]:
+                    self.current_context = self.current_context.parent
+
         return result
 
     def evaluate(self, variables: Dict[str, str]) -> bool:
@@ -214,13 +221,13 @@ class Rule:
             if value:
                 return True
         elif expr.op in ["==", "!="]:
-            lhs = self.expand_variable(expr.left.value, variables)
-            rhs = self.expand_variable(expr.right.value, variables)
+            lhs = self.expand_variable(expr.left.text, variables)
+            rhs = self.expand_variable(expr.right.text, variables)
             if expr.op == "==":
                 return lhs == rhs
             return lhs != rhs
         elif expr.op in ["=~", "!~"]:
-            lhs = self.expand_variable(expr.left.value, variables)
+            lhs = self.expand_variable(expr.left.text, variables)
             rhs = self.expand_variable(expr.right.value, variables)
             if rhs.startswith("/"):
                 rhs = re.compile(rhs[1:-1])

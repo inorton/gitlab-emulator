@@ -1,6 +1,7 @@
 import pytest
 from ..rules import syntax, lexer
 from ..rules.lexer import Token
+from ..rules.syntax import TreeNode
 
 
 @pytest.mark.parametrize(["left", "op", "right"],
@@ -20,8 +21,8 @@ def test_syntax_parse_simple_cmp(left: str, op: str, right: str):
     assert result, "failed to get a syntax node"
     assert not rule.tokens, "unexpected tokens remaining"
     assert result.op == op
-    assert result.left.value == left.strip('"')
-    assert result.right.value == right.strip('"')
+    assert result.left.value == left
+    assert result.right.value == right
 
 def test_syntax_parse_simple_defined():
     """Test we can parse a single defined var"""
@@ -82,14 +83,14 @@ def test_parse_boolean_cmp_expr():
     result = rule.parse_one()
     assert result.op == "=="
     assert result.left.value == "$NAME"
-    assert result.right.value == "fred"
+    assert result.right.value == '"fred"'
     assert rule.tokens
 
     result = rule.parse_one()
     assert result.op == "||"
     assert result.left.op == "=="
     assert result.left.left.value == "$NAME"
-    assert result.left.right.value == "fred"
+    assert result.left.right.value == '"fred"'
     assert not result.right
     assert result.left.parent == result
 
@@ -97,7 +98,7 @@ def test_parse_boolean_cmp_expr():
     assert not rule.tokens
     assert result.op == "=="
     assert result.left.value == "$NAME"
-    assert result.right.value == "joan"
+    assert result.right.value == '"joan"'
     root = rule.root
     assert root != result
     assert result.parent == root
@@ -112,7 +113,7 @@ def test_parse_boolean_braces():
     tokens = lex.parse(text)
     rule = syntax.Rule(text, tokens)
     result = rule.parse_one()
-    assert result.op is "expr"
+    assert result.op is "("
     assert result.left is None
     assert result.right is None
     assert rule.tokens
@@ -121,31 +122,26 @@ def test_parse_boolean_braces():
     assert isinstance(result.left, Token)
     assert result.left.value == "$NAME"
     assert isinstance(result.right, Token)
-    assert result.right.value == "fred"
+    assert result.right.value == '"fred"'
     assert rule.tokens
 
     result = rule.parse_one()
-    assert result.op == "=="
-    assert result.left.value == "$NAME"
-    assert result.right.value == "fred"
-    assert rule.tokens
+    assert result.op == ")"
 
     result = rule.parse_one()
-    assert rule.root.parent is None
     assert result.op == "||"
-    assert rule.root.op == "||"
-    assert rule.root.left
-    assert not rule.root.right
+    assert isinstance(result.left, TreeNode)
+    assert result.left.left.value == "$NAME"
+    assert result.left.right.value == '"fred"'
     assert rule.tokens
 
     result = rule.parse_one()
-    assert result
-    assert rule.root.right == result
     assert result.op == "defined"
+    assert isinstance(result.left, Token)
     assert result.left.value == "$CLASS"
-    assert not result.right
 
     assert not rule.tokens
+    assert rule.root.op == "||"
 
 
 def test_parse_full_complex():
