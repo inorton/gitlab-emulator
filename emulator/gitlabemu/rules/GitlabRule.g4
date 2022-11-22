@@ -13,6 +13,19 @@ NMATCH: '!~';
 OPAR: '(';
 CPAR: ')';
 
+expr
+    : '(' expr ')'                             # parens
+    |VARIABLE                                  # variable
+    | REGEX                                    # regex
+    | VARIABLE op=(EQ | NE) STRING             # compare
+    | STRING op=(EQ | NE) VARIABLE             # compare
+    | VARIABLE op=(MATCH | NMATCH) REGEX       # match
+    | VARIABLE op=(MATCH | NMATCH) VARIABLE    # match
+    | expr op=AND expr                         # boolAnd
+    | expr op=OR expr                          # boolOr
+    ;
+
+
 STRING
  : '"' ~(["])*  '"'
  ;
@@ -27,14 +40,3 @@ VARIABLE
 
 WHITESPACE
  : [\t\r\n ]+ -> skip ;
-
-expr
-    : VARIABLE op=(EQ | NE) STRING
-    | STRING op=(EQ | NE) VARIABLE
-    | VARIABLE op=(MATCH | NMATCH) REGEX
-    | VARIABLE op=(MATCH | NMATCH) VARIABLE
-    | VARIABLE
-    | expr op=AND expr
-    | expr op=OR expr
-    | '(' expr ')'
-    ;
