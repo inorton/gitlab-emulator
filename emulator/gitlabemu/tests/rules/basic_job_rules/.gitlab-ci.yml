@@ -1,0 +1,17 @@
+include:
+  - local: colors.yml
+    rules:
+      - if: $INCLUDE =~ /colors/
+
+job:
+  image: alpine:latest
+  script:
+    - uname -a
+  rules:
+    - when: on_success
+
+only_red:
+  extends: job
+  rules:
+    - if: $COLOR == "red"
+    - when: never

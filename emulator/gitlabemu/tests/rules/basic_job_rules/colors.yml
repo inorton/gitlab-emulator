@@ -1,0 +1,4 @@
+green:
+  image: alpine:latest
+  script:
+   - uname -r

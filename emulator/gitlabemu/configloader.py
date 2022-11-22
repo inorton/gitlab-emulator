@@ -11,8 +11,9 @@ from .helpers import stringlist_if_string
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
-from .yamlloader import GitlabReference, StringableOrderedDict
+from .yamlloader import GitlabReference
 from .userconfig import get_user_config_context
+from .rules.parser import evaluate_rule
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -36,13 +37,14 @@ def check_unsupported(config):
                     raise FeatureNotSupportedError(bad)
 
 
-def do_single_include(baseobj, yamldir, inc, handle_read=None):
+def do_single_include(baseobj, yamldir, inc, handle_read=None, variables={}):
     """
     Load a single included file and return it's object graph
     :param handle_read:
     :param baseobj: previously loaded and included objects
     :param yamldir: folder to search
     :param inc: file to read
+    :param variables:
     :return:
     """
     if handle_read is None:
@@ -54,6 +56,18 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None):
         include = inc.get("local", None)
         if not include:
             raise FeatureNotSupportedError("We only support local includes right now")
+        rules = inc.get("rules", [])
+        matched_rules = False
+        for rule in rules:
+            # execute the rules, skip inclusion if none pass
+            if_rule = rule.get("if", None)
+            if if_rule:
+                matched = evaluate_rule(if_rule, dict(variables))
+                if matched:
+                    matched_rules = True
+                    break
+        if not matched_rules:
+            return []
 
     include = include.lstrip("/\\")
 
@@ -91,6 +105,8 @@ def do_includes(baseobj, yamldir, incs, handle_include=do_single_include):
     #
     # include:
     #    - local: "/templates/scripts.yaml"
+    #      rules:
+    #        - if: $USE_SCRIPTS
     #    - local: "/templates/after.yaml"
     #    "/templates/windows-jobs.yaml"
     if incs:
@@ -476,6 +492,7 @@ class Loader(object):
         self.create_emulator_variables = emulator_variables
         self.config = {}
         self.included_files = []
+        self.variables = {}
 
         self._begun = False
         self._done = False
@@ -504,7 +521,7 @@ class Loader(object):
         :param inc:
         :return:
         """
-        return do_single_include(baseobj, yamldir, inc, handle_read=self._read)
+        return do_single_include(baseobj, yamldir, inc, handle_read=self._read, variables=self.variables)
 
     def do_extends(self, baseobj):
         """
