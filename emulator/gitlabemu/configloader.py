@@ -38,7 +38,12 @@ def check_unsupported(config):
                     raise FeatureNotSupportedError(bad)
 
 
-def do_single_include(baseobj, yamldir, inc, handle_read=None, variables={}, filename: Optional[str] = None):
+def do_single_include(baseobj: Dict[str, Any],
+                      yamldir: str,
+                      inc: Union[str, Dict[str, Any]],
+                      handle_read=None,
+                      variables: Optional[Dict[str, str]] = None,
+                      filename: Optional[str] = None):
     """
     Load a single included file and return it's object graph
     :param filename:
@@ -49,6 +54,8 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None, variables={}, fil
     :param variables:
     :return:
     """
+    if variables is None:
+        variables = {}
     if handle_read is None:
         handle_read = read
     include = None
