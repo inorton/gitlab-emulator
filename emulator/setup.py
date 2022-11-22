@@ -9,6 +9,7 @@ requirements = [
     "python-gitlab>=3.2.0; python_version>='3.7'",
     "python-gitlab==2.10.1; python_version<='3.6'",
     "certifi>=2022.6",
+    "antlr4-python3-runtime>=4.11",
 ]
 requirements.extend([f"gitpython>=3.1; platform_system=='{p}'" for p in ["Darwin", "Windows", "Linux"]])
 requirements.extend([f"docker>=5.0.3; platform_system=='{p}'" for p in ["Darwin", "Windows", "Linux"]])
