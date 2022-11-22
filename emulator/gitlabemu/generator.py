@@ -5,8 +5,8 @@ import time
 from typing import List, Dict, Optional
 
 from gitlab.v4.objects import ProjectPipeline
-
-from .configloader import Loader, StringableOrderedDict, load_job
+from .yamlloader import StringableOrderedDict
+from .configloader import Loader
 from .helpers import git_top_level, git_commit_sha, git_uncommitted_changes, git_current_branch, git_push_force_upstream
 
 

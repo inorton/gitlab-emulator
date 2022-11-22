@@ -3,6 +3,7 @@ import subprocess
 import sys
 import os
 import argparse
+from typing import Dict
 
 import gitlabemu.errors
 from . import configloader
@@ -251,11 +252,19 @@ def do_version():
     sys.exit(0)
 
 
+def get_loader(variables: Dict[str, str], **kwargs) -> configloader.Loader:
+    loader = configloader.Loader(**kwargs)
+    apply_user_config(loader, is_docker=False)
+    for name in variables:
+        loader.config[".gle-extra_variables"][name] = str(variables[name])
+    return loader
+
 def run(args=None):
     options = parser.parse_args(args)
-    loader = configloader.Loader()
     yamlfile = options.CONFIG
     jobname = options.JOB
+
+    variables = {}
 
     if options.version:
         do_version()
@@ -280,14 +289,32 @@ def run(args=None):
     if options.USER_SETTINGS:
         os.environ[USER_CFG_ENV] = options.USER_SETTINGS
 
+    for item in options.revars:
+        patt = re.compile(item)
+        for name in os.environ:
+            if patt.search(name):
+                variables[name] = os.environ.get(name)
+
+    for item in options.var:
+        var = item.split("=", 1)
+        if len(var) == 2:
+            name, value = var[0], var[1]
+        else:
+            name = var[0]
+            value = os.environ.get(name, None)
+
+        if value is not None:
+            variables[name] = value
+
     ctx = get_user_config_context()
     fullpath = os.path.abspath(yamlfile)
     rootdir = os.path.dirname(fullpath)
     os.chdir(rootdir)
+    loader = get_loader(variables)
     hide_dot_jobs = not options.hidden
     try:
         if options.pipeline or options.FROM:
-            loader = configloader.Loader(emulator_variables=False)
+            loader = get_loader(variables, emulator_variables=False)
             loader.load(fullpath)
             with posix_cert_fixup():
                 if options.pipeline:
@@ -366,26 +393,10 @@ def run(args=None):
         if not is_linux():
             fix_ownership = False
 
-        for item in options.revars:
-            patt = re.compile(item)
-            for name in os.environ:
-                if patt.search(name):
-                    loader.config[".gle-extra_variables"][name] = os.environ.get(name)
-
-        for item in options.var:
-            var = item.split("=", 1)
-            if len(var) == 2:
-                name, value = var[0], var[1]
-            else:
-                name = var[0]
-                value = os.environ.get(name, None)
-
-            if value is not None:
-                loader.config[".gle-extra_variables"][name] = value
-
         if options.enter_shell:
             if options.FULL:
                 die("-i is not compatible with --full")
+
         loader.config["enter_shell"] = options.enter_shell
         loader.config["before_script_enter_shell"] = options.before_script_enter_shell
         loader.config["shell_is_user"] = options.shell_is_user

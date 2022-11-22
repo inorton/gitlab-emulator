@@ -10,7 +10,6 @@ HERE = Path(__file__).parent
 
 def test_file_not_included_by_default():
     """Test that a condtional include is skipped when no rule matches"""
-    os.environ["INCLUDE"] = ""
     loader = Loader()
     basic = HERE / "basic_job_rules"
     loader.rootdir = str(basic)
@@ -21,11 +20,11 @@ def test_file_not_included_by_default():
     assert "green" not in jobs
 
 
-@pytest.mark.xfail()
 def test_file_included_by_rule():
     """Test that a condtional include is skipped when no rule matches"""
-    os.environ["INCLUDE"] = "colors"
     loader = Loader()
+    loader.add_variable("INCLUDE", "colors")
+
     basic = HERE / "basic_job_rules"
     loader.rootdir = str(basic)
     loader.load(str(basic / ".gitlab-ci.yml"))

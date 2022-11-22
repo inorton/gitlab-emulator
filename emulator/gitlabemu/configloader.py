@@ -3,7 +3,7 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Optional
 
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS, DEFAULT_JOB_KEYS
@@ -490,15 +490,29 @@ class Loader(object):
         self.filename = None
         self.rootdir = None
         self.create_emulator_variables = emulator_variables
-        self.config = {}
+        self.config = {
+            ".gle-extra_variables": {}
+        }
         self.included_files = []
-        self.variables = {}
 
         self._begun = False
         self._done = False
         self._current_file = None
         self._job_sources = {}
         self._job_classes = {}
+
+    @property
+    def variables(self) -> Dict[str, str]:
+        found = {}
+        found.update(self.config.get(".gle-extra_variables", {}))
+        found.update(self.config.get("variables", {}))
+        return found
+
+    def add_variable(self, name: str, value: Optional[str] = None):
+        if value is not None:
+            self.config[".gle-extra_variables"][name] = value
+        else:
+            del self.config[".gle-extra_variables"][name]
 
     def get_docker_image(self, jobname):
         return job_docker_image(self.config, jobname)
