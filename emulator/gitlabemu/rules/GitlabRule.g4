@@ -15,7 +15,7 @@ CPAR: ')';
 
 expr
     : '(' expr ')'                             # parens
-    |VARIABLE                                  # variable
+    | VARIABLE                                 # variable
     | REGEX                                    # regex
     | VARIABLE op=(EQ | NE) STRING             # compare
     | STRING op=(EQ | NE) VARIABLE             # compare
