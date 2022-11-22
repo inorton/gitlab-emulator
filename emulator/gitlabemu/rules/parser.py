@@ -1,3 +1,4 @@
+import re
 from typing import Dict, Optional
 
 from antlr4 import InputStream, CommonTokenStream
@@ -26,7 +27,13 @@ class RuleVisitor(GitlabRuleVisitor):
         if name:
             return self.variables.get(name, "")
         # strip quotes
-        return text[1:-1]
+        if text[0] == '"':
+            return text[1:-1]
+        return text
+
+    def visitRegex(self, ctx: GitlabRuleParser.RegexContext):
+        assert len(ctx.children) == 1
+        return ctx.children[0].symbol.text
 
     def visitVariable(self, ctx: GitlabRuleParser.VariableContext):
         """Return True if VARNAME is set to anything except the empty string"""
@@ -45,6 +52,20 @@ class RuleVisitor(GitlabRuleVisitor):
             return left == right
         return left != right
 
+    def visitMatch(self, ctx: GitlabRuleParser.MatchContext):
+        assert len(ctx.children) == 3
+        assert ctx.op.type in [GitlabRuleLexer.MATCH, GitlabRuleLexer.NMATCH]
+        left = self.resolve_variable(ctx.children[0].symbol)
+        right = self.resolve_variable(ctx.children[2].symbol)
+        if right.startswith("/") and right.endswith("/"):
+            # is a regex
+            patt = re.compile(right[1:-1])
+            matched = patt.search(left)
+            if ctx.op.type == GitlabRuleLexer.MATCH:
+                return matched is not None
+            return matched is None
+        return False
+
     def visitBoolAnd(self, ctx: GitlabRuleParser.BoolAndContext):
         left = self.visit(ctx.expr(0))
         right = self.visit(ctx.expr(1))
@@ -54,6 +75,9 @@ class RuleVisitor(GitlabRuleVisitor):
         left = self.visit(ctx.expr(0))
         right = self.visit(ctx.expr(1))
         return left or right
+
+    def visitParens(self, ctx: GitlabRuleParser.ParensContext):
+        return self.visit(ctx.expr())
 
 
 def evaluate_rule(rule: str, variables: Dict[str, str]):
