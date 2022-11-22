@@ -14,6 +14,7 @@ from . import yamlloader
 from .yamlloader import GitlabReference
 from .userconfig import get_user_config_context
 from .rules.parser import evaluate_rule
+from .logmsg import info
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -37,9 +38,10 @@ def check_unsupported(config):
                     raise FeatureNotSupportedError(bad)
 
 
-def do_single_include(baseobj, yamldir, inc, handle_read=None, variables={}):
+def do_single_include(baseobj, yamldir, inc, handle_read=None, variables={}, filename: Optional[str] = None):
     """
     Load a single included file and return it's object graph
+    :param filename:
     :param handle_read:
     :param baseobj: previously loaded and included objects
     :param yamldir: folder to search
@@ -57,17 +59,22 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None, variables={}):
         if not include:
             raise FeatureNotSupportedError("We only support local includes right now")
         rules = inc.get("rules", [])
-        matched_rules = False
-        for rule in rules:
-            # execute the rules, skip inclusion if none pass
-            if_rule = rule.get("if", None)
-            if if_rule:
-                matched = evaluate_rule(if_rule, dict(variables))
-                if matched:
-                    matched_rules = True
-                    break
-        if not matched_rules:
-            return []
+        if not rules:
+            info(f"{filename} include: {include}")
+        else:
+            matched_rules = False
+            for rule in rules:
+                # execute the rules, skip inclusion if none pass
+                if_rule = rule.get("if", None)
+                if if_rule:
+                    matched = evaluate_rule(if_rule, dict(variables))
+                    if matched:
+                        info(f"{filename} include local: {include} matched {if_rule}")
+                        matched_rules = True
+                        break
+            if not matched_rules:
+                info(f"{filename} not including: {include}")
+                return []
 
     include = include.lstrip("/\\")
 
@@ -83,9 +90,10 @@ def do_single_include(baseobj, yamldir, inc, handle_read=None, variables={}):
     return handle_read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
 
 
-def do_includes(baseobj, yamldir, incs, handle_include=do_single_include):
+def do_includes(baseobj, yamldir, incs, handle_include=do_single_include, filename: Optional[str] = None):
     """
     Deep process include directives
+    :param filename:
     :param handle_include:
     :param baseobj:
     :param yamldir: load include files relative to here
@@ -114,8 +122,8 @@ def do_includes(baseobj, yamldir, incs, handle_include=do_single_include):
             includes = incs
         else:
             includes = [incs]
-        for filename in includes:
-            obj = handle_include(baseobj, yamldir, filename)
+        for inc in includes:
+            obj = handle_include(baseobj, yamldir, inc, filename=filename)
             for item in obj:
                 if item != "include":
                     baseobj[item] = obj[item]
@@ -525,9 +533,9 @@ class Loader(object):
         :param incs:
         :return:
         """
-        return do_includes(baseobj, yamldir, incs, handle_include=self.do_single_include)
+        return do_includes(baseobj, yamldir, incs, handle_include=self.do_single_include, filename=self.filename)
 
-    def do_single_include(self, baseobj, yamldir, inc):
+    def do_single_include(self, baseobj, yamldir, inc, filename: str):
         """
         Include a single file and process it
         :param baseobj:
@@ -535,7 +543,7 @@ class Loader(object):
         :param inc:
         :return:
         """
-        return do_single_include(baseobj, yamldir, inc, handle_read=self._read, variables=self.variables)
+        return do_single_include(baseobj, yamldir, inc, handle_read=self._read, variables=self.variables, filename=filename)
 
     def do_extends(self, baseobj):
         """
@@ -648,7 +656,9 @@ class Loader(object):
         :return:
         """
         assert not self._done, "load() called more than once"
+        extra_vars = dict(self.config.get(".gle-extra_variables", {}))
         self.config = self._read(filename)
+        self.config[".gle-extra_variables"] = dict(extra_vars)
         self._done = True
 
     def get_job_filename(self, jobname):

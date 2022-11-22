@@ -1,4 +1,4 @@
-from ....rules import parser
+from ...rules import parser
 
 
 def test_simple():
