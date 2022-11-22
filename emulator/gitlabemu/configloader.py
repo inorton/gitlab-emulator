@@ -13,7 +13,7 @@ from .docker import DockerJob
 from . import yamlloader
 from .yamlloader import GitlabReference
 from .userconfig import get_user_config_context
-from .rules.parser import evaluate_rule
+from gitlabemu.ruleparser import evaluate_rule
 from .logmsg import info
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"

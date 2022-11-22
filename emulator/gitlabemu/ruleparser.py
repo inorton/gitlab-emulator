@@ -4,9 +4,9 @@ from typing import Dict, Optional
 from antlr4 import InputStream, CommonTokenStream
 from antlr4.Token import CommonToken
 
-from .GitlabRuleParser import GitlabRuleParser
-from .GitlabRuleLexer import GitlabRuleLexer
-from .GitlabRuleVisitor import GitlabRuleVisitor
+from gitlabemu.rules.GitlabRuleParser import GitlabRuleParser
+from gitlabemu.rules.GitlabRuleLexer import GitlabRuleLexer
+from gitlabemu.rules.GitlabRuleVisitor import GitlabRuleVisitor
 
 
 class RuleVisitor(GitlabRuleVisitor):

@@ -10,6 +10,7 @@ fail_under = 82
 omit =
     gitlabemu/gitlab/types.py
     gitlabemu/tests/*
+    gitlabemu/rules/*.py
 
 # Regexes for lines to exclude from consideration
 exclude_lines =

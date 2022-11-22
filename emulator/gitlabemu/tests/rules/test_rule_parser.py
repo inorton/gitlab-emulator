@@ -1,6 +1,3 @@
-from ...rules import parser
-
-
 def test_simple():
     result = parser.evaluate_rule('$COLOR == "red"', {"COLOR": "red"})
     assert result is True
