@@ -23,6 +23,7 @@ setup(
     url="https://gitlab.com/cunity/gitlab-emulator",
     packages=[
         "gitlabemu",
+        "gitlabemu.rules",
         "gitlabemu.genericci",
         "gitlabemu.gitlab",
         "gitlabemu.glp",
