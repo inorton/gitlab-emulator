@@ -6,6 +6,7 @@ from argparse import ArgumentParser, Namespace
 from .subcommand import Command
 from ..configloader import Loader, DEFAULT_CI_FILE
 from ..genericci.types import GenericJob
+from ..logmsg import info
 
 
 class DumpCommand(Command):

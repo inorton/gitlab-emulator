@@ -9,6 +9,7 @@ from .generator import (generate_pipeline_yaml,
 from .gitlab.types import RESERVED_TOP_KEYS
 from .gitlab_client_api import parse_gitlab_from_arg, get_current_project_client, do_gitlab_fetch
 from .helpers import note, die, git_current_branch
+from .logmsg import info
 from .yamlloader import ordered_dump
 
 
@@ -139,6 +140,10 @@ def generate_pipeline(loader, *goals,
 
         for goal in goals:
             loaded = loader.load_job(goal)
+            if loaded.check_skipped:
+                info(f"{goal} skipped by rules")
+                continue
+
             for dep in loaded.dependencies:
                 if dep in goals:
                     continue

@@ -11,6 +11,7 @@ from .docker import has_docker
 from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
+from .logmsg import info
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
@@ -345,6 +346,9 @@ def run(args=None):
         for jobname in sorted(loader.get_jobs()):
             if jobname.startswith(".") and hide_dot_jobs:
                 continue
+            job = loader.load_job(jobname)
+            if job.check_skipped():
+                info(f"{jobname} skipped by rules: {job.skipped_reason}")
             print(jobname)
     elif not jobname:
         parser.print_usage()

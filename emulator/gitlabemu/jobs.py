@@ -17,6 +17,7 @@ from .logmsg import info, fatal
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
 from .ansi import ANSI_GREEN, ANSI_RESET
+from .ruleparser import evaluate_rule
 
 
 class NoSuchJob(GitlabEmulatorError):
@@ -68,6 +69,13 @@ class Job(object):
         self.timeout_seconds = 0
         self.monitor_thread = None
         self.exit_monitor = False
+        self.skipped_reason = None
+        self.rules = None
+        self.configloader = None
+
+    def check_skipped(self) -> bool:
+        """Return True if this job is skipped by rules"""
+        return self.skipped_reason is not None
 
     def interactive_mode(self):
         """Return True if in interactive mode"""
@@ -182,6 +190,30 @@ class Job(object):
         self._config = dict(config)
         self.set_job_variables()
         self.artifacts.load(job.get("artifacts", {}))
+
+        # load and match the rules
+        if self.configloader:
+            rules = config[self.name].get("rules", [])
+            if rules:
+                if not isinstance(rules, list):
+                    raise SyntaxError(f"error parsing rules in job {self.name}")
+                for rule_item in rules:
+                    rule_item: dict
+                    # each should be a dict,
+                    if "if" in rule_item:
+                        # match it now
+                        if_matched = evaluate_rule(rule_item["if"], self.configloader.variables)
+                    else:
+                        # is a bare rule with no "if", usually this is the last rule
+                        if_matched = True
+
+                    if if_matched:
+                        when = rule_item.get("when", "on_success")
+                        if when:
+                            if when == "never":
+                                self.skipped_reason = f"matched {rule_item}"
+                        # take the first hit
+                        break
 
     def get_config(self, name: str):
         return self._config.get(name)

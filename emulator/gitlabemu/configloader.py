@@ -401,9 +401,11 @@ def job_docker_image(config, name):
     return config[name].get("image")
 
 
-def load_job(config, name, allow_add_variables=True):
+def load_job(config, name, allow_add_variables=True, configloader=None):
     """
     Load a job from the configuration
+    :param allow_add_variables:
+    :param configloader:
     :param config:
     :param name:
     :return:
@@ -416,6 +418,7 @@ def load_job(config, name, allow_add_variables=True):
         job = DockerJob()
     else:
         job = Job()
+    job.configloader = configloader
     job.allow_add_variables = allow_add_variables
     job.load(name, config)
 
@@ -598,7 +601,8 @@ class Loader(object):
 
     def load_job(self, name) -> Union["Job", "DockerJob"]:
         """Return a loaded job object"""
-        return load_job(self.config, name, allow_add_variables=self.create_emulator_variables)
+        job = load_job(self.config, name, allow_add_variables=self.create_emulator_variables, configloader=self)
+        return job
 
     def get_stages(self):
         """
