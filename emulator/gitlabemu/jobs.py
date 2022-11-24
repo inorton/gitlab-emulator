@@ -13,7 +13,7 @@ import time
 from typing import Optional
 
 from .artifacts import GitlabArtifacts
-from .logmsg import info, fatal
+from .logmsg import info, fatal, debugrule
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
 from .ansi import ANSI_GREEN, ANSI_RESET
@@ -200,6 +200,7 @@ class Job(object):
                 for rule_item in rules:
                     rule_item: dict
                     # each should be a dict,
+                    debugrule(f"job={self.name}: checking rule: {rule_item}")
                     if "if" in rule_item:
                         # match it now
                         if_matched = evaluate_rule(rule_item["if"], self.configloader.variables)
@@ -208,6 +209,7 @@ class Job(object):
                         if_matched = True
 
                     if if_matched:
+                        debugrule(f"job={self.name}: rule matched")
                         when = rule_item.get("when", "on_success")
                         if when:
                             if when == "never":

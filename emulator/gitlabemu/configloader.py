@@ -14,7 +14,7 @@ from . import yamlloader
 from .yamlloader import GitlabReference
 from .userconfig import get_user_config_context
 from gitlabemu.ruleparser import evaluate_rule
-from .logmsg import info
+from .logmsg import info, debugrule
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -67,7 +67,7 @@ def do_single_include(baseobj: Dict[str, Any],
             raise FeatureNotSupportedError("We only support local includes right now")
         rules = inc.get("rules", [])
         if not rules:
-            info(f"{filename} include: {include}")
+            debugrule(f"{filename} include: {include}")
         else:
             matched_rules = False
             for rule in rules:
@@ -76,11 +76,11 @@ def do_single_include(baseobj: Dict[str, Any],
                 if if_rule:
                     matched = evaluate_rule(if_rule, dict(variables))
                     if matched:
-                        info(f"{filename} include local: {include} matched {if_rule}")
+                        debugrule(f"{filename} include local: {include} matched {if_rule}")
                         matched_rules = True
                         break
             if not matched_rules:
-                info(f"{filename} not including: {include}")
+                debugrule(f"{filename} not including: {include}")
                 return []
 
     include = include.lstrip("/\\")

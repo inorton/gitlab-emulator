@@ -1,9 +1,5 @@
 """Test that various ci configs execute rules"""
-import os
 from pathlib import Path
-
-import pytest
-
 from ...configloader import Loader
 
 HERE = Path(__file__).parent

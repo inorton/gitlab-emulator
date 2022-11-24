@@ -11,7 +11,7 @@ from .docker import has_docker
 from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
-from .logmsg import info
+from .logmsg import info, debugrule, enable_rule_debug
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
@@ -53,7 +53,8 @@ parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
 parser.add_argument("--ignore-docker", dest="no_docker", action="store_true", default=False,
                     help="If set, run jobs using the local system as a shell job instead of docker"
                     )
-
+parser.add_argument("--debug-rules", default=False, action="store_true",
+                    help="Print log messages relating to include and job rule processing")
 parser.add_argument("--var", dest="var", type=str, default=[], action="append",
                     help="Set a pipeline variable, eg DEBUG or DEBUG=1")
 
@@ -267,6 +268,9 @@ def run(args=None):
 
     variables = {}
 
+    if options.debug_rules:
+        enable_rule_debug()
+
     if options.version:
         do_version()
 
@@ -348,7 +352,7 @@ def run(args=None):
                 continue
             job = loader.load_job(jobname)
             if job.check_skipped():
-                info(f"{jobname} skipped by rules: {job.skipped_reason}")
+                debugrule(f"{jobname} skipped by rules: {job.skipped_reason}")
             print(jobname)
     elif not jobname:
         parser.print_usage()

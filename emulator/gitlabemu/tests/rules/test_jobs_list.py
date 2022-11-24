@@ -10,7 +10,7 @@ HERE = os.path.dirname(__file__)
 def test_list_jobs(repo_root: str, caplog: LogCaptureFixture, capfd: CaptureFixture):
     os.chdir(Path(HERE) / "basic_job_rules")
     caplog.clear()
-    run(["-l"])
+    run(["-l", "--debug-rules"])
     stdout, stderr = capfd.readouterr()
     messages = caplog.messages
 

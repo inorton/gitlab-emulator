@@ -3,6 +3,7 @@ Logging functions
 """
 from __future__ import print_function
 import sys
+import os
 import logging
 from .errors import GitlabEmulatorError
 
@@ -15,8 +16,17 @@ LOGGER.setLevel(logging.INFO)
 FATAL_EXIT = True
 
 
+def enable_rule_debug():
+    os.environ["GLE_DEBUG_RULES"] = "y"
+
+
 def info(msg):
     LOGGER.info(msg)
+
+
+def debugrule(msg):
+    if os.environ.get("GLE_DEBUG_RULES", "n") != "n":
+        LOGGER.info(msg)
 
 
 def warning(msg):
