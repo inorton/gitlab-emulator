@@ -4,7 +4,7 @@ Configure gitlab emulator context, servers, local variables and docker bind moun
 import sys
 from argparse import ArgumentParser, Namespace
 
-from gitlabemu.helpers import sensitive_varname, trim_quotes
+from gitlabemu.helpers import sensitive_varname, trim_quotes, die
 from gitlabemu.userconfigdata import UserContext, DEFAULT_CONTEXT
 from .userconfig import get_user_config
 
@@ -127,7 +127,7 @@ def gitlab_cmd(opts: Namespace):
     if not opts.NAME:
         # list
         for item in ctx.gitlab.servers:
-            print(item.name)
+            print(f"{item.name:32} {item.server}")
     else:
         matched = [x for x in ctx.gitlab.servers if x.name == opts.NAME]
         if len(matched):
@@ -137,7 +137,10 @@ def gitlab_cmd(opts: Namespace):
             first.tls_verify = opts.tls_verify
         else:
             # add a new one
-            ctx.gitlab.add(opts.NAME, opts.server, opts.token, opts.tls_verify)
+            if opts.server and opts.token:
+                ctx.gitlab.add(opts.NAME, opts.server, opts.token, opts.tls_verify)
+            else:
+                die("Adding a new gitlab server entry requires --server URL and --token TOKEN")
         cfg.save()
 
 

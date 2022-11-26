@@ -9,9 +9,10 @@ import gitlabemu.errors
 from . import configloader
 from .docker import has_docker
 from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
+from .jobs import Job
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
-from .logmsg import info, debugrule, enable_rule_debug
+from .logmsg import debugrule, enable_rule_debug
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
@@ -200,37 +201,41 @@ def do_gitlab_from(options: argparse.Namespace, loader):
     if options.FROM:
         try:
             if options.LIST:
-                gitlab, project, pipeline = get_pipeline(options.FROM, secure=not options.insecure)
                 # print the jobs in the pipeline
+                gitlab, project, pipeline = get_pipeline(options.FROM, secure=not options.insecure)
                 if not pipeline:
                     raise PipelineInvalid(options.FROM)
                 print_pipeline_jobs(pipeline, completed=options.completed)
-                return
-            download_jobs = []
-            if options.download:
-                # download a job's artifacts
-                note(f"Download '{options.JOB}' artifacts")
-                download_jobs = [options.JOB]
             elif options.export:
+                # export a pipeline
                 note(f"Export full '{options.FROM}' pipeline")
-            elif options.JOB:
-                # download jobs needed by a job
-                note(f"Download artifacts required by '{options.JOB}'")
-                jobobj = configloader.load_job(loader.config, options.JOB)
-                download_jobs = jobobj.dependencies
-
-            if options.export:
                 export_cmd(options.FROM,
                            options.export,
                            tls_verify=not options.insecure,
                            )
-            else:
+            elif options.JOB:
+                # download a job, or artifacts needed by a job
+                jobobj: Job = configloader.load_job(loader.config, options.JOB)
+                if options.download:
+                    # download a job's artifacts
+                    if options.parallel:
+                        download_jobs = [f"{options.JOB} {options.parallel}/{jobobj.parallel}"]
+                    else:
+                        download_jobs = [options.JOB]
+                    note(f"Download '{download_jobs[0]}' artifacts")
+                else:
+                    # download jobs needed by a job
+                    note(f"Download artifacts required by '{options.JOB}'")
+                    download_jobs = jobobj.dependencies
+
                 # download what we need
                 outdir = os.getcwd()
                 do_gitlab_fetch(options.FROM,
                                 download_jobs,
                                 tls_verify=not options.insecure,
                                 download_to=outdir)
+            else:
+                die("--from PIPELINE requires JOB or --export")
         except PipelineNotFound:
             die(str(PipelineNotFound(options.FROM)))
         except PipelineError as error:
@@ -334,8 +339,10 @@ def run(args=None):
                     return
         else:
             loader.load(fullpath)
+    except gitlabemu.jobs.NoSuchJob as err:
+        die(f"Job error: {err}")
     except gitlabemu.errors.ConfigLoaderError as err:
-        die("Config error: " + str(err))
+        die(f"Config error: {err}")
 
     if is_windows():  # pragma: linux no cover
         windows_shell = "powershell"

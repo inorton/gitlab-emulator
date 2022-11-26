@@ -426,10 +426,21 @@ def do_gitlab_fetch(from_pipeline: str,
     gitlab.session.verify = tls_verify  # hmm ?
     pipeline_jobs = pipeline.jobs.list(all=True)
     known_jobs = [x.name for x in pipeline_jobs]
-    for item in get_jobs:
-        if item not in known_jobs:
-            die(f"Pipeline {pipeline.id} does not contain a job named '{item}'")
-    fetch_jobs = [x for x in pipeline_jobs if not get_jobs or x.name in get_jobs]
+    want_jobs = []
+    if get_jobs:
+        want_jobs = list(get_jobs)
+        for item in list(want_jobs):
+            if item not in known_jobs:
+
+                errmsg = f"Pipeline {pipeline.id} does not contain a job named '{item}'"
+                similar = [name for name in known_jobs if "/" in name and name.startswith(item)]
+                if not similar:
+                    die(errmsg)
+                want_jobs.extend(similar)
+            else:
+                want_jobs.append(item)
+
+    fetch_jobs = [x for x in pipeline_jobs if not want_jobs or x.name in want_jobs]
 
     assert export_to or download_to
     outdir = download_to

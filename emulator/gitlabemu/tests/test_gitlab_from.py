@@ -27,12 +27,21 @@ def test_from_missing_download_args(capsys):
 
 
 @pytest.mark.usefixtures("linux_only")
-def test_no_token_or_config(capfd):
+def test_from_without_job_or_download(capfd):
     os.environ["GITLAB_PRIVATE_TOKEN"] = ""
     with pytest.raises(SystemExit):
         run(["--from", "nosuch.gitlab/grp/proj/1234"])
     _, stderr = capfd.readouterr()
-    assert "Could not find a configured token for nosuch.gitlab"
+    assert "--from PIPELINE requires JOB or --export" in stderr
+
+
+@pytest.mark.usefixtures("linux_only")
+def test_no_token_or_config(capfd):
+    os.environ["GITLAB_PRIVATE_TOKEN"] = ""
+    with pytest.raises(SystemExit):
+        run(["--from", "nosuch.gitlab/grp/proj/1234", "--list"])
+    _, stderr = capfd.readouterr()
+    assert "Could not find a configured token for nosuch.gitlab" in stderr
     cfg = get_user_config()
     ctx = cfg.contexts[cfg.current_context]
     ctx.gitlab.add("nosuch.gitlab", "https://myserver.nosuch", "token", True)
@@ -40,7 +49,7 @@ def test_no_token_or_config(capfd):
 
     # should fail to connect
     with pytest.raises(ConnectionError) as err:
-        run(["--from", "nosuch.gitlab/grp/proj/1234"])
+        run(["--from", "nosuch.gitlab/grp/proj/1234", "--list"])
     assert err.value.request.url == "https://myserver.nosuch/"
     assert err.value.request.method == "HEAD"
 
@@ -185,6 +194,6 @@ def test_parse_pipeline():
 
 def test_invalid_pipeline(capsys):
     with pytest.raises(SystemExit):
-        run(["--from", "moose/group", "--download", "bob"])
+        run(["--from", "moose/group", "--list"])
     _, stderr = capsys.readouterr()
     assert "error: 'moose/group' is not a valid pipeline specification" in stderr
