@@ -95,7 +95,8 @@ def create_pipeline(vars: Optional[Dict[str, str]] = None,
 def generate_pipeline(loader, *goals,
                       variables: Optional[Dict[str, str]] = None,
                       use_from: Optional[str] = None,
-                      tls_verify: Optional[bool] = True):
+                      dump_only: Optional[bool] = False,
+                      tls_verify: Optional[bool] = True) -> Optional[dict]:
     """Generate and push a subset pipeline"""
     pipeline = None
     download_jobs = {}
@@ -161,6 +162,9 @@ def generate_pipeline(loader, *goals,
                             deps[goal].append(dep)
 
     generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
+    if dump_only:
+        return generated
+
     jobs = [name for name in generated.keys() if name not in RESERVED_TOP_KEYS]
     note(f"Will build jobs: {jobs} ..")
     stages = generated.get("stages", ["test"])

@@ -7,7 +7,7 @@ from typing import Dict
 
 import gitlabemu.errors
 from . import configloader
-from .docker import has_docker
+from .docker import has_docker, DockerJob
 from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
 from .jobs import Job
 from .localfiles import restore_path_ownership
@@ -17,7 +17,7 @@ from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, ex
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
 from .glp.types import Match
-
+from .yamlloader import ordered_dump
 
 CONFIG_DEFAULT = ".gitlab-ci.yml"
 
@@ -42,6 +42,8 @@ parser.add_argument("--chdir", "-C", dest="chdir", default=None, type=str, metav
 parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="store_true",
                     help="Run an interactive shell but do not run the build"
                     )
+parser.add_argument("--exec", default=False, action="store_true",
+                    help="Execute the job using 'gitlab-runner exec' if possible. Note, this will not test uncommitted changes and will not produce any output files")
 parser.add_argument("--before-script", "-b", dest="before_script_enter_shell", default=False, action="store_true",
                     help="Run the 'before_script' commands before entering the shell"
                     )
@@ -142,13 +144,55 @@ def apply_user_config(loader: configloader.Loader, is_docker: bool):
         loader.config[".gle-extra_variables"][name] = jobvars[name]
 
 
-def execute_job(config, jobname, seen=None, recurse=False):
+def gitlab_runner_exec(jobobj: Job):
+    """Execute a job locally using 'gitlab-runner exec"""
+    loader = configloader.Loader()
+    loader.config.update(jobobj.copy_config())
+
+    result = generate_pipeline(loader, jobobj.name,
+                               dump_only=True,
+                               use_from=None,
+                               tls_verify=True)
+
+    # ensure that all variables are strings as gitlab-runner exec doesnt like the ints used for KUBERNETES settings
+    def ensure_strings(dictionary: dict):
+        copied = dict(dictionary)
+        for varname in copied:
+            dictionary[varname] = str(copied[varname])
+    if "variables" in result:
+        ensure_strings(result["variables"])
+
+    for name in result:
+        if isinstance(result[name], dict):
+            if "variables" in result[name]:
+                ensure_strings(result[name]["variables"])
+
+    # save the config
+    temp_pipeline_file = os.path.join(os.getcwd(), ".temp-pipeline.yml")
+    try:
+        with open(temp_pipeline_file, "w") as tempcfg:
+            tempcfg.write(ordered_dump(result))
+        cmdline = ["gitlab-runner", "exec"]
+        if isinstance(jobobj, DockerJob):
+            cmdline.append("docker")
+        else:
+            cmdline.append("shell")
+        cmdline.extend(["--cicd-config-file", temp_pipeline_file, jobobj.name])
+
+        subprocess.check_call(cmdline)
+
+    finally:
+        os.unlink(temp_pipeline_file)
+
+
+def execute_job(config, jobname, seen=None, recurse=False, use_runner=False):
     """
     Run a job, optionally run required dependencies
     :param config: the config dictionary
     :param jobname: the job to start
     :param seen: completed jobs are added to this set
     :param recurse: if True, execute in dependency order
+    :param use_runner: if True, execute using "gitlab-runner exec"
     :return:
     """
     if seen is None:
@@ -158,7 +202,10 @@ def execute_job(config, jobname, seen=None, recurse=False):
         if recurse:
             for need in jobobj.dependencies:
                 execute_job(config, need, seen=seen, recurse=True)
-        jobobj.run()
+        if use_runner:
+            gitlab_runner_exec(jobobj)
+        else:
+            jobobj.run()
         seen.add(jobname)
 
 
@@ -424,7 +471,9 @@ def run(args=None):
             loader.config["error_shell"] = [options.error_shell]
         try:
             executed_jobs = set()
-            execute_job(loader.config, jobname, seen=executed_jobs, recurse=options.FULL)
+            execute_job(loader.config, jobname, seen=executed_jobs,
+                        use_runner=options.exec,
+                        recurse=options.FULL)
         finally:
             if has_docker() and fix_ownership:
                 if is_linux() or is_apple():

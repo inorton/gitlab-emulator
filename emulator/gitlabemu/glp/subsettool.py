@@ -1,13 +1,15 @@
 """Generate partial gitlab pipelines using temporary branches"""
 import os
+import sys
 from argparse import ArgumentParser, Namespace
 
-from .subcommand import Command, MatcherCommand
+from .subcommand import MatcherCommand
 from .types import NameValuePair
 from .. import configloader
 from ..gitlab_client_api import get_current_project_client
 from ..helpers import die
 from ..pipelines import generate_pipeline, generate_subset_branch_name, get_subset_prefix, pipelines_cmd
+from ..yamlloader import ordered_dump
 
 
 class SubsetCommand(MatcherCommand):
@@ -35,6 +37,8 @@ class SubsetCommand(MatcherCommand):
         parser.add_argument("--branches",
                             default=False, action="store_true",
                             help="List subset branch names (see also --match)")
+        parser.add_argument("--dump", type=str,
+                            help="Dump the generated pipeline to a file instead of running")
         parser.add_argument("--clean",
                             default=False, action="store_true",
                             help="Delete leftover subset branches from the gitlab repo")
@@ -57,9 +61,14 @@ class SubsetCommand(MatcherCommand):
             loader = configloader.Loader(emulator_variables=False)
             loader.load(fullpath)
             # generate a subset pipeline
-            generate_pipeline(loader, *jobs, variables=variables,
-                              use_from=opts.FROM,
-                              tls_verify=opts.tls_verify)
+            result = generate_pipeline(loader, *jobs, variables=variables,
+                                       dump_only=opts.dump is not None,
+                                       use_from=opts.FROM,
+                                       tls_verify=opts.tls_verify)
+            if opts.dump:
+                print(f"Saving generated pipeline as: {opts.dump}", file=sys.stderr)
+                with open(opts.dump, "w") as dumpcfg:
+                    dumpcfg.write(ordered_dump(result))
         else:
             client, project, remotename = get_current_project_client(tls_verify=opts.tls_verify)
 

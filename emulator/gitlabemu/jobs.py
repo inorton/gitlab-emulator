@@ -73,6 +73,9 @@ class Job(object):
         self.rules = None
         self.configloader = None
 
+    def copy_config(self) -> dict:
+        return dict(self._config)
+
     def check_skipped(self) -> bool:
         """Return True if this job is skipped by rules"""
         return self.skipped_reason is not None
