@@ -44,7 +44,7 @@ emulator-linux-ubuntu2204-install:
     - emulator-linux-ubuntu1804-install
   image:
     name: ubuntu:22.04
-    entrypoint: [ '/bin/sh', '-c' ]
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
     
 
 
