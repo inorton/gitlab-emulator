@@ -6,6 +6,7 @@ import tempfile
 import pytest
 from pytest_mock import MockerFixture
 
+from ..configloader import Loader
 from ..gitlab_client_api import PipelineNotFound
 from ..glp.tool import run
 from ..glp.types import NameValuePair, Match, ArgumentTypeError
@@ -58,20 +59,59 @@ def test_build_vars(mocker: MockerFixture):
     )
 
 
-def test_subset_command(repo_root: str, mocker: MockerFixture):
+def test_subset_command(repo_root: str, mocker: MockerFixture, mock_client_project_remote, tmp_path, capfd):
     """Test subset generation"""
-    generate: Mock = mocker.patch("gitlabemu.glp.subsettool.generate_pipeline", autospec=True)
+    apic: Mock = mocker.patch("gitlabemu.gitlab_client_api.get_gitlab_project_client", autospec=True)
+    client, project, remote = mock_client_project_remote
+    apic.return_value = (client, project, remote)
+    outfile = tmp_path / "dump.yml"
+    # generate a single job subset with no deps and no from
+    run(["subset", "quick", "-e", "SPEED=fast", "--dump", str(outfile)])
+    assert outfile.exists()
+    loader = Loader()
+    loader.load(str(outfile))
+    job = loader.load_job("quick")
+    assert job
+    outfile.unlink()
 
-    run(["subset", "quick", "-e", "SPEED=fast"])
+    # generate a subset with an artifact needed job
+    run(["subset", "needs-artifacts", "--dump", str(outfile)])
+    assert outfile.exists()
+    loader = Loader()
+    loader.load(str(outfile))
+    quick = loader.load_job("quick")
+    goal = loader.load_job("needs-artifacts")
+    assert quick
+    assert goal
+    outfile.unlink()
 
-    generate.assert_called_once_with(
-        ANY,
-        "quick",
-        variables={"SPEED": "fast"},
-        use_from=None,
-        tls_verify=True
-    )
+    # generate a subset with an artifact needed job and a from pipeline
+    # populate the mock client project
+    # complain if no successful needed job exists
+    pipeline = project.mock_add_pipeline()
+    with pytest.raises(SystemExit):
+        run(["subset", "--from", str(pipeline.id), "needs-artifacts", "--dump", str(outfile)])
+    assert not outfile.exists()
+    stdout, stderr = capfd.readouterr()
+    assert "Pipeline did not contain a successful 'quick' job needed by needs-artifacts" in stderr
 
+    # add a successful quick job
+    job = pipeline.mock_add_job("quick", "success", [])
+    job.artifacts.append({
+        "file_type": "archive"
+    })
+    run(["subset", "--from", str(pipeline.id), "needs-artifacts", "--dump", str(outfile)])
+    assert outfile.exists()
+    loader = Loader()
+    loader.load(str(outfile))
+    quick = loader.load_job("quick")
+    goal = loader.load_job("needs-artifacts")
+    assert quick
+    download_script = "\n".join(quick.script)
+
+    assert f"{client.api_url}/projects/{project.id}/jobs/{job.id}/artifacts" in download_script
+
+    assert goal
 
 def test_list_command(mocker: MockerFixture):
     """Test list and matcher passing"""

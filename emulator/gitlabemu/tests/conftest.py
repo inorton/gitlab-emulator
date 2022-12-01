@@ -1,6 +1,9 @@
 import os
+import random
 import shutil
 import tempfile
+import time
+from typing import Optional, List
 
 import pytest
 import subprocess
@@ -116,3 +119,82 @@ def replace_stdout():
     default_encoding = sys.stdout.encoding
     yield
     sys.stdout.reconfigure(encoding=default_encoding)
+
+
+class MockPipelineJob:
+    def __init__(self, pipeline, name, status):
+        self.id = random.randint(1, 7873897437)
+        self.pipeline = pipeline
+        self.name = name
+        self.status = status
+        self.artifacts: List[dict] = []
+
+class MockPipelineJobs:
+    def __init__(self, pipeline):
+        self.pipeline = pipeline
+
+    def list(self, **kwargs):
+        return self.pipeline.api_jobs
+
+class MockPipeline:
+    def __init__(self):
+        self.id = random.randint(1, 81924)
+        self.ref: Optional[str] = None
+        self.status: Optional[str] = None
+        self.api_jobs = []
+
+    @property
+    def jobs(self, **kwargs):
+        return MockPipelineJobs(self)
+
+    def mock_add_job(self, name, status, artifacts):
+        job = MockPipelineJob(self, name, status)
+        job.artifacts = artifacts
+        self.api_jobs.append(job)
+        return job
+
+class MockProjectPipelines:
+    def __init__(self, project):
+        self._project = project
+
+    @property
+    def list(self, **kwargs):
+        return self._project.api_pipelines
+
+    def get(self, pipeline_id):
+        for pipeline in self.list:
+            if pipeline.id == pipeline_id:
+                return pipeline
+        return None
+
+
+class MockAPIProject:
+    def __init__(self):
+        self.api_pipelines = []
+        self.id = random.randint(1, 344234)
+
+    @property
+    def pipelines(self):
+        return MockProjectPipelines(self)
+
+    def mock_add_pipeline(self):
+        p = MockPipeline()
+        self.api_pipelines.append(p)
+        return p
+
+class MockAPIClient:
+
+    @property
+    def ssl_verify(self):
+        return True
+    @property
+    def api_url(self):
+        return "https://nowhere/gitlab"
+
+
+@pytest.fixture()
+def mock_client_project_remote():
+    client = MockAPIClient()
+    project = MockAPIProject()
+    remote = "moose"
+    return client, project, remote

@@ -92,6 +92,12 @@ def create_pipeline(vars: Optional[Dict[str, str]] = None,
         note(started.web_url)
 
 
+def generate_partial_pipeline(loader, *goals, variables: Optional[Dict[str, str]] = None):
+    if not goals:
+        die("Cannot generate a pipeline with zero jobs")
+
+
+
 def generate_pipeline(loader, *goals,
                       variables: Optional[Dict[str, str]] = None,
                       use_from: Optional[str] = None,
@@ -141,7 +147,7 @@ def generate_pipeline(loader, *goals,
 
         for goal in goals:
             loaded = loader.load_job(goal)
-            if loaded.check_skipped:
+            if loaded.check_skipped():
                 info(f"{goal} skipped by rules")
                 continue
 
@@ -162,9 +168,6 @@ def generate_pipeline(loader, *goals,
                             deps[goal].append(dep)
 
     generated = generate_pipeline_yaml(loader, *goals, recurse=recurse)
-    if dump_only:
-        return generated
-
     jobs = [name for name in generated.keys() if name not in RESERVED_TOP_KEYS]
     note(f"Will build jobs: {jobs} ..")
     stages = generated.get("stages", ["test"])
@@ -178,6 +181,9 @@ def generate_pipeline(loader, *goals,
 
     for varname in variables:
         generated["variables"][varname] = variables[varname]
+
+    if dump_only:
+        return generated
 
     branch_name = generate_subset_branch_name(client, cwd)
     note(f"Creating temporary pipeline branch '{branch_name}'..")
