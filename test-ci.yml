@@ -1,3 +1,6 @@
+variables:
+  MY_CUSTOM_IMAGE: "busybox:latest"
+
 include:
   - ci-includes/alpine-image.yml
   - local: ci-includes/windows-dir-after.yml
@@ -74,3 +77,8 @@ linux-build-later:
   script:
     - env|grep SOME_VARIABLE
 
+variable_image:
+  stage: test
+  image: "$MY_CUSTOM_IMAGE"
+  script:
+    - env|grep IMAGE

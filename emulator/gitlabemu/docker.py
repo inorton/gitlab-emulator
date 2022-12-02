@@ -6,7 +6,7 @@ import tempfile
 import time
 import tarfile
 from contextlib import contextmanager
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
@@ -14,6 +14,7 @@ from .helpers import communicate as comm, is_windows
 from .userconfig import get_user_config_context
 from .errors import DockerExecError
 from .dockersupport import docker
+from .variables import expand_variable
 
 
 class DockerTool(object):
@@ -177,11 +178,25 @@ class DockerJob(Job):
     """
     def __init__(self):
         super(DockerJob, self).__init__()
-        self.image = None
+        self._image = None
         self.services = []
         self.container = None
-        self.entrypoint = None
         self.docker = DockerTool()
+
+    @property
+    def docker_image(self) -> str:
+        if isinstance(self._image, dict):
+            image = self._image.get("name", None)
+        else:
+            image = self._image
+        return expand_variable(self.get_envs(), image)
+
+    @property
+    def docker_entrypoint(self) -> Optional[List[str]]:
+        custom_entryppoint = None
+        if isinstance(self._image, dict):
+            custom_entryppoint = self._image.get("entrypoint", None)
+        return custom_entryppoint
 
     @property
     def inside_workspace(self) -> str:
@@ -200,17 +215,14 @@ class DockerJob(Job):
         return self.workspace
 
     def load(self, name, config):
-        super(DockerJob, self).load(name, config)
         all_images = config.get("image", None)
-        self.image = config[name].get("image", all_images)
+        self._image = config[name].get("image", all_images)
         self.services = get_services(config, name)
+        super(DockerJob, self).load(name, config)
 
     def set_job_variables(self):
         super(DockerJob, self).set_job_variables()
-        image_source = self.image
-        if isinstance(self.image, dict):
-            image_source = self.image.get("name")
-        self.configure_job_variable("CI_JOB_IMAGE", image_source)
+        self.configure_job_variable("CI_JOB_IMAGE", str(self.docker_image))
         self.configure_job_variable("CI_DISPOSABLE_ENVIRONMENT", "true")
         self.configure_job_variable("CI_PROJECT_DIR", self.inside_workspace)
         self.configure_job_variable("CI_BUILDS_DIR", os.path.dirname(self.inside_workspace))
@@ -375,22 +387,16 @@ class DockerJob(Job):
 
         if not is_windows():
             self.docker.privileged = True
-
-        if isinstance(self.image, dict):
-            image = self.image["name"]
-            self.entrypoint = self.image.get("entrypoint", self.entrypoint)
-            self.image = image
-
-        self.docker.image = self.image
+        self.docker.image = self.docker_image
         self.container = generate_resource_name()
         self.docker.name = self.container
 
-        info("pulling docker image {}".format(self.image))
+        info("pulling docker image {}".format(self.docker.image))
         try:
-            self.stdout.write("Pulling {}...\n".format(self.image))
+            self.stdout.write("Pulling {}...\n".format(self.docker.image))
             self.docker.pull()
         except subprocess.CalledProcessError:
-            warning("could not pull docker image {}".format(self.image))
+            warning("could not pull docker image {}".format(self.docker.image))
 
         environ = self.get_envs()
         with docker_services(self, environ) as network:
@@ -399,8 +405,8 @@ class DockerJob(Job):
             for envname in environ:
                 self.docker.env[envname] = environ[envname]
 
-            if self.entrypoint is not None:
-                self.docker.entrypoint = self.entrypoint
+            if self.docker_entrypoint is not None:
+                self.docker.entrypoint = self.docker_entrypoint
             volumes = get_user_config_context().docker.runtime_volumes()
             if volumes:
                 info("Extra docker volumes registered:")

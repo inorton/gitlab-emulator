@@ -86,6 +86,19 @@ def test_self(linux_docker, capsys):
     assert "SOME_VARIABLE=hello" in out
 
 
+def test_image_variables(linux_docker, capsys):
+    """
+    Test that we can expand variables in the job image
+    :param linux_docker:
+    :return:
+    """
+    run(["-c", os.path.join(TOPDIR, "test-ci.yml"),
+         "variable_image"])
+
+    out, err = capsys.readouterr()
+    assert "CI_JOB_IMAGE=busybox:latest" in out
+
+
 def test_self_fail(linux_docker, capsys):
     """
     Test that we can do a simple build using docker and correctly detect a failure

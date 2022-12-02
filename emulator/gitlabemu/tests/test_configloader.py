@@ -76,7 +76,7 @@ def test_load_extends():
     assert job2["before_script"][0] == "base2"
 
     top = loader.load_job("top")
-    assert top.image == "baseimage:image"
+    assert top.docker_image == "baseimage:image"
     assert top.before_script[0] == "middle before_script"
     assert top.script[0] == "top script"
     assert top.variables
@@ -87,7 +87,7 @@ def test_load_extends():
 
     last = loader.load_job("last")
 
-    assert last.image == "busybox:latest"
+    assert last.docker_image == "busybox:latest"
     assert last.after_script == ["echo template-basic after_script"]
     assert last.before_script == top.before_script
     assert last.script == top.script
@@ -120,14 +120,14 @@ def test_inherit():
     job4: DockerJob = loader.load_job("job4")
     job5: DockerJob = loader.load_job("job5")
 
-    assert job1.image == "ruby:3.0"
+    assert job1.docker_image == "ruby:3.0"
     assert job1.before_script == ["df -h"]
     assert job1.variables["COLOR"] == "red"
-    assert job2.image == "ruby:3.0"
+    assert job2.docker_image == "ruby:3.0"
     assert job2.before_script == []
     assert job2.variables["COLOR"] == "red"
 
-    assert job3.image == job2.image
+    assert job3.docker_image == job2.docker_image
     assert job3.before_script == job2.before_script
     assert job3.variables["COLOR"] == "red"
     assert job3.variables["SIZE"] == "big"
