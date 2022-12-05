@@ -242,7 +242,8 @@ class DockerJob(Job):
         Get env vars for a docker job
         :return:
         """
-        ret = {}
+        ret = self.base_variables()
+
         for name in self.variables:
             value = self.variables[name]
             if value is None:
@@ -252,7 +253,7 @@ class DockerJob(Job):
         for name in self.extra_variables:
             ret[name] = self.extra_variables[name]
 
-        return ret
+        return self.expand_variables(ret)
 
     def run_script(self, lines):
         return self._run_script(lines)

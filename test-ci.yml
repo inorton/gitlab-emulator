@@ -1,5 +1,6 @@
 variables:
   MY_CUSTOM_IMAGE: "busybox:latest"
+  MY_VARIABLE: $CI_PROJECT_PATH/$CI_PIPELINE_ID
 
 include:
   - ci-includes/alpine-image.yml
@@ -81,4 +82,4 @@ variable_image:
   stage: test
   image: "$MY_CUSTOM_IMAGE"
   script:
-    - env|grep IMAGE
+    - env|sort

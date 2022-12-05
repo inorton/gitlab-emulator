@@ -99,6 +99,22 @@ def test_image_variables(linux_docker, capsys):
     assert "CI_JOB_IMAGE=busybox:latest" in out
 
 
+def test_general_variables(linux_docker, capsys):
+    """
+    Test that CI_PIPELINE_ID etc are expanded when used in `variables`
+    :param linux_docker:
+    :param capsys:
+    :return:
+    """
+    run(["-c", os.path.join(TOPDIR, "test-ci.yml"),
+         "variable_image"])
+
+    out, err = capsys.readouterr()
+    assert "$CI_PROJECT_PATH" not in out
+    assert "$CI_PIPELINE_ID" not in out
+    assert "MY_VARIABLE=local/gitlab-emulator/0" in out
+
+
 def test_self_fail(linux_docker, capsys):
     """
     Test that we can do a simple build using docker and correctly detect a failure

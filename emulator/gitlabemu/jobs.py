@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Optional
+from typing import Optional, Dict
 
 from .artifacts import GitlabArtifacts
 from .logmsg import info, fatal, debugrule
@@ -18,6 +18,8 @@ from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
 from .ansi import ANSI_GREEN, ANSI_RESET
 from .ruleparser import evaluate_rule
+from .variables import expand_variable
+from .gitlab.constraints import JOB_PERSISTED_VARIABLES, PIPELINE_PERSISTED_VARIABLES
 
 
 class NoSuchJob(GitlabEmulatorError):
@@ -301,6 +303,25 @@ class Job(object):
             return os.path.exists("/bin/bash")
         return False  # pragma: linux no cover
 
+    def base_variables(self) -> Dict[str, str]:
+        return dict(self._config.get("variables", {}))
+
+    def ci_expandable_variables(self, variables: Dict[str, str]) -> Dict[str, str]:
+        expandable = {}
+        for name in variables:
+            if name in PIPELINE_PERSISTED_VARIABLES + JOB_PERSISTED_VARIABLES:
+                expandable[name] = variables[name]
+        return expandable
+
+    def expand_variables(self, variables: Dict[str, str]) -> Dict[str, str]:
+        expanded = {}
+        for name in variables:
+            value = variables[name]
+            value = expand_variable(self.ci_expandable_variables(variables), value)
+
+            expanded[name] = value
+        return expanded
+
     def get_envs(self):
         """
         Get environment variable dict for the job
@@ -314,7 +335,9 @@ class Job(object):
             envs[name] = str(value)
         for name in self.extra_variables:
             envs[name] = self.extra_variables[name]
-        return envs
+        # expand any predefeined variables
+
+        return self.expand_variables(envs)
 
     def get_script_fileext(self):
         ext = ".sh"

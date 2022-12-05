@@ -425,20 +425,32 @@ def load_job(config, name, allow_add_variables=True, configloader=None):
     return job
 
 
-def do_variables(baseobj, yamlfile):
-    # set CI_ values
+def compute_emulated_ci_vars(baseobj: dict):
     if "variables" not in baseobj:
         baseobj["variables"] = {}
 
+    workspace = baseobj.get(".gitlab-emulator-workspace", None)
+    if workspace:
+        folder = os.path.basename(workspace)
+        baseobj["variables"]["CI_PROJECT_PATH"] = os.getenv(
+            "CI_PROJECT_PATH", f"local/{folder}")
     baseobj["variables"]["CI_PIPELINE_ID"] = os.getenv(
         "CI_PIPELINE_ID", "0")
     baseobj["variables"]["CI_COMMIT_REF_SLUG"] = os.getenv(
         "CI_COMMIT_REF_SLUG", "offline-build")
     baseobj["variables"]["CI_COMMIT_SHA"] = os.getenv(
         "CI_COMMIT_SHA", "unknown")
+    return baseobj
+
+def do_variables(baseobj, yamlfile):
+    # set CI_ values
+    baseobj = compute_emulated_ci_vars(baseobj)
+
+
     for name in os.environ:
         if name.startswith("CI_"):
             baseobj["variables"][name] = os.environ[name]
+    return compute_emulated_ci_vars(baseobj)
 
 
 def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=None,
