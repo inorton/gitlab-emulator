@@ -83,3 +83,13 @@ variable_image:
   image: "$MY_CUSTOM_IMAGE"
   script:
     - env|sort
+
+single_value_script:
+  stage: test
+  script: |
+    echo "hello"
+
+.moose:
+  numbers: |
+    one
+    two

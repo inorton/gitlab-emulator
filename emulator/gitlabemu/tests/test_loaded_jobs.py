@@ -23,3 +23,13 @@ def test_load_expected(top_dir):
     quick = loader.load_job("quick")
     assert quick.artifacts
     assert quick.artifacts.paths == ["date.txt"]
+
+
+def test_load_single_value_yaml(top_dir):
+    loader = configloader.Loader()
+    yamlfile = os.path.join(top_dir, "test-ci.yml")
+    loader.load(yamlfile)
+    job = loader.load_job("single_value_script")
+
+    assert isinstance(job.script, list)
+    assert len(job.script) == 1

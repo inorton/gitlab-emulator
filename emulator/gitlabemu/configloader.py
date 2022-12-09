@@ -663,11 +663,17 @@ class Loader(object):
                 lines = objdata[jobname].get(step, None)
                 if lines is not None:
                     newlines = []
-                    for item in lines:
-                        if isinstance(item, list):
-                            newlines.extend(item)
-                        else:
-                            newlines.append(item)
+                    if isinstance(lines, list):
+                        for item in lines:
+                            if isinstance(item, list):
+                                # script is a list of lists (perfectly legal)
+                                # collapse it into a 1d list of strings
+                                newlines.extend(item)
+                            else:
+                                newlines.append(item)
+                    elif isinstance(lines, str):
+                        # script is a single value (legal)
+                        newlines.append(lines)
                     objdata[jobname][step] = newlines
 
         return objdata

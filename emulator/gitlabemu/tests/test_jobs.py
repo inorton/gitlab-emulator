@@ -1,4 +1,5 @@
 """Tests for jobs.py"""
+import os
 import time
 import subprocess
 import uuid
@@ -99,3 +100,15 @@ def test_script_generation_unix():
     assert "uname -a\n" in multi_line_script
     assert "df -h\n" in multi_line_script
 
+
+def test_script_values(capfd: pytest.CaptureFixture):
+    job = Job()
+    job.load("bob", {
+        ".gitlab-emulator-workspace": os.getcwd(),
+        "bob": {
+            "stage": "test",
+            "script": "echo hello\necho"
+        }
+    })
+
+    assert isinstance(job.script, list)

@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Union, Any
 
 from .artifacts import GitlabArtifacts
 from .logmsg import info, fatal, debugrule
@@ -169,6 +169,7 @@ class Job(object):
         all_before = config.get("before_script", [])
         self.before_script = job.get("before_script", all_before)
         self.script = job.get("script", [])
+
         all_after = config.get("after_script", [])
         self.after_script = job.get("after_script", all_after)
         self.variables = job.get("variables", {})
