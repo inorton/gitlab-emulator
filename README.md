@@ -7,9 +7,9 @@
 
 __gle__ lets you run many gitlab pipeline jobs and often entire pipeline graphs on your own machine directly. The goal of the project has been as an aid to local incremental work on pipeline logic (needs, docker services, rules) without consuming potentially scarce or expensive resources of gitlab runners.
 
-For the most part, _gle_ is able to correctly execute jobs in pipelines that use `script`, `before_script`, `after_script`, `extends`, `include`, `variables` and `needs` on windows, linux and apple systems. If you have docker installed and working you can execute jobs that make use of `image` and `services` too.
+For the most part, _gle_ is able to correctly execute jobs in pipelines that use `script`, `before_script`, `after_script`, `extends`, `include`, `variables` and `needs`. If you have docker installed and working you can execute jobs that make use of `image` and `services` too.
 
-It has some preliminary understanding of rule expressions allowing you to develop rule expressiojns for `include` and `rules` for jobs without pushing pipelines.
+It has some preliminary understanding of rule expressions allowing you to develop rule expressions for `include` and `rules` for jobs without pushing pipelines.
 
 __glp__ is a recent tool added to explore and manage real pipelines, it supports downloading of artifacts and triggering of pipelines on the server. It also supports generation of subsets of a pipeline and either running those on a temporary branch or outputting to a file.  Aside from this last feature, _glp_ has been surpassed by the recent _glab_ [glab CLI project](https://gitlab.com/gitlab-org/cli) which you should use if you want to manage pipelines on a real server.
 
