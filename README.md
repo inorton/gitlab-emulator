@@ -3,11 +3,21 @@
 [![pipeline status](https://gitlab.com/cunity/gitlab-emulator/badges/main/pipeline.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/main)
 [![coverage report](https://gitlab.com/cunity/gitlab-emulator/badges/main/coverage.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/main)
 
-Supported Gitlab v14.2 features:
+## Gitlab Emulator (gle)
+
+__gle__ lets you run many gitlab pipeline jobs and often entire pipeline graphs on your own machine directly. The goal of the project has been as an aid to local incremental work on pipeline logic (needs, docker services, rules) without consuming potentially scarce or expensive resources of gitlab runners.
+
+For the most part, _gle_ is able to correctly execute jobs in pipelines that use `script`, `before_script`, `after_script`, `extends`, `include`, `variables` and `needs` on windows, linux and apple systems. If you have docker installed and working you can execute jobs that make use of `image` and `services` too.
+
+It has some preliminary understanding of rule expressions allowing you to develop rule expressiojns for `include` and `rules` for jobs without pushing pipelines.
+
+__glp__ is a recent tool added to explore and manage real pipelines, it supports downloading of artifacts and triggering of pipelines on the server. It also supports generation of subsets of a pipeline and either running those on a temporary branch or outputting to a file.  Aside from this last feature, _glp_ has been surpassed by the recent _glab_ [glab CLI project](https://gitlab.com/gitlab-org/cli) which you should use if you want to manage pipelines on a real server.
+
+Supported Gitlab v14.2+ features:
 
  * `needs` can use any job regardless of the `stage` value
 
-Supported Gitlab v14.1 (and earlier) features:
+Supported Gitlab v14.1+ features:
 
  * docker on windows, linux and mac.
  * `include` and `extends` keywords
@@ -16,17 +26,17 @@ Supported Gitlab v14.1 (and earlier) features:
 
 Requirements:
 
- * Python 3.8 or later (preferrably 3.8+)
+ * Python 3.7 or later (preferrably 3.8+)
  * requests
  * pyyaml
 
 Supported Platforms:
 
-| Emulator                         | Runner OSs                     |
-| -------------------------------- | ------------------------------ |
-| Windows (shell + docker)         | AIX                            |
-| Linux (shell + docker)           | HP-UX                          |
-| Mac (shell + docker)             | Solaris                        |
+| Emulator                         | Gitlab-Python-Runner       |
+| -------------------------------- |-------------------------------|
+| Windows (shell + docker)         | AIX                           |
+| Linux (shell + docker)           | HP-UX                         |
+| Mac (shell + docker)             | Solaris                       |
 |                                  | Windows + Linux (testing only) |
 
 _Note. Runner support on AIX, HP-UX and Solaris is experimental_
