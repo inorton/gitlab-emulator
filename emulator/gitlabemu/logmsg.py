@@ -26,15 +26,15 @@ def info(msg):
 
 def debugrule(msg):
     if os.environ.get("GLE_DEBUG_RULES", "n") != "n":
-        LOGGER.info(msg)
+        LOGGER.info(f"D: {msg}")
 
 
 def warning(msg):
-    LOGGER.warning(msg)
+    LOGGER.warning(f"W! {msg}")
 
 
 def fatal(msg):
-    LOGGER.critical(msg)
+    LOGGER.critical(f"E!: {msg}")
     if FATAL_EXIT:
         sys.exit(1)
     raise GitlabEmulatorError()

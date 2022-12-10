@@ -3,7 +3,9 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
+import tempfile
 from typing import Dict, Any, Union, Optional
+import requests
 
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS, DEFAULT_JOB_KEYS
@@ -14,7 +16,7 @@ from . import yamlloader
 from .yamlloader import GitlabReference
 from .userconfig import get_user_config_context
 from gitlabemu.ruleparser import evaluate_rule
-from .logmsg import info, debugrule
+from .logmsg import warning, debugrule
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -46,7 +48,7 @@ def do_single_include(baseobj: Dict[str, Any],
                       filename: Optional[str] = None):
     """
     Load a single included file and return it's object graph
-    :param filename:
+    :param filename: the name of the parent file wanting to include this one
     :param handle_read:
     :param baseobj: previously loaded and included objects
     :param yamldir: folder to search
@@ -54,17 +56,36 @@ def do_single_include(baseobj: Dict[str, Any],
     :param variables:
     :return:
     """
+    supported_includes = ["local", "remote", "template"]
+
     if variables is None:
         variables = {}
     if handle_read is None:
         handle_read = read
     include = None
+    inc_type = None
+
     if isinstance(inc, str):
-        include = inc
+        location = inc.lstrip("/\\")
+        inc_type = "local"
     elif isinstance(inc, dict):
-        include = inc.get("local", None)
-        if not include:
-            raise FeatureNotSupportedError("We only support local includes right now")
+        supported = False
+        for inc_type in supported_includes:
+            if inc_type in inc:
+                supported = True
+                break
+        if not supported:
+            raise FeatureNotSupportedError(f"Do not understand how to include {inc}")
+
+        remote = inc.get("remote", None)
+        local_file = inc.get("local", None)
+        if remote:
+            location = remote
+            inc_type = "remote"
+        elif filename:
+            inc_type = "local"
+            location = local_file
+
         rules = inc.get("rules", [])
         if not rules:
             debugrule(f"{filename} include: {include}")
@@ -76,25 +97,38 @@ def do_single_include(baseobj: Dict[str, Any],
                 if if_rule:
                     matched = evaluate_rule(if_rule, dict(variables))
                     if matched:
-                        debugrule(f"{filename} include local: {include} matched {if_rule}")
+                        debugrule(f"{filename} include '{include}' matched {if_rule}")
                         matched_rules = True
                         break
             if not matched_rules:
                 debugrule(f"{filename} not including: {include}")
                 return []
 
-    include = include.lstrip("/\\")
+    assert location, f"cannot work out include source location: {include}"
 
-    if include in baseobj["include"]:
-        BadSyntaxError("The file {} has already been included".format(include))
-    baseobj["include"].append(include)
+    if location in baseobj["include"]:
+        BadSyntaxError(f"{filename}: {location} has already been included")
+    baseobj["include"].append(location)
 
     # make this work on windows
-    if os.sep != "/":
-        # pragma: linux no cover
-        include = include.replace("/", os.sep)
+    if inc_type == "local":
+        if os.sep != "/":
+            # pragma: linux no cover
+            location = location.replace("/", os.sep)
+        return handle_read(location, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
+    elif inc_type == "remote":
+        # fetch the file, no authentication needed
+        warning(f"Including remote CI yaml file: {location}")
+        resp = requests.get(location, allow_redirects=True)
+        if not resp.status_code == 200:
+            raise ConfigLoaderError(f"HTTP error getting {location}: status {resp.status_code}")
+        with tempfile.TemporaryDirectory() as temp_folder:
+            path = os.path.join(str(temp_folder), "remote.yml")
+            with open(path, "w") as fd:
+                fd.write(resp.text)
+            return handle_read(path, variables=False, validate_jobs=False, topdir=str(temp_folder), baseobj=baseobj)
 
-    return handle_read(include, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
+    BadSyntaxError(f"Don't know how to include {include}")
 
 
 def do_includes(baseobj, yamldir, incs, handle_include=do_single_include, filename: Optional[str] = None):
@@ -133,7 +167,7 @@ def do_includes(baseobj, yamldir, incs, handle_include=do_single_include, filena
             obj = handle_include(baseobj, yamldir, inc, filename=filename)
             for item in obj:
                 if item != "include":
-                    baseobj[item] = obj[item]
+                    merge_dicts(baseobj, obj, item)
 
 
 def strict_needs_stages() -> bool:
@@ -446,11 +480,19 @@ def do_variables(baseobj, yamlfile):
     # set CI_ values
     baseobj = compute_emulated_ci_vars(baseobj)
 
-
     for name in os.environ:
         if name.startswith("CI_"):
             baseobj["variables"][name] = os.environ[name]
     return compute_emulated_ci_vars(baseobj)
+
+
+def merge_dicts(baseobj: dict, updated: dict, key: Any):
+    if key in updated:
+        newvalue = updated[key]
+        if key in baseobj and isinstance(baseobj[key], dict) and isinstance(newvalue, dict):
+            baseobj[key].update(newvalue)
+        else:
+            baseobj[key] = newvalue
 
 
 def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=None,
@@ -488,7 +530,7 @@ def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=N
 
     for item in loaded:
         if item != "include":
-            baseobj[item] = loaded[item]
+            merge_dicts(baseobj, loaded, item)
 
     handle_include(baseobj, topdir, loaded.get("include", []))
     baseobj["include"].append(yamlfile)

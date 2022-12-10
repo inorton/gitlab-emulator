@@ -1,11 +1,13 @@
 variables:
   MY_CUSTOM_IMAGE: "busybox:latest"
   MY_VARIABLE: $CI_PROJECT_PATH/$CI_PIPELINE_ID
+  BOOK: exforce
 
 include:
   - ci-includes/alpine-image.yml
   - local: ci-includes/windows-dir-after.yml
   - local: ci-includes/subdir/jobs.yml
+  - remote: https://gitlab.com/cunity/gitlab-emulator/-/raw/main/emulator/remote-included.yml
 
 stages:
 - build
@@ -93,3 +95,12 @@ single_value_script:
   numbers: |
     one
     two
+
+skippy:
+  stage: test
+  image: alpine:latest
+  script:
+    - env |grep STARSHIP_NAME
+    - env |grep CREW_TYPE
+    - env |grep MY_VARIABLE
+    - env |grep BOOK
