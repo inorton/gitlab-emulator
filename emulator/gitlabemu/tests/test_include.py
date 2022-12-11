@@ -5,6 +5,7 @@ from _pytest.capture import CaptureFixture
 from ..runner import run
 
 @pytest.mark.usefixtures("has_docker")
+@pytest.mark.usefixtures("posix_only")
 def test_include_processing(top_dir: str, capfd: CaptureFixture):
     os.chdir(top_dir)
     run(["skippy", "-c", "test-ci.yml"])
