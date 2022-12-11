@@ -21,7 +21,7 @@ def test_timeout_set_job_slow(caplog, linux_docker, in_tests):
     assert "job run-slow timeout set to 1 mins" in caplog.messages
     assert "Job exceeded 60 sec timeout" in caplog.messages
     assert "kill container run-slow" in caplog.messages
-    assert "Docker job run-slow failed" in caplog.messages
+    assert "E!: Docker job run-slow failed" in caplog.messages
 
 
 def test_timeout_parser():

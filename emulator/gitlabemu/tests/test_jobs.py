@@ -75,7 +75,7 @@ def test_after_script(tmp_path: Path, capfd: pytest.CaptureFixture, caplog):
     assert never not in stdout
     assert "job sidney timeout set to 0 mins" in caplog.messages
     assert "running shell job sidney" in caplog.messages
-    assert "Shell job sidney failed" in caplog.messages
+    assert "E!: Shell job sidney failed" in caplog.messages
 
 
 @pytest.mark.usefixtures("posix_only")

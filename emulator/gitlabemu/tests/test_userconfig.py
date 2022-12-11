@@ -43,7 +43,7 @@ def test_illegal_context(caplog, tmp_path):
     os.environ["GLE_CONTEXT"] = "current_context"
     with pytest.raises(SystemExit):
         userconfig.get_current_user_context()
-    assert "'current_context' is not allowed for GLE_CONFIG" in caplog.messages
+    assert "E!: 'current_context' is not allowed for GLE_CONFIG" in caplog.messages
 
 
 def test_default_context(tmp_path):

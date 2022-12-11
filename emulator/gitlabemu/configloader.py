@@ -9,6 +9,7 @@ import requests
 
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS, DEFAULT_JOB_KEYS
+from .gitlab.urls import GITLAB_ORG_TEMPLATE_BASEURL
 from .helpers import stringlist_if_string
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
@@ -45,9 +46,11 @@ def do_single_include(baseobj: Dict[str, Any],
                       inc: Union[str, Dict[str, Any]],
                       handle_read=None,
                       variables: Optional[Dict[str, str]] = None,
-                      filename: Optional[str] = None):
+                      filename: Optional[str] = None,
+                      handle_fetch_project=None):
     """
     Load a single included file and return it's object graph
+    :param handle_fetch_project: called to fetch an included file from another project
     :param filename: the name of the parent file wanting to include this one
     :param handle_read:
     :param baseobj: previously loaded and included objects
@@ -56,7 +59,7 @@ def do_single_include(baseobj: Dict[str, Any],
     :param variables:
     :return:
     """
-    supported_includes = ["local", "remote", "template"]
+    supported_includes = ["local", "remote", "template", "project"]
 
     if variables is None:
         variables = {}
@@ -64,6 +67,7 @@ def do_single_include(baseobj: Dict[str, Any],
         handle_read = read
     include = None
     inc_type = None
+    temp_content = None
 
     if isinstance(inc, str):
         location = inc.lstrip("/\\")
@@ -77,18 +81,23 @@ def do_single_include(baseobj: Dict[str, Any],
         if not supported:
             raise FeatureNotSupportedError(f"Do not understand how to include {inc}")
 
-        remote = inc.get("remote", None)
-        local_file = inc.get("local", None)
-        if remote:
-            location = remote
-            inc_type = "remote"
-        elif filename:
+        if "local" in inc:
+            location = inc["local"]
             inc_type = "local"
-            location = local_file
+        elif "remote" in inc:
+            location = inc["remote"]
+            inc_type = "remote"
+        elif "template" in inc:
+            location = inc["template"]
+            inc_type = "template"
+        elif "project" in inc:
+            ref = inc.get("ref", "HEAD")
+            location = f"{inc['project']}/{inc['file']}#{ref}".replace("//", "/")
+            inc_type = "project"
 
         rules = inc.get("rules", [])
         if not rules:
-            debugrule(f"{filename} include: {include}")
+            debugrule(f"{filename} include: {inc}")
         else:
             matched_rules = False
             for rule in rules:
@@ -97,11 +106,11 @@ def do_single_include(baseobj: Dict[str, Any],
                 if if_rule:
                     matched = evaluate_rule(if_rule, dict(variables))
                     if matched:
-                        debugrule(f"{filename} include '{include}' matched {if_rule}")
+                        debugrule(f"{filename} include '{inc}' matched {if_rule}")
                         matched_rules = True
                         break
             if not matched_rules:
-                debugrule(f"{filename} not including: {include}")
+                debugrule(f"{filename} not including: {inc}")
                 return []
 
     assert location, f"cannot work out include source location: {include}"
@@ -110,25 +119,39 @@ def do_single_include(baseobj: Dict[str, Any],
         BadSyntaxError(f"{filename}: {location} has already been included")
     baseobj["include"].append(location)
 
-    # make this work on windows
     if inc_type == "local":
         if os.sep != "/":
             # pragma: linux no cover
             location = location.replace("/", os.sep)
         return handle_read(location, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
-    elif inc_type == "remote":
+    elif inc_type == "template":
+        # get the template from gitlab.com
+        warning(f"Including gitlab.com template: {location}")
+        inc_type = "remote"
+        location = f"{GITLAB_ORG_TEMPLATE_BASEURL}/{location}"
+    elif inc_type == "project":
+        warning(f"Including CI yaml from another project: {location}")
+        if not handle_fetch_project:
+            warning("no project handler added")
+        else:
+            temp_content = handle_fetch_project(inc)
+
+    if inc_type == "remote":
         # fetch the file, no authentication needed
         warning(f"Including remote CI yaml file: {location}")
         resp = requests.get(location, allow_redirects=True)
         if not resp.status_code == 200:
             raise ConfigLoaderError(f"HTTP error getting {location}: status {resp.status_code}")
+        temp_content = resp.text
+
+    if temp_content is not None:
         with tempfile.TemporaryDirectory() as temp_folder:
             path = os.path.join(str(temp_folder), "remote.yml")
             with open(path, "w") as fd:
-                fd.write(resp.text)
+                fd.write(temp_content)
             return handle_read(path, variables=False, validate_jobs=False, topdir=str(temp_folder), baseobj=baseobj)
 
-    BadSyntaxError(f"Don't know how to include {include}")
+    raise BadSyntaxError(f"Don't know how to include {inc}")
 
 
 def do_includes(baseobj, yamldir, incs, handle_include=do_single_include, filename: Optional[str] = None):
