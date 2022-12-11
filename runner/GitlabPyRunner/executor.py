@@ -318,8 +318,8 @@ def load_pipeline_config(trace, tempdir, build_dir_abs, job, jobname):
     ci_cfg = get_variable(job, "CI_CONFIG_PATH")
     if ci_cfg:
         ci_file = os.path.join(build_dir_abs, ci_cfg)
-    if os.path.exists(ci_file):
-        loader.load(ci_file)
+        if os.path.exists(ci_file):
+            loader.load(ci_file)
 
     config = loader.config
 

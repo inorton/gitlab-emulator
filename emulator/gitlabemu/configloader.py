@@ -17,7 +17,7 @@ from . import yamlloader
 from .yamlloader import GitlabReference
 from .userconfig import get_user_config_context
 from gitlabemu.ruleparser import evaluate_rule
-from .logmsg import warning, debugrule
+from .logmsg import warning, debugrule, fatal
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
@@ -94,6 +94,7 @@ def do_single_include(baseobj: Dict[str, Any],
             ref = inc.get("ref", "HEAD")
             location = f"{inc['project']}/{inc['file']}#{ref}".replace("//", "/")
             inc_type = "project"
+            fatal(f"Not Yet Implemented, {inc}")
 
         rules = inc.get("rules", [])
         if not rules:
