@@ -222,8 +222,8 @@ class DockerJob(Job):
 
     def set_job_variables(self):
         super(DockerJob, self).set_job_variables()
-        self.configure_job_variable("CI_JOB_IMAGE", str(self.docker_image))
-        self.configure_job_variable("CI_DISPOSABLE_ENVIRONMENT", "true")
+        self.configure_job_variable("CI_JOB_IMAGE", str(self.docker_image), force=True)
+        self.configure_job_variable("CI_DISPOSABLE_ENVIRONMENT", "true", force=True)
         self.configure_job_variable("CI_PROJECT_DIR", self.inside_workspace)
         self.configure_job_variable("CI_BUILDS_DIR", os.path.dirname(self.inside_workspace))
 
@@ -252,7 +252,6 @@ class DockerJob(Job):
 
         for name in self.extra_variables:
             ret[name] = self.extra_variables[name]
-
         return self.expand_variables(ret)
 
     def run_script(self, lines):

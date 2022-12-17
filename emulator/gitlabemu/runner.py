@@ -3,7 +3,7 @@ import subprocess
 import sys
 import os
 import argparse
-from typing import Dict
+from typing import Dict, Any
 
 import gitlabemu.errors
 from . import configloader
@@ -29,6 +29,8 @@ list_mutex.add_argument("--list", "-l", dest="LIST", default=False,
 parser.add_argument("--version", default=False, action="store_true")
 parser.add_argument("--hidden", default=False, action="store_true",
                     help="Show hidden jobs in --list(those that start with '.')")
+parser.add_argument("--noop", "-n", default=False, action="store_true",
+                    help="Execute a pipeline but print each command instead of running")
 list_mutex.add_argument("--full", "-r", dest="FULL", default=False,
                         action="store_true",
                         help="Run any jobs that are dependencies")
@@ -185,7 +187,7 @@ def gitlab_runner_exec(jobobj: Job):
         os.unlink(temp_pipeline_file)
 
 
-def execute_job(config, jobname, seen=None, recurse=False, use_runner=False):
+def execute_job(config: Dict[str, Any], jobname: str, seen=None, recurse=False, use_runner=False, noop=False):
     """
     Run a job, optionally run required dependencies
     :param config: the config dictionary
@@ -193,6 +195,7 @@ def execute_job(config, jobname, seen=None, recurse=False, use_runner=False):
     :param seen: completed jobs are added to this set
     :param recurse: if True, execute in dependency order
     :param use_runner: if True, execute using "gitlab-runner exec"
+    :param noop: if True, print instead of execute commands
     :return:
     """
     if seen is None:
@@ -201,11 +204,21 @@ def execute_job(config, jobname, seen=None, recurse=False, use_runner=False):
         jobobj = configloader.load_job(config, jobname)
         if recurse:
             for need in jobobj.dependencies:
-                execute_job(config, need, seen=seen, recurse=True)
-        if use_runner:
-            gitlab_runner_exec(jobobj)
+                execute_job(config, need, seen=seen, recurse=True, noop=noop)
+        print(f">>> execute {jobobj.name}:")
+        if noop:
+            if isinstance(jobobj, DockerJob):
+                print(f"image: {jobobj.docker_image}")
+            for envname, envvalue in jobobj.get_envs().items():
+                print(f"setenv {envname}={envvalue}")
+
+            for line in jobobj.before_script + jobobj.script:
+                print(f"script {line}")
         else:
-            jobobj.run()
+            if use_runner:
+                gitlab_runner_exec(jobobj)
+            else:
+                jobobj.run()
         seen.add(jobname)
 
 
@@ -473,12 +486,14 @@ def run(args=None):
             executed_jobs = set()
             execute_job(loader.config, jobname, seen=executed_jobs,
                         use_runner=options.exec,
-                        recurse=options.FULL)
+                        recurse=options.FULL,
+                        noop=options.noop)
         finally:
-            if has_docker() and fix_ownership:
-                if is_linux() or is_apple():
-                    if os.getuid() > 0:
-                        note("Fixing up local file ownerships..")
-                        restore_path_ownership(os.getcwd())
-                        note("finished")
+            if not options.noop:
+                if has_docker() and fix_ownership:
+                    if is_linux() or is_apple():
+                        if os.getuid() > 0:
+                            note("Fixing up local file ownerships..")
+                            restore_path_ownership(os.getcwd())
+                            note("finished")
         print("Build complete!")

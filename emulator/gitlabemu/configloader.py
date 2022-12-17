@@ -4,7 +4,8 @@ Load a .gitlab-ci.yml file
 import os
 import copy
 import tempfile
-from typing import Dict, Any, Union, Optional
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Union, Optional, List
 import requests
 
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
@@ -47,7 +48,7 @@ def do_single_include(baseobj: Dict[str, Any],
                       handle_read=None,
                       variables: Optional[Dict[str, str]] = None,
                       filename: Optional[str] = None,
-                      handle_fetch_project=None):
+                      handle_fetch_project=None) -> Dict[str, Any]:
     """
     Load a single included file and return it's object graph
     :param handle_fetch_project: called to fetch an included file from another project
@@ -65,7 +66,7 @@ def do_single_include(baseobj: Dict[str, Any],
         variables = {}
     if handle_read is None:
         handle_read = read
-    include = None
+    location = None
     inc_type = None
     temp_content = None
 
@@ -112,9 +113,9 @@ def do_single_include(baseobj: Dict[str, Any],
                         break
             if not matched_rules:
                 debugrule(f"{filename} not including: {inc}")
-                return []
+                return {}
 
-    assert location, f"cannot work out include source location: {include}"
+    assert location, f"cannot work out include source location: {inc}"
 
     if location in baseobj["include"]:
         BadSyntaxError(f"{filename}: {location} has already been included")
@@ -155,7 +156,11 @@ def do_single_include(baseobj: Dict[str, Any],
     raise BadSyntaxError(f"Don't know how to include {inc}")
 
 
-def do_includes(baseobj, yamldir, incs, handle_include=do_single_include, filename: Optional[str] = None):
+def do_includes(baseobj: Dict[str, Any],
+                yamldir: str,
+                incs: Union[str, List],
+                handle_include=do_single_include,
+                filename: Optional[str] = None) -> None:
     """
     Deep process include directives
     :param filename:
@@ -208,7 +213,7 @@ def strict_needs_stages() -> bool:
     return False
 
 
-def validate(config):
+def validate(config: Dict[str, Any]) -> None:
     """
     Validate the jobs in the loaded config map
     """
@@ -330,7 +335,7 @@ def do_single_extend_recursive(alljobs: dict, default_job: Dict[str, Any], name:
     return new_obj
 
 
-def do_extends(alljobs: dict):
+def do_extends(alljobs: dict) -> None:
     """
     Process all the extends and !reference directives recursively
     :return:
@@ -459,7 +464,11 @@ def job_docker_image(config, name):
     return config[name].get("image")
 
 
-def load_job(config, name, allow_add_variables=True, configloader=None):
+def load_job(config: Dict[str, Any],
+             name: str,
+             allow_add_variables: Optional[bool] = True,
+             configloader: Optional["BaseLoader"] = None
+             ) -> Union["Job", "DockerJob"]:
     """
     Load a job from the configuration
     :param allow_add_variables:
@@ -483,7 +492,7 @@ def load_job(config, name, allow_add_variables=True, configloader=None):
     return job
 
 
-def compute_emulated_ci_vars(baseobj: dict):
+def compute_emulated_ci_vars(baseobj: Dict[str, Any]) -> Dict[str, Any]:
     if "variables" not in baseobj:
         baseobj["variables"] = {}
 
@@ -500,7 +509,7 @@ def compute_emulated_ci_vars(baseobj: dict):
         "CI_COMMIT_SHA", "unknown")
     return baseobj
 
-def do_variables(baseobj, yamlfile):
+def do_variables(baseobj: Optional[Dict[str, Any]], yamlfile: str) -> Dict[str, Any]:
     # set CI_ values
     baseobj = compute_emulated_ci_vars(baseobj)
 
@@ -510,7 +519,7 @@ def do_variables(baseobj, yamlfile):
     return compute_emulated_ci_vars(baseobj)
 
 
-def merge_dicts(baseobj: dict, updated: dict, key: Any):
+def merge_dicts(baseobj: dict, updated: dict, key: Any) -> None:
     if key in updated:
         newvalue = updated[key]
         if key in baseobj and isinstance(baseobj[key], dict) and isinstance(newvalue, dict):
@@ -519,12 +528,17 @@ def merge_dicts(baseobj: dict, updated: dict, key: Any):
             baseobj[key] = newvalue
 
 
-def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=None,
-         handle_include=do_includes,
-         handle_extends=do_extends,
-         handle_validate=validate,
-         handle_variables=do_variables
-         ):
+def read(
+        yamlfile: str, *,
+        variables=True,
+        validate_jobs=True,
+        topdir=None,
+        baseobj=None,
+        handle_include=do_includes,
+        handle_extends=do_extends,
+        handle_validate=validate,
+        handle_variables=do_variables
+         ) -> Dict[str, Any]:
     """
     Read a .gitlab-ci.yml file into python types
     :param handle_variables:
@@ -577,16 +591,11 @@ def read(yamlfile, *, variables=True, validate_jobs=True, topdir=None, baseobj=N
     return baseobj
 
 
-class Loader(object):
-    """
-    A configuration loader for gitlab pipelines
-    """
-
-    def __init__(self, emulator_variables=True):
-        self.filename = None
-        self.rootdir = None
-        self.create_emulator_variables = emulator_variables
-        self.config = {
+class BaseLoader(ABC):
+    def __init__(self):
+        self.filename: Optional[str] = None
+        self.rootdir: Optional[str] = None
+        self.config: Dict[str, Any] = {
             ".gle-extra_variables": {}
         }
         self.included_files = []
@@ -604,16 +613,80 @@ class Loader(object):
         found.update(self.config.get("variables", {}))
         return found
 
-    def add_variable(self, name: str, value: Optional[str] = None):
+    def add_variable(self, name: str, value: Optional[str] = None) -> None:
+        """Add a pipeline variable"""
         if value is not None:
             self.config[".gle-extra_variables"][name] = value
         else:
             del self.config[".gle-extra_variables"][name]
 
-    def get_docker_image(self, jobname):
+    def get_docker_image(self, jobname: str) -> Optional[str]:
+        """Get the docker image used by a job (if any)"""
         return job_docker_image(self.config, jobname)
 
-    def do_includes(self, baseobj, yamldir, incs):
+    def get_jobs(self) -> List[str]:
+        """
+        Get the names of all jobs in the pipeline
+        :return:
+        """
+        return get_jobs(self.config)
+
+    def get_job(self, name: str) -> Dict[str, Any]:
+        """
+        Get a named job from the pipeline
+        :param name:
+        :return:
+        """
+        return get_job(self.config, name)
+
+    def get_stages(self) -> List[str]:
+        """
+        Get the list of stages
+        :return:
+        """
+        return get_stages(self.config)
+
+    @abstractmethod
+    def load(self, filename: str) -> None:
+        pass
+
+    @abstractmethod
+    def load_job(self, name: str) -> Union["Job", "DockerJob"]:
+        pass
+
+    def get_job_filename(self, jobname: str) -> Optional[str]:
+        """
+        Get the filename of for where the job is defined
+        :param jobname:
+        :return: job filename in unix format
+        """
+        jobfile = None
+        for filename in self._job_sources:
+            jobs = self._job_sources.get(filename)
+            if jobname in jobs:
+                jobfile = filename.replace("\\", "/")
+                break
+        return jobfile
+
+
+class Loader(BaseLoader):
+    """
+    A configuration loader for gitlab pipelines
+    """
+
+    def __init__(self, emulator_variables: Optional[bool] = True):
+        super().__init__()
+        self.create_emulator_variables = emulator_variables
+
+    def load_job(self, name: str) -> Union["Job", "DockerJob"]:
+        """Return a loaded job object"""
+        job = load_job(self.config,
+                       name,
+                       allow_add_variables=self.create_emulator_variables,
+                       configloader=self)
+        return job
+
+    def do_includes(self, baseobj: Dict[str, Any], yamldir: str, incs: Union[List, str]) -> None:
         """
         Process the list of include files
         :param baseobj:
@@ -623,7 +696,12 @@ class Loader(object):
         """
         return do_includes(baseobj, yamldir, incs, handle_include=self.do_single_include, filename=self.filename)
 
-    def do_single_include(self, baseobj, yamldir, inc, filename: str):
+    def do_single_include(self,
+                          baseobj: Dict[str, Any],
+                          yamldir: str,
+                          inc: Union[str, Dict[str, Any]],
+                          filename: str
+                          ) -> Dict[str, Any]:
         """
         Include a single file and process it
         :param baseobj:
@@ -633,7 +711,7 @@ class Loader(object):
         """
         return do_single_include(baseobj, yamldir, inc, handle_read=self._read, variables=self.variables, filename=filename)
 
-    def do_extends(self, baseobj):
+    def do_extends(self, baseobj: Dict[str, Any]) -> None:
         """
         Process all the defined extends directives in all loaded jobs
         :param baseobj:
@@ -641,7 +719,7 @@ class Loader(object):
         """
         return do_extends(baseobj)
 
-    def do_validate(self, baseobj):
+    def do_validate(self, baseobj: Dict[str, Any]) -> None:
         """
         Validate the pipeline is defined legally
         :param baseobj:
@@ -649,7 +727,7 @@ class Loader(object):
         """
         return validate(baseobj)
 
-    def do_variables(self, baseobj, yamlfile):
+    def do_variables(self, baseobj: Dict[str, Any], yamlfile: Optional[str]) -> Dict[str, Any]:
         """
         Process the variables top level section
         :param baseobj:
@@ -662,34 +740,11 @@ class Loader(object):
         if self.create_emulator_variables:
             return do_variables(baseobj, yamlfile)
 
-    def get_jobs(self):
-        """
-        Get the names of all jobs in the pipeline
-        :return:
-        """
-        return get_jobs(self.config)
-
-    def get_job(self, name):
-        """
-        Get a named job from the pipeline
-        :param name:
-        :return:
-        """
-        return get_job(self.config, name)
-
-    def load_job(self, name) -> Union["Job", "DockerJob"]:
-        """Return a loaded job object"""
-        job = load_job(self.config, name, allow_add_variables=self.create_emulator_variables, configloader=self)
-        return job
-
-    def get_stages(self):
-        """
-        Get the list of stages
-        :return:
-        """
-        return get_stages(self.config)
-
-    def _read(self, filename, baseobj=None, **kwargs):
+    def _read(self,
+              filename: Optional[str],
+              baseobj: Optional[Dict[str, Any]] = None,
+              **kwargs
+              ) -> Dict[str, Any]:
         relative_filename = "unknown"
         if filename:
             self._current_file = filename
@@ -725,22 +780,11 @@ class Loader(object):
         for jobname in objdata:
             if not isinstance(objdata[jobname], dict):
                 continue
-            for step in ["before_script", "script", "after_script"]:
-                lines = objdata[jobname].get(step, None)
-                if lines is not None:
-                    newlines = []
-                    if isinstance(lines, list):
-                        for item in lines:
-                            if isinstance(item, list):
-                                # script is a list of lists (perfectly legal)
-                                # collapse it into a 1d list of strings
-                                newlines.extend(item)
-                            else:
-                                newlines.append(item)
-                    elif isinstance(lines, str):
-                        # script is a single value (legal)
-                        newlines.append(lines)
-                    objdata[jobname][step] = newlines
+            objdata[jobname]: Dict[str, Any]
+            for script_name in ["before_script", "script", "after_script"]:
+                if script_name not in objdata[jobname]:
+                    continue
+                objdata[jobname][script_name] = normalise_script(objdata[jobname][script_name])
 
         return objdata
 
@@ -756,22 +800,22 @@ class Loader(object):
         self.config[".gle-extra_variables"] = dict(extra_vars)
         self._done = True
 
-    def get_job_filename(self, jobname):
-        """
-        Get the filename of for where the job is defined
-        :param jobname:
-        :return: job filename in unix format
-        """
-        jobfile = None
-        for filename in self._job_sources:
-            jobs = self._job_sources.get(filename)
-            if jobname in jobs:
-                jobfile = filename.replace("\\", "/")
-                break
-        return jobfile
+
+def normalise_script(script_item: Union[List[str], List[List[str]], str]) -> List[str]:
+    """Convert scalar or 2d script lists into 1d lists"""
+    if isinstance(script_item, str):
+        return [script_item]
+    # script is a list
+    result = []
+    for item in script_item:
+        if isinstance(item, list):
+            result.extend(item)
+        else:
+            result.append(item)
+    return result
 
 
-def find_ci_config(path):
+def find_ci_config(path: str) -> Optional[str]:
     """
     Starting in path go upwards looking for a .gitlab-ci.yml file
     :param path:

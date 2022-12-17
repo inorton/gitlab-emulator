@@ -57,7 +57,7 @@ class Job(object):
         self.artifacts = GitlabArtifacts()
         self._shell = None
         self._parallel = None
-        self._config = None
+        self._config = {}
         if is_windows():  # pragma: linux no cover
             self._shell = "powershell"
         else:
@@ -172,8 +172,8 @@ class Job(object):
 
         all_after = config.get("after_script", [])
         self.after_script = job.get("after_script", all_after)
-        self.variables = job.get("variables", {})
-        self.extra_variables = config.get(".gle-extra_variables", {})
+        self.variables = dict(job.get("variables", {}))
+        self.extra_variables = dict(config.get(".gle-extra_variables", {}))
         self.tags = job.get("tags", [])
         # prefer needs over dependencies
         needed = job.get("needs", job.get("dependencies", []))
@@ -195,7 +195,7 @@ class Job(object):
         self._parallel = parallel
         self._config = dict(config)
         self.set_job_variables()
-        self.artifacts.load(job.get("artifacts", {}))
+        self.artifacts.load(dict(job.get("artifacts", {})))
 
         # load and match the rules
         if self.configloader:
@@ -227,7 +227,7 @@ class Job(object):
         return self._config.get(name)
 
     def set_job_variables(self):
-        self.configure_job_variable("CI_JOB_ID", str(int(time.time())))
+        self.configure_job_variable("CI_JOB_ID", str(int(time.time())), force=True)
         self.configure_job_variable("CI_CONFIG_PATH", self.get_config("ci_config_file"))
         self.configure_job_variable("CI_PROJECT_DIR", self.workspace)
         self.configure_job_variable("CI_BUILDS_DIR", os.path.dirname(self.workspace))
@@ -237,15 +237,15 @@ class Job(object):
             ptotal = self._config.get(".gitlabemu-parallel-total", 1)
             # set 1 parallel job
             jobname += " {}/{}".format(pindex, ptotal)
-            self.configure_job_variable("CI_NODE_INDEX", str(pindex))
-            self.configure_job_variable("CI_NODE_TOTAL", str(ptotal))
+            self.configure_job_variable("CI_NODE_INDEX", str(pindex), force=True)
+            self.configure_job_variable("CI_NODE_TOTAL", str(ptotal), force=True)
 
-        self.configure_job_variable("CI_JOB_NAME", jobname)
-        self.configure_job_variable("CI_JOB_STAGE", self.stage)
+        self.configure_job_variable("CI_JOB_NAME", jobname, force=True)
+        self.configure_job_variable("CI_JOB_STAGE", self.stage, force=True)
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
         self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
 
-    def configure_job_variable(self, name, value):
+    def configure_job_variable(self, name, value, force=False):
         """
         Set job variable defaults. If the variable is not present in self.extra_variables, set it to the given value. If the variable is present in os.environ, use that value instead
         :return:
@@ -257,11 +257,14 @@ class Job(object):
             value = ""
         value = str(value)
 
-        # set job related env vars
-        if name not in self.extra_variables:
-            if name in os.environ:
-                value = os.environ[name]  # prefer env variables if set
+        if force:
             self.extra_variables[name] = value
+        else:
+            # set job related env vars
+            if name not in self.extra_variables:
+                if name in os.environ:
+                    value = os.environ[name]  # prefer env variables if set
+                self.extra_variables[name] = value
 
     def abort(self):
         """
@@ -328,7 +331,9 @@ class Job(object):
         Get environment variable dict for the job
         :return:
         """
-        envs = dict(os.environ)
+        envs = self.base_variables()
+        envs.update(os.environ)
+
         for name in self.variables:
             value = self.variables[name]
             if value is None:
