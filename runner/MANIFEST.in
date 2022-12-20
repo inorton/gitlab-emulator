@@ -1,3 +1,0 @@
-include LICENSE
-include README.md
-include GitlabPyRunner/gitlab-runner-init.sh

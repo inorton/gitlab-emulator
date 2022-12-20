@@ -1,9 +1,7 @@
-# Gitlab Emulator and Gitlab Python Runner
+# Gitlab Emulator (gle)
 
 [![pipeline status](https://gitlab.com/cunity/gitlab-emulator/badges/main/pipeline.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/main)
 [![coverage report](https://gitlab.com/cunity/gitlab-emulator/badges/main/coverage.svg)](https://gitlab.com/cunity/gitlab-emulator/-/commits/main)
-
-## Gitlab Emulator (gle)
 
 __gle__ lets you run many gitlab pipeline jobs and often entire pipeline graphs on your own machine directly. The goal of the project has been as an aid to local incremental work on pipeline logic (needs, docker services, rules) without consuming potentially scarce or expensive resources of gitlab runners.
 
@@ -32,14 +30,13 @@ Requirements:
 
 Supported Platforms:
 
-| Emulator                         | Gitlab-Python-Runner       |
-| -------------------------------- |-------------------------------|
-| Windows (shell + docker)         | AIX                           |
-| Linux (shell + docker)           | HP-UX                         |
-| Mac (shell + docker)             | Solaris                       |
-|                                  | Windows + Linux (testing only) |
+| Emulator                         |
+| -------------------------------- |
+| Windows (shell + docker)         |
+| Linux (shell + docker)           |
+| Mac (shell + docker)             |
 
-_Note. Runner support on AIX, HP-UX and Solaris is experimental_
+_Note_ GitlabPythonRunner is no longer supported
 
 ## Emulator Installation
 
@@ -56,7 +53,7 @@ sudo python3 -m pip install gitlab-emulator
 
 # Examples
 
-The tool can be executed as a module, or if your python is setup, using the `locallab.py` script:
+The tool can be executed as a module, or if your python is setup, using the `gle` script:
 
 (`gle` will usually only be on your `PATH` if you install using `pip` with `sudo`)
 
@@ -127,8 +124,4 @@ emulator:
 
 # Gitlab Python Runner
 
-The Python runner lets you use Gitlab with machines that can't run the
-official gitlab-runner (usually systems that can't support Golang) such
-as HP-UX, AIX and Solaris but also others that can run modern Python 3.
-
-For more info and instructions, see the `runner` folder `README.md` file
+The python implementation of gitlab-runner is no longer supported.

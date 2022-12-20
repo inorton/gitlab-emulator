@@ -2,6 +2,11 @@
 */.coverage
 */test-results.xml
 /emulator/*.egg-info/
+/emulator/build/
+/emulator/dist/
 /record.txt
 /savedir/emulator-linux-test/trace.log
 /random.txt
+.idea/
+date.txt
+linux-docker-job

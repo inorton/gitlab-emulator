@@ -310,7 +310,8 @@ class Job(object):
     def base_variables(self) -> Dict[str, str]:
         return dict(self._config.get("variables", {}))
 
-    def ci_expandable_variables(self, variables: Dict[str, str]) -> Dict[str, str]:
+    @staticmethod
+    def ci_expandable_variables(variables: Dict[str, str]) -> Dict[str, str]:
         expandable = {}
         for name in variables:
             if name in PIPELINE_PERSISTED_VARIABLES + JOB_PERSISTED_VARIABLES:
@@ -342,7 +343,6 @@ class Job(object):
         for name in self.extra_variables:
             envs[name] = self.extra_variables[name]
         # expand any predefeined variables
-
         return self.expand_variables(envs)
 
     def get_script_fileext(self):
