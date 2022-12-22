@@ -12,7 +12,7 @@ FORBIDDEN_CONTEXT_NAMES = [
     # reserved
     "version",
 ]
-DEFAULT_GITLAB_VERSION = "15.0"
+DEFAULT_GITLAB_VERSION = "15.7"
 
 
 class ToYaml(abc.ABC):

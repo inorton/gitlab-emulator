@@ -494,7 +494,7 @@ class VariablesMixin:
 
         for name in os.environ:
             if name.startswith("CI_"):
-                baseobj["variables"][name] = os.environ[name]
+                baseobj["variables"][name] = os.getenv(name, "")
         return compute_emulated_ci_vars(baseobj)
 
 def do_variables(baseobj: Optional[Dict[str, Any]], yamlfile: str) -> Dict[str, Any]:

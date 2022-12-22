@@ -1,0 +1,16 @@
+variables:
+  SHAPE: Circle
+  TITLE:
+    expand: true
+    value: The Magic $SHAPE
+
+  ID_TEMPLATE:
+    expand: false
+    value: build-$CI_PIPELINE_ID
+
+book:
+  image: alpine:3.14
+  variables:
+    BUILD_ID: $CI_JOB_NAME $ID_TEMPLATE
+  script:
+    - env | sort

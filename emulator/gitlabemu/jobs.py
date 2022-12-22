@@ -318,16 +318,18 @@ class Job(object):
                 expandable[name] = variables[name]
         return expandable
 
-    def expand_variables(self, variables: Dict[str, str]) -> Dict[str, str]:
+    def expand_variables(self, variables: Dict[str, str], only_ci=True) -> Dict[str, str]:
         expanded = {}
         for name in variables:
             value = variables[name]
-            value = expand_variable(self.ci_expandable_variables(variables), value)
-
+            if only_ci:
+                value = expand_variable(self.ci_expandable_variables(variables), value)
+            else:
+                value = expand_variable(variables, value)
             expanded[name] = value
         return expanded
 
-    def get_envs(self):
+    def get_envs(self, expand_only_ci=True):
         """
         Get environment variable dict for the job
         :return:
@@ -343,7 +345,7 @@ class Job(object):
         for name in self.extra_variables:
             envs[name] = self.extra_variables[name]
         # expand any predefeined variables
-        return self.expand_variables(envs)
+        return self.expand_variables(envs, only_ci=expand_only_ci)
 
     def get_script_fileext(self):
         ext = ".sh"

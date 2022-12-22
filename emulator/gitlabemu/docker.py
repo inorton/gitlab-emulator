@@ -237,7 +237,7 @@ class DockerJob(Job):
             info("kill container {}".format(self.name))
             subprocess.call(["docker", "kill", self.container])
 
-    def get_envs(self):
+    def get_envs(self, expand_only_ci=True):
         """
         Get env vars for a docker job
         :return:
@@ -248,11 +248,11 @@ class DockerJob(Job):
             value = self.variables[name]
             if value is None:
                 value = ""
-            ret[name] = str(value)
+            ret[name] = value
 
         for name in self.extra_variables:
             ret[name] = self.extra_variables[name]
-        return self.expand_variables(ret)
+        return self.expand_variables(ret, only_ci=expand_only_ci)
 
     def run_script(self, lines):
         return self._run_script(lines)
@@ -398,7 +398,7 @@ class DockerJob(Job):
         except subprocess.CalledProcessError:
             warning("could not pull docker image {}".format(self.docker.image))
 
-        environ = self.get_envs()
+        environ = self.get_envs(expand_only_ci=False)
         with docker_services(self, environ) as network:
             if network:
                 self.docker.network = network.name
