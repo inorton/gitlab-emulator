@@ -2,6 +2,7 @@
 import pytest
 from ..runner import run
 
+
 @pytest.mark.usefixtures("has_docker")
 @pytest.mark.usefixtures("posix_only")
 def test_expand(in_tests, capfd):

@@ -43,7 +43,7 @@ class Job(object):
         self.before_script = []
         self.script = []
         self.after_script = []
-        self.error_shell = []
+        self.error_shell = None
         self.enter_shell = False
         self.before_script_enter_shell = False
         self.shell_is_user = False
@@ -162,10 +162,9 @@ class Job(object):
         job = config[name]
         self.shell = config.get(".gitlabemu-windows-shell", self.shell)
 
-        self.error_shell = config.get("error_shell", [])
-        self.enter_shell = config.get("enter_shell", [])
-        self.before_script_enter_shell = config.get("before_script_enter_shell", False)
-        self.shell_is_user = config.get("shell_is_user", False)
+        self.error_shell = None
+        self.enter_shell = None
+
         all_before = config.get("before_script", [])
         self.before_script = job.get("before_script", all_before)
         self.script = job.get("script", [])
@@ -373,13 +372,19 @@ class Job(object):
                 print(script, file=fd)
             cmdline = self.shell_command(generated)
             debug_print("cmdline: {}".format(cmdline))
-            opened = subprocess.Popen(cmdline,
-                                      env=envs,
-                                      shell=False,
-                                      cwd=self.workspace,
-                                      stdin=subprocess.DEVNULL,
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT)
+            if self.enter_shell or self.error_shell:
+                opened = subprocess.Popen(cmdline,
+                                          env=envs,
+                                          shell=False,
+                                          cwd=self.workspace)
+            else:
+                opened = subprocess.Popen(cmdline,
+                                          env=envs,
+                                          shell=False,
+                                          cwd=self.workspace,
+                                          stdin=subprocess.DEVNULL,
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT)
             self.build_process = opened
             self.communicate(opened, script=None)
         finally:
@@ -387,39 +392,14 @@ class Job(object):
 
         return opened.returncode
 
-    def run_shell(self, cmdline=None, run_before=False):
-        """
-        Execute a shell command on job errors
-        :return:
-        """
-        # this is interactive only and cant really be easily tested
-        # pragma: no cover
-        try:
-            print("Running interactive-shell..", flush=True)
-            env = self.get_envs()
-            prog = ["/bin/sh"]
-            if is_windows():  # pragma: linux no cover
-                if "powershell.exe" in self.shell:
-                    prog = ["powershell"]
-                else:
-                    prog = ["cmd.exe"]
-
-            if run_before:
-                print("Running before_script..", flush=True)
-                # create the before script and run it
-                script_file = tempfile.mktemp()
-                with open(script_file, "w") as script:
-                    script.write(make_script(self.before_script + prog))
-                try:
-                    subprocess.check_call(["/bin/sh", script_file], env=env, cwd=self.workspace)
-                finally:
-                    os.unlink(script_file)
-                pass
+    def get_interactive_shell_command(self) -> List[str]:
+        prog = ["/bin/sh"]
+        if is_windows():  # pragma: linux no cover
+            if "powershell.exe" in self.shell:
+                prog = ["powershell"]
             else:
-                subprocess.check_call(prog, env=env)
-
-        except subprocess.CalledProcessError:
-            pass
+                prog = ["cmd.exe"]
+        return prog
 
     def shell_on_error(self):
         """
@@ -431,7 +411,7 @@ class Job(object):
         try:
             print("Job {} script error..".format(self.name), flush=True)
             print("Running error-shell..", flush=True)
-            subprocess.check_call(self.error_shell)
+            subprocess.check_call("\n".join(self.error_shell))
         except subprocess.CalledProcessError:
             pass
 
@@ -473,14 +453,10 @@ class Job(object):
                 self.monitor_thread.join(timeout=5)
 
     def run_impl(self):
-        if self.enter_shell:  # pragma: no cover
-            # interactive mode only
-            print("Entering shell")
-            self.run_shell()
-            print("Exiting shell")
-            return
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
+        if self.enter_shell:
+            lines.extend(self.get_interactive_shell_command())
         result = self.run_script(lines)
         if result and self.error_shell:  # pragma: no cover
             self.shell_on_error()

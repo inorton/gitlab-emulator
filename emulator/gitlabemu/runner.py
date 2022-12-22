@@ -3,7 +3,7 @@ import subprocess
 import sys
 import os
 import argparse
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import gitlabemu.errors
 from . import configloader
@@ -45,9 +45,11 @@ parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="
                     help="Run an interactive shell but do not run the build"
                     )
 parser.add_argument("--exec", default=False, action="store_true",
-                    help="Execute the job using 'gitlab-runner exec' if possible. Note, this will not test uncommitted changes and will not produce any output files")
-parser.add_argument("--before-script", "-b", dest="before_script_enter_shell", default=False, action="store_true",
-                    help="Run the 'before_script' commands before entering the shell"
+                    help="Execute the job using 'gitlab-runner exec' if possible. Note, this "
+                         "will not test uncommitted changes and will not produce any output files")
+parser.add_argument("--before-script", "-b", dest="only_before_script", default=False,
+                    action="store_true",
+                    help="Run only the 'before_script' commands"
                     )
 parser.add_argument("--user", "-u", dest="shell_is_user", default=False, action="store_true",
                     help="Run the interactive shell as the current user instead of root")
@@ -187,7 +189,14 @@ def gitlab_runner_exec(jobobj: Job):
         os.unlink(temp_pipeline_file)
 
 
-def execute_job(config: Dict[str, Any], jobname: str, seen=None, recurse=False, use_runner=False, noop=False):
+def execute_job(config: Dict[str, Any],
+                jobname: str,
+                seen=None,
+                recurse=False,
+                use_runner=False,
+                noop=False,
+                options: Optional[Dict[str, Any]] = None
+                ):
     """
     Run a job, optionally run required dependencies
     :param config: the config dictionary
@@ -196,12 +205,17 @@ def execute_job(config: Dict[str, Any], jobname: str, seen=None, recurse=False, 
     :param recurse: if True, execute in dependency order
     :param use_runner: if True, execute using "gitlab-runner exec"
     :param noop: if True, print instead of execute commands
+    :param options: If given, set attributes on the job before use.
     :return:
     """
     if seen is None:
         seen = set()
     if jobname not in seen:
         jobobj = configloader.load_job(config, jobname)
+        if options:
+            for name in options:
+                setattr(jobobj, name, options[name])
+
         if recurse:
             for need in jobobj.dependencies:
                 execute_job(config, need, seen=seen, recurse=True, noop=noop)
@@ -325,6 +339,7 @@ def get_loader(variables: Dict[str, str], **kwargs) -> configloader.Loader:
     for name in variables:
         loader.config[".gle-extra_variables"][name] = str(variables[name])
     return loader
+
 
 def run(args=None):
     options = parser.parse_args(args)
@@ -472,13 +487,21 @@ def run(args=None):
             if options.FULL:
                 die("-i is not compatible with --full")
 
-        loader.config["enter_shell"] = options.enter_shell
-        loader.config["before_script_enter_shell"] = options.before_script_enter_shell
-        loader.config["shell_is_user"] = options.shell_is_user
-        loader.config["ci_config_file"] = os.path.relpath(fullpath, rootdir)
+        job_options = {}
 
-        if options.before_script_enter_shell and is_windows():  # pragma: no cover
-            die("--before-script is not yet supported on windows")
+        if options.only_before_script:
+            job_options["script"] = []
+            job_options["after_script"] = []
+
+        if options.enter_shell:
+            job_options["enter_shell"] = True
+            if not options.only_before_script:
+                job_options["before_script"] = []
+                job_options["script"] = []
+
+        if options.shell_is_user:
+            job_options["shell_is_user"] = True
+        loader.config["ci_config_file"] = os.path.relpath(fullpath, rootdir)
 
         if options.error_shell:  # pragma: no cover
             loader.config["error_shell"] = [options.error_shell]
@@ -487,7 +510,8 @@ def run(args=None):
             execute_job(loader.config, jobname, seen=executed_jobs,
                         use_runner=options.exec,
                         recurse=options.FULL,
-                        noop=options.noop)
+                        noop=options.noop,
+                        options=job_options)
         finally:
             if not options.noop:
                 if has_docker() and fix_ownership:

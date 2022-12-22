@@ -169,7 +169,8 @@ class DockerTool(object):
                                     stderr=subprocess.STDOUT)
             return proc
         else:
-            return subprocess.call(cmdline, shell=False)
+            return subprocess.Popen(cmdline,
+                                    shell=False)
 
 
 class DockerJob(Job):
@@ -259,6 +260,10 @@ class DockerJob(Job):
 
     def _run_script(self, lines, attempts=2, user=None):
         task = None
+        if user is None:
+            if self.shell_is_user:
+                user = os.getuid()
+
         filename = "generated-gitlab-script" + self.get_script_fileext()
         temp = os.path.join(tempfile.gettempdir(), filename)
         try:
@@ -274,8 +279,12 @@ class DockerJob(Job):
 
             while attempts > 0:
                 try:
+                    interactive = self.enter_shell or self.error_shell
                     cmdline = self.shell_command(target_script)
-                    task = self.docker.exec(self.inside_workspace, cmdline, user=user)
+                    task = self.docker.exec(self.inside_workspace,
+                                            cmdline,
+                                            tty=interactive,
+                                            user=user)
                     self.communicate(task, script=None)
                     break
                 except DockerExecError:
@@ -327,69 +336,24 @@ class DockerJob(Job):
         :return:
         """
         print("Job {} script error..".format(self.name), flush=True)
-        self.run_shell(self.error_shell, run_before=False)
-
-    def run_shell(self, cmdline=None, run_before=False):
-        uid = 0
-        if cmdline is str:
-            cmdline = [cmdline]
-
-        # set the defaults
-        if cmdline is None:
-            if is_windows():  # pragma: linux no cover
-                if self.is_powershell():
-                    cmdline = ["powershell.exe"]
-                else:
-                    cmdline = ["cmd.exe"]
-            else:
-                try_bash = self.has_bash()
-                if self.shell_is_user:
-                    uid = os.getuid()
-                cmdline = ["/bin/sh"]
-                if try_bash:
-                    cmdline = ["bash"]
-        
-        if not is_windows():
-            # set a prompt
-            image_base = self.docker.image
-            if "/" in image_base:
-                image_base = image_base.split("/")[-1].split("@")[0]
-            self.docker.add_env("PS1", f"{cmdline} `whoami`@{image_base}:$PWD $ ")
-        else:
-            # pragma: linux no cover
-            # make interactive shells work on windows
-            uid = ""
-
-        print("Running interactive-shell..", flush=True)
-        try:
-            tty = sys.stdin.isatty()
-            if not run_before:
-                self.docker.exec(self.inside_workspace, cmdline, tty=tty, user=uid, pipe=False)
-            else:
-                print("Running before_script..", flush=True)
-                # create the before script, copy it to the container and run it
-                script_file = tempfile.mktemp()
-                with open(script_file, "w") as script:
-                    script.write(make_script(self.before_script + cmdline))
-                try:
-                    self.docker.add_file(script_file, script_file)
-                    self.docker.exec(self.inside_workspace, ["/bin/sh", script_file], tty=tty, user=uid, pipe=False)
-                finally:
-                    os.unlink(script_file)
-
-        except subprocess.CalledProcessError:
-            pass
+        lines = self.error_shell
+        self.run_script(lines)
 
     def run_impl(self):
         from .resnamer import generate_resource_name
         if is_windows():  # pragma: linux no cover
             warning("warning windows docker is experimental")
 
-        if not is_windows():
-            self.docker.privileged = True
         self.docker.image = self.docker_image
         self.container = generate_resource_name()
         self.docker.name = self.container
+
+        if not is_windows():
+            image_name = self.docker.image
+            image_name = image_name.split("/")[-1].split("@")[0].split(":")[0]
+            self.docker.privileged = True
+            if self.error_shell or self.enter_shell:
+                self.docker.add_env("PS1", f"[{self.name}] \\u@{image_name}:$PWD $ ")
 
         info("pulling docker image {}".format(self.docker.image))
         try:
@@ -426,13 +390,11 @@ class DockerJob(Job):
                     self._run_script(f"chown -R {docker_user}.{docker_grp} .", attempts=1, user="0")
 
             try:
+                lines = self.before_script + self.script
                 if self.enter_shell:
-                    print("Entering shell")
-                    self.run_shell(run_before=self.before_script_enter_shell)
-                    print("Exiting shell")
-                    return
+                    lines.extend(self.get_interactive_shell_command())
 
-                self.build_process = self.run_script(make_script(self.before_script + self.script, powershell=self.is_powershell()))
+                self.build_process = self.run_script(make_script(lines, powershell=self.is_powershell()))
             finally:
                 try:
                     if self.error_shell:

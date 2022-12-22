@@ -46,9 +46,11 @@ class ProcessLineProxyThread(Thread):
                     self.errors.append(err)
 
     def run(self):
+        data = None
         while True:
             try:
-                data = self.process.stdout.readline()
+                if self.process.stdout is not None:  # in interactive mode
+                    data = self.process.stdout.readline()
             except ValueError:  # pragma: no cover
                 pass
             except Exception as err:  # pragma: no cover
@@ -74,6 +76,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     :param linehandler: if set, pass the line to this callable
     :return:
     """
+    data = None
     if script is not None:
         process.stdin.write(script)
         process.stdin.flush()
@@ -101,7 +104,8 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     # stream the remaining stdout data
     while True:
         try:
-            data = process.stdout.readline()
+            if process.stdout is not None:
+                data = process.stdout.readline()
         except ValueError:  # pragma: no cover
             pass
         if data:
@@ -113,7 +117,9 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
 
     # process has definitely already ended, read all the lines, this wont deadlock
     while True:
-        line = process.stdout.readline()
+        line = None
+        if process.stdout is not None:
+            line = process.stdout.readline()
         if line:
             comm_thread.writeout(line)
         else:

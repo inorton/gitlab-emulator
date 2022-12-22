@@ -1,0 +1,15 @@
+job:
+  before_script:
+    - export SCRIPT_STAGE=before
+    - env|grep SCRIPT_STAGE=before
+  script:
+    - env|grep SCRIPT_STAGE=before
+    - export SCRIPT_STAGE=script
+    - env|grep SCRIPT_STAGE=script
+  after_script:
+    - export SCRIPT_STAGE=after
+    - env|grep SCRIPT_STAGE=after
+
+docker_job:
+  extends: [job]
+  image: alpine:3.14
