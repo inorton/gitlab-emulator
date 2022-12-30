@@ -347,19 +347,20 @@ class ExtendsMixin:
                     if scriptpart in alljobs[name]:
                         scriptlines = alljobs[name][scriptpart]
                         newlines = []
-                        for line in scriptlines:
-                            if isinstance(line, bool):
-                                print(f"warning, line: {line} in job {name} evaluates to a yaml boolean, you probably want to quote \"true\" or \"false\"")
-                                line = str(line).lower()
-                            if isinstance(line, GitlabReference):
-                                ref: GitlabReference = line
-                                newlines.extend(alljobs[ref.job].get(ref.element, []))
-                            else:
-                                newlines.append(line)
-                        # check for more than one level of nesting
-                        for line in newlines:
-                            if isinstance(line, GitlabReference):
-                                raise BadSyntaxError("Only one level of !reference is allowed")
+                        if scriptlines is not None:                            
+                            for line in scriptlines:
+                                if isinstance(line, bool):
+                                    print(f"warning, line: {line} in job {name} evaluates to a yaml boolean, you probably want to quote \"true\" or \"false\"")
+                                    line = str(line).lower()
+                                if isinstance(line, GitlabReference):
+                                    ref: GitlabReference = line
+                                    newlines.extend(alljobs[ref.job].get(ref.element, []))
+                                else:
+                                    newlines.append(line)
+                            # check for more than one level of nesting
+                            for line in newlines:
+                                if isinstance(line, GitlabReference):
+                                    raise BadSyntaxError("Only one level of !reference is allowed")
                         alljobs[name][scriptpart] = list(newlines)
 
 
