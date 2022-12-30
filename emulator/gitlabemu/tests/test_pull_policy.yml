@@ -1,0 +1,14 @@
+job1:
+  image:
+    name: local_tagged_alpine:latest
+    pull_policy: if-not-present
+  script:
+    - env |grep CI_JOB_IMAGE
+
+
+job2:
+  image:
+    name: docker.io/no-such-image/exists:latest
+    pull_policy: never
+  script:
+    - echo BAD

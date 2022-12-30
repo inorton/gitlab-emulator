@@ -60,6 +60,12 @@ parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
 parser.add_argument("--ignore-docker", dest="no_docker", action="store_true", default=False,
                     help="If set, run jobs using the local system as a shell job instead of docker"
                     )
+
+parser.add_argument("--docker-pull", dest="docker_pull", type=str,
+                    choices=["always", "if-not-present", "never"],
+                    default=None,
+                    help="Force set the docker pull policy")
+
 parser.add_argument("--debug-rules", default=False, action="store_true",
                     help="Print log messages relating to include and job rule processing")
 parser.add_argument("--var", dest="var", type=str, default=[], action="append",
@@ -443,6 +449,7 @@ def run(args=None):
         jobs = sorted(loader.get_jobs())
         if jobname not in jobs:
             die(f"No such job {jobname}")
+        job_options = {}
 
         if options.parallel:
             if loader.config[jobname].get("parallel", None) is None:
@@ -468,6 +475,8 @@ def run(args=None):
 
         docker_job = loader.get_docker_image(jobname)
         if docker_job:
+            if options.docker_pull is not None:
+                job_options["docker_pull_policy"] = options.docker_pull
             gwt = git_worktree(rootdir)
             if gwt:  # pragma: no cover
                 note(f"f{rootdir} is a git worktree, adding {gwt} as a docker volume.")
@@ -487,8 +496,6 @@ def run(args=None):
             if options.FULL:
                 die("-i is not compatible with --full")
 
-        job_options = {}
-
         if options.only_before_script:
             job_options["script"] = []
             job_options["after_script"] = []
@@ -507,7 +514,8 @@ def run(args=None):
             loader.config["error_shell"] = [options.error_shell]
         try:
             executed_jobs = set()
-            execute_job(loader.config, jobname, seen=executed_jobs,
+            execute_job(loader.config, jobname,
+                        seen=executed_jobs,
                         use_runner=options.exec,
                         recurse=options.FULL,
                         noop=options.noop,

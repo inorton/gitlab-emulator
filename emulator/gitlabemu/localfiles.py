@@ -17,7 +17,8 @@ def restore_path_ownership(path):
             dt.image = "python:3.9-alpine3.14"
             dt.add_volume(path, path)
             dt.entrypoint = ["/bin/sh"]
-            dt.pull()
+            if not dt.image_present:
+                dt.pull()
             dt.run()
             try:
                 dt.add_file(chowner, "/tmp")

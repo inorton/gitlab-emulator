@@ -7,7 +7,6 @@ import time
 import tarfile
 from contextlib import contextmanager
 from typing import Dict, Optional, List
-
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 from .helpers import communicate as comm, is_windows
@@ -15,6 +14,12 @@ from .userconfig import get_user_config_context
 from .errors import DockerExecError
 from .dockersupport import docker
 from .variables import expand_variable
+
+PULL_POLICY_ALWAYS = "always"
+PULL_POLICY_IF_NOT_PRESENT = "if-not-present"
+PULL_POLICY_NEVER = "never"
+PULL_POLICY = PULL_POLICY_ALWAYS
+
 
 
 class DockerTool(object):
@@ -31,8 +36,32 @@ class DockerTool(object):
         self.privileged = False
         self.entrypoint = None
         self.pulled = None
+        self._pull_policy = PULL_POLICY
         self.network = None
         self._client = None
+    
+    @property
+    def pull_policy(self) -> str:
+        return self._pull_policy
+    
+    @pull_policy.setter
+    def pull_policy(self, value: Optional[str]):
+        if value is None:
+            value = PULL_POLICY_ALWAYS
+        assert value in [PULL_POLICY_ALWAYS, PULL_POLICY_IF_NOT_PRESENT, PULL_POLICY_NEVER]
+        self._pull_policy = value
+
+    @property
+    def can_pull(self) -> bool:
+        return self.pull_policy in [PULL_POLICY_ALWAYS, PULL_POLICY_IF_NOT_PRESENT]
+
+    @property
+    def pull_always(self) -> bool:
+        return self.pull_policy == PULL_POLICY_ALWAYS
+
+    @property
+    def pull_if_not_present(self) -> bool:
+        return self.pull_policy == PULL_POLICY_IF_NOT_PRESENT
 
     @property
     def client(self):
@@ -59,13 +88,24 @@ class DockerTool(object):
     def add_env(self, name, value):
         self.env[name] = value
 
+    @property
+    def image_present(self) -> bool:
+        from docker.errors import ImageNotFound
+        try:
+            self.client.images.get(self.image)
+            return True
+        except ImageNotFound:
+            return False
+
     def inspect(self):
         """
         Inspect the image and return the Config dict
         :return:
         """
         if self.image:
-            self.pull()
+            if not self.image_present:
+                if self.can_pull:
+                    self.pull()
             return self.client.images.get(self.image)
         return None
 
@@ -95,7 +135,16 @@ class DockerTool(object):
         return None
 
     def pull(self):
-        self.client.images.pull(self.image)
+        from docker.errors import ImageNotFound
+        if self.can_pull:
+            info("pulling docker image {}".format(self.image))
+            sys.stdout.write("Pulling {}...\n".format(self.image))
+            sys.stdout.flush()
+            try:
+                self.client.images.pull(self.image)
+                self.pulled = True
+            except ImageNotFound:
+                fatal(f"cannot pull image: {self.image} - image not found")
 
     def get_envs(self):
         cmdline = []
@@ -111,6 +160,7 @@ class DockerTool(object):
         self.container.wait()
 
     def run(self):
+        from docker.errors import ImageNotFound
         priv = self.privileged and not is_windows()
         volumes = []
         for volume in self.volumes:
@@ -118,14 +168,14 @@ class DockerTool(object):
             if not entry.endswith(":ro") and not entry.endswith(":rw"):
                 entry += ":rw"
             volumes.append(entry)
-
-        image = self.inspect()
-        if self.entrypoint == ['']:
-            if image.attrs["Os"] == "linux":
-                self.entrypoint = ["/bin/sh"]
-            else:
-                self.entrypoint = None
         try:
+            image = self.inspect()
+            if self.entrypoint == ['']:
+                if image.attrs["Os"] == "linux":
+                    self.entrypoint = ["/bin/sh"]
+                else:
+                    self.entrypoint = None
+
             self.container = self.client.containers.run(
                 self.image,
                 detach=True,
@@ -138,6 +188,8 @@ class DockerTool(object):
                 volumes=volumes,
                 environment=self.env
             )
+        except ImageNotFound:
+            fatal(f"Docker image {self.image} does not exist, (pull_policy={self.pull_policy})")
         except Exception:
             warning(f"problem running {self.image}")
             raise
@@ -183,6 +235,7 @@ class DockerJob(Job):
         self.services = []
         self.container = None
         self.docker = DockerTool()
+        self._force_pull_policy = None
 
     @property
     def docker_image(self) -> str:
@@ -198,6 +251,19 @@ class DockerJob(Job):
         if isinstance(self._image, dict):
             custom_entryppoint = self._image.get("entrypoint", None)
         return custom_entryppoint
+
+    @property
+    def docker_pull_policy(self) -> Optional[str]:
+        policy = self._force_pull_policy
+        if policy is None:
+            if isinstance(self._image, dict):
+                policy = self._image.get("pull_policy", None)
+        return policy
+
+    @docker_pull_policy.setter
+    def docker_pull_policy(self, value: Optional[str]):
+        self._force_pull_policy = value
+        self.docker.pull_policy = value
 
     @property
     def inside_workspace(self) -> str:
@@ -220,6 +286,9 @@ class DockerJob(Job):
         self._image = config[name].get("image", all_images)
         self.services = get_services(config, name)
         super(DockerJob, self).load(name, config)
+        pull_policy = self.docker_pull_policy
+        if pull_policy is not None:
+            self.docker.pull_policy = pull_policy
 
     def set_job_variables(self):
         super(DockerJob, self).set_job_variables()
@@ -355,19 +424,15 @@ class DockerJob(Job):
             if self.error_shell or self.enter_shell:
                 self.docker.add_env("PS1", f"[{self.name}] \\u@{image_name}:$PWD $ ")
 
-        info("pulling docker image {}".format(self.docker.image))
-        try:
-            self.stdout.write("Pulling {}...\n".format(self.docker.image))
+        if self.docker.pull_always or (self.docker.pull_if_not_present and not self.docker.image_present):
             self.docker.pull()
-        except subprocess.CalledProcessError:
-            warning("could not pull docker image {}".format(self.docker.image))
 
         environ = self.get_envs(expand_only_ci=False)
         with docker_services(self, environ) as network:
             if network:
                 self.docker.network = network.name
             for envname in environ:
-                self.docker.env[envname] = environ[envname]
+                self.docker.add_env(envname, environ[envname])
 
             if self.docker_entrypoint is not None:
                 self.docker.entrypoint = self.docker_entrypoint
