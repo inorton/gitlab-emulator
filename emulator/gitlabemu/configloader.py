@@ -838,6 +838,8 @@ def normalise_script(script_item: Union[List[str], List[List[str]], str]) -> Lis
     """Convert scalar or 2d script lists into 1d lists"""
     if isinstance(script_item, str):
         return [script_item]
+    if script_item is None:
+        return []
     # script is a list
     result = []
     for item in script_item:
