@@ -1,0 +1,10 @@
+job1:
+  before_script:
+  script:
+    - echo in_script
+
+job2:
+  before_script:
+    - echo in_before_script
+  script:
+
