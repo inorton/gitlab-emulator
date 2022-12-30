@@ -834,7 +834,7 @@ class Loader(BaseLoader, JobLoaderMixin, ValidatorMixin, ExtendsMixin):
         self._done = True
 
 
-def normalise_script(script_item: Union[List[str], List[List[str]], str]) -> List[str]:
+def normalise_script(script_item: Optional[Union[List[str], List[List[str]], str]]) -> List[str]:
     """Convert scalar or 2d script lists into 1d lists"""
     if isinstance(script_item, str):
         return [script_item]
