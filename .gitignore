@@ -3,6 +3,7 @@
 */test-results.xml
 /emulator/*.egg-info/
 /emulator/build/
+/emulator/coverage_html/
 /emulator/dist/
 /record.txt
 /savedir/emulator-linux-test/trace.log
@@ -10,3 +11,4 @@
 .idea/
 date.txt
 linux-docker-job
+/emulator/pytest-coverage.xml

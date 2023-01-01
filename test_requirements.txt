@@ -1,6 +1,7 @@
 pytest>=6.2.0
 pytest-mock>=3.5.1
 pytest-cov>=2.11.1
+coverage-conditional-plugin>=0.8.0
 pytest-timeout>=2.1.0
 requests_toolbelt
 requests-mock>=1.9

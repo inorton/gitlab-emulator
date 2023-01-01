@@ -9,7 +9,7 @@ run-ok:
 
 run-slow:
   stage: test
-  image: alpine:latest
+  image: alpine:3.14
   timeout: 1m
   script:
     - echo first 10

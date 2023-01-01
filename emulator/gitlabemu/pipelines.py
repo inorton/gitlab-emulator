@@ -179,8 +179,9 @@ def generate_pipeline(loader, *goals,
                                                 tls_verify=client.ssl_verify)
         generated[from_name] = fetch_job
 
-    for varname in variables:
-        generated["variables"][varname] = variables[varname]
+    if variables is not None:
+        for varname in variables:
+            generated["variables"][varname] = variables[varname]
 
     if dump_only:
         return generated

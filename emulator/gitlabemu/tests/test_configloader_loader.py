@@ -2,7 +2,13 @@
 Test the object based loader interface
 """
 import os
+from typing import Any, Dict
+
+import pytest
+
 from .. import configloader
+from ..configloader import ValidatorMixin
+from ..errors import BadSyntaxError, ConfigLoaderError
 from ..runner import run
 
 HERE = os.path.dirname(__file__)
@@ -42,3 +48,59 @@ def test_real_extends(top_dir, linux_docker, capsys):
 
     assert "SPEED=warp" in stdout
     assert "FRUIT=orange" in stdout
+
+
+def test_validate_mixin_artifacts():
+    validator = ValidatorMixin()
+    config: Dict[str, Any] = {
+        "job": {
+            "stage": "test",
+            "script": ["echo"],
+            "artifacts": {
+                "paths":
+                    [
+                        "*.txt"
+                    ],
+                "reports": {
+                    "junit": [
+                        "test-results.xml"
+                    ]
+                }
+            }
+        }
+    }
+    validator.validate(config)
+
+    # check missing script
+    config["job2"] = {
+        "image": "test:stuff"
+    }
+    with pytest.raises(BadSyntaxError) as err:
+        validator.validate(config)
+    assert "'job2' does not have a 'script' element" in str(err.value)
+    # check script missing allowed for trigger jobs
+    config["job2"]["trigger"] = {
+        "project": "foo/bar",
+        "branch": "main"
+    }
+    validator.validate(config)
+
+    # check no artifacts are permitted
+    del config["job"]["artifacts"]
+    validator.validate(config)
+
+    # check bad artifacts and paths
+    config["job"]["artifacts"] = {
+        "paths": "foo"
+    }
+    with pytest.raises(ConfigLoaderError) as err:
+        validator.validate(config)
+    assert "artifacts->paths must be a list" in str(err.value)
+
+    config["job"]["artifacts"] = {
+        "reports": "foo"
+    }
+    with pytest.raises(ConfigLoaderError) as err:
+        validator.validate(config)
+    assert "artifacts->reports must be a map" in str(err.value)
+

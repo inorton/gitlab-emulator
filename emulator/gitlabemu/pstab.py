@@ -48,16 +48,17 @@ class Proc(Base):
 
 class Powershell(Base):
     """Windows powershell"""
+    # pragma:  cover if windows
     shell = False
-    cmdline = "powershell -Command \"Get-Process|Format-Table -Property Id\""  # pragma: linux no cover
+    cmdline = "powershell -Command \"Get-Process|Format-Table -Property Id\""
 
 
 def get_pids() -> List[int]:
-    if platform.system() == "Windows":  # pragma: posix no cover
+    if platform.system() == "Windows":  # pragma: cover if windows
         p = Powershell()
-    elif os.path.isdir("/proc"):  # pragma: windows no cover
+    elif os.path.isdir("/proc"):  # pragma: not-windows
         p = Proc()
-    else:  # pragma: windows no cover
+    else:  # pragma: not-windows
         p = Base()
 
     return p.get_pids()

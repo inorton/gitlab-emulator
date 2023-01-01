@@ -16,10 +16,17 @@ stages:
 alpine-test:
   extends: .alpine-image
   stage: build
-  script:
+  before_script:
   - uname -a
   - env|sort
+  - id
+  script:
   - sleep 2  # sleep long enough so that test_no_such_exec() has a chance to pass
+
+alpine-fail:
+  extends: alpine-test
+  script:
+    - exit 1
 
 windows-docker-job:
   extends: .windows-dir-after  

@@ -22,24 +22,6 @@ from .logmsg import warning, debugrule, fatal
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
-DEFAULT_UNSUPPORTED_KEYWORDS = []
-UNSUPPORTED_KEYWORDS = list(DEFAULT_UNSUPPORTED_KEYWORDS)
-
-
-def check_unsupported(config: Dict[str, Any]) -> None:
-    """
-    Check of the configuration contains unsupported options, raise FeatureNotSupportedError on error
-    :param config:
-    :return:
-    """
-    for childname in config:
-        # if this is a dict, it is probably a job
-        child = config[childname]
-        if isinstance(child, dict):
-            for bad in UNSUPPORTED_KEYWORDS:
-                if bad in config[childname]:
-                    raise FeatureNotSupportedError(bad)
-
 
 def do_single_include(baseobj: Dict[str, Any],
                       yamldir: str,
@@ -87,10 +69,10 @@ def do_single_include(baseobj: Dict[str, Any],
         elif "remote" in inc:
             location = inc["remote"]
             inc_type = "remote"
-        elif "template" in inc:
+        elif "template" in inc:  # pragma: no cover
             location = inc["template"]
             inc_type = "template"
-        elif "project" in inc:
+        elif "project" in inc:  # pragma: no cover
             ref = inc.get("ref", "HEAD")
             location = f"{inc['project']}/{inc['file']}#{ref}".replace("//", "/")
             inc_type = "project"
@@ -115,22 +97,21 @@ def do_single_include(baseobj: Dict[str, Any],
                 return {}
 
     assert location, f"cannot work out include source location: {inc}"
-
-    if location in baseobj["include"]:
-        BadSyntaxError(f"{filename}: {location} has already been included")
+    included = baseobj.get("include", [])
+    if location in included:
+        raise BadSyntaxError(f"{filename}: {location} has already been included")
     baseobj["include"].append(location)
 
     if inc_type == "local":
-        if os.sep != "/":
-            # pragma: linux no cover
+        if os.sep != "/":  # pragma: cover if windows
             location = location.replace("/", os.sep)
         return handle_read(location, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
-    elif inc_type == "template":
+    elif inc_type == "template":  # pragma: no cover
         # get the template from gitlab.com
         warning(f"Including gitlab.com template: {location}")
         inc_type = "remote"
         location = f"{GITLAB_ORG_TEMPLATE_BASEURL}/{location}"
-    elif inc_type == "project":
+    elif inc_type == "project":  # pragma: no cover
         warning(f"Including CI yaml from another project: {location}")
         if not handle_fetch_project:
             warning("no project handler added")
@@ -141,7 +122,7 @@ def do_single_include(baseobj: Dict[str, Any],
         # fetch the file, no authentication needed
         warning(f"Including remote CI yaml file: {location}")
         resp = requests.get(location, allow_redirects=True)
-        if not resp.status_code == 200:
+        if not resp.status_code == 200:  # pragma: no cover
             raise ConfigLoaderError(f"HTTP error getting {location}: status {resp.status_code}")
         temp_content = resp.text
 
@@ -151,8 +132,6 @@ def do_single_include(baseobj: Dict[str, Any],
             with open(path, "w") as fd:
                 fd.write(temp_content)
             return handle_read(path, variables=False, validate_jobs=False, topdir=str(temp_folder), baseobj=baseobj)
-
-    raise BadSyntaxError(f"Don't know how to include {inc}")
 
 
 def do_includes(baseobj: Dict[str, Any],
@@ -218,57 +197,33 @@ class ExtendsMixin:
     def do_single_extend_recursive(alljobs: dict, default_job: Dict[str, Any], name: str) -> Dict[str, Any]:
         """Do all the extends and !reference expansion for a single job"""
         assert name in alljobs
-        unextended = alljobs.get(name)
-        new_obj = copy.deepcopy(unextended)
+        current_un_extended = alljobs.get(name)
+        current_extended = {}
         default_job = copy.deepcopy(default_job)
-        if "variables" not in new_obj:
-            new_obj["variables"] = {}
         pipeline_variables = alljobs.get("variables", {})
 
-        base_jobs = stringlist_if_string(unextended.get("extends", []))
+        base_jobs = stringlist_if_string(current_un_extended.get("extends", []))
         if name in base_jobs:
             raise BadSyntaxError(f"Job '{name}' cannot extend itself")
 
         for base in base_jobs:
             if base not in alljobs:
                 raise BadSyntaxError(f"Job '{name}' extends '{base}' which does not exist")
-            if "extends" in alljobs[base]:
-                baseobj = do_single_extend_recursive(dict(alljobs), default_job, base)
-            else:
-                baseobj = copy.deepcopy(alljobs[base])
+            supp = alljobs[base]
+            if "extends" in supp:
+                supp = do_single_extend_recursive(alljobs, default_job, base)
+            recursive_merge_dicts(current_extended, supp)
 
-            for keyname, value in baseobj.items():
-                if isinstance(value, dict):
-                    # this is a hash, merge the keys and values
-                    if keyname not in new_obj or not isinstance(new_obj[keyname], dict):
-                        # sometimes a string value can be replaced
-                        # with a map, eg
-                        #  image: imagename:latest  ->  image:
-                        #                                 name: imagename:latest
-                        new_obj[keyname] = {}
-                    if keyname in unextended:
-                        value.update(unextended[keyname])
-                    new_obj[keyname].update(value)
+        # now do overrides
+        recursive_merge_dicts(current_extended, current_un_extended)
 
-                else:
-                    # this is a scalar or list, copy it
-                    if keyname not in unextended:
-                        new_obj[keyname] = value
-
-        # override any lists and values set in this map that were also pulled in via extends
-        for override_key, override_value in unextended.items():
-            if isinstance(override_value, dict):
-                extended_value = new_obj.get(override_key, None)
-                if isinstance(extended_value, dict):
-                    # merge it
-                    new_obj[override_key].update(override_value)
-                else:
-                    # replace it
-                    new_obj[override_key] = override_value
-
-        inherit_control = new_obj.get("inherit", {})
+        # implement inherit:
+        inherit_control = current_extended.get("inherit", {})
         inherit_variables = inherit_control.get("variables", list(pipeline_variables.keys()))
         inherit_default = inherit_control.get("default", list(default_job.keys()))
+
+        if "variables" not in current_extended:
+            current_extended["variables"] = {}
 
         if inherit_variables:  # can be False or a list
             inheritable_variables = {}
@@ -277,16 +232,19 @@ class ExtendsMixin:
                     inheritable_variables[varname] = pipeline_variables[varname]
 
             for varname, varvalue in inheritable_variables.items():
-                if varname not in new_obj["variables"]:
-                    new_obj["variables"][varname] = varvalue
+                if varname not in current_extended["variables"]:
+                    current_extended["variables"][varname] = varvalue
 
         if inherit_default: # can be False or a list
             for valuekey in inherit_default:
-                if valuekey not in new_obj:
+                if valuekey not in current_extended:
                     if valuekey in default_job:
-                        new_obj[valuekey] = copy.deepcopy(default_job[valuekey])
+                        current_extended[valuekey] = copy.deepcopy(default_job[valuekey])
 
-        return new_obj
+        if "extends" in current_extended:
+            del current_extended["extends"]
+
+        return current_extended
 
 
     def do_extends(self, alljobs: Dict[str, Any]) -> None:
@@ -515,6 +473,17 @@ def merge_dicts(baseobj: dict, updated: dict, key: Any) -> None:
             baseobj[key] = newvalue
 
 
+def recursive_merge_dicts(target: Dict[str, Any], supp: Dict[str, Any]) -> None:
+    # deep recursive merge supp into target
+    for keyname, value in supp.items():
+        current_value = target.get(keyname, None)
+        # recursive update if both are dicts
+        if isinstance(current_value, dict) and isinstance(value, dict):
+            recursive_merge_dicts(current_value, value)
+        else:
+            target[keyname] = copy.deepcopy(value)
+
+
 class ValidatorMixin:
 
     @staticmethod
@@ -538,7 +507,7 @@ class ValidatorMixin:
 
             # check that the stage exists
             if job["stage"] not in stages:
-                raise ConfigLoaderError("job {} has stage {} does not exist".format(name, job["stage"]))
+                raise ConfigLoaderError("job {} has stage {} which does not exist".format(name, job["stage"]))
 
             # check needs
             needs = job.get("needs", [])
@@ -604,6 +573,10 @@ def read(
     with open(yamlfile, "r") as yamlobj:
         loaded = yamlloader.ordered_load(yamlobj, preloaded)
 
+    if loaded is None:
+        # file was empty?
+        loaded = {}
+
     if not baseobj:
         parent = True
         baseobj = {"include": []}
@@ -618,8 +591,6 @@ def read(
     if parent:
         # now do extends
         handle_extends(baseobj)
-
-    check_unsupported(baseobj)
 
     if validate_jobs:
         if strict_needs_stages():

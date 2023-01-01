@@ -1,0 +1,3 @@
+include:
+  - moose: 'git@github.com/moose/thing.git'
+    file: thing.yml

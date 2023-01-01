@@ -3,10 +3,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tarfile
 from contextlib import contextmanager
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 from .helpers import communicate as comm, is_windows
@@ -18,7 +19,6 @@ from .variables import expand_variable
 PULL_POLICY_ALWAYS = "always"
 PULL_POLICY_IF_NOT_PRESENT = "if-not-present"
 PULL_POLICY_NEVER = "never"
-PULL_POLICY = PULL_POLICY_ALWAYS
 
 
 
@@ -28,7 +28,7 @@ class DockerTool(object):
     """
     def __init__(self, retries: Optional[int] = 5):
         self.retries = retries
-        self.container = None
+        self.container: Optional[Any] = None
         self.image = None
         self.env = {}
         self.volumes = []
@@ -36,7 +36,7 @@ class DockerTool(object):
         self.privileged = False
         self.entrypoint = None
         self.pulled = None
-        self._pull_policy = PULL_POLICY
+        self._pull_policy = PULL_POLICY_ALWAYS
         self.network = None
         self._client = None
     
@@ -45,9 +45,7 @@ class DockerTool(object):
         return self._pull_policy
     
     @pull_policy.setter
-    def pull_policy(self, value: Optional[str]):
-        if value is None:
-            value = PULL_POLICY_ALWAYS
+    def pull_policy(self, value: str):
         assert value in [PULL_POLICY_ALWAYS, PULL_POLICY_IF_NOT_PRESENT, PULL_POLICY_NEVER]
         self._pull_policy = value
 
@@ -175,7 +173,7 @@ class DockerTool(object):
                     self.entrypoint = ["/bin/sh"]
                 else:
                     self.entrypoint = None
-
+            info(f"launching image {self.image} as container {self.name} ..")
             self.container = self.client.containers.run(
                 self.image,
                 detach=True,
@@ -190,7 +188,7 @@ class DockerTool(object):
             )
         except ImageNotFound:
             fatal(f"Docker image {self.image} does not exist, (pull_policy={self.pull_policy})")
-        except Exception:
+        except Exception:  # pragma: no cover
             warning(f"problem running {self.image}")
             raise
 
@@ -236,6 +234,7 @@ class DockerJob(Job):
         self.container = None
         self.docker = DockerTool()
         self._force_pull_policy = None
+        self._container_lock = threading.Lock()
 
     @property
     def docker_image(self) -> str:
@@ -303,9 +302,19 @@ class DockerJob(Job):
         :return:
         """
         info("abort docker job {}".format(self.name))
-        if self.container:
+        # we need to wait for the container to start
+        if self.docker.container is None:
+            time.sleep(1)
+
+        if self.container and self.docker.container:
             info("kill container {}".format(self.name))
-            subprocess.call(["docker", "kill", self.container])
+            self.docker.container.kill(signal=9)
+        if self.build_process is not None:
+            try:  # pragma: no cover
+                if self.build_process.poll() is None:
+                    self.build_process.terminate()
+            except Exception as err:  # pragma: no cover
+                assert err is not None
 
     def get_envs(self, expand_only_ci=True):
         """
@@ -330,7 +339,7 @@ class DockerJob(Job):
     def _run_script(self, lines, attempts=2, user=None):
         task = None
         if user is None:
-            if self.shell_is_user:
+            if self.shell_is_user:  # pragma: cover if posix
                 user = os.getuid()
 
         filename = "generated-gitlab-script" + self.get_script_fileext()
@@ -340,7 +349,7 @@ class DockerJob(Job):
                 print(lines, file=fd)
             # copy it to the container
             dest = "/tmp"
-            if is_windows():  # pragma: linux no cover
+            if is_windows():  # pragma: cover if windows
                 dest = "c:\\windows\\temp"
             target_script = os.path.join(dest, filename)
             info("Copying {} to container as {} ..".format(temp, target_script))
@@ -348,7 +357,14 @@ class DockerJob(Job):
 
             while attempts > 0:
                 try:
-                    interactive = self.enter_shell or self.error_shell
+                    interactive = bool(self.enter_shell or self.error_shell)
+                    if interactive:  # pragma: no cover
+                        try:
+                            if not os.isatty(sys.stdin.fileno()):
+                                interactive = False
+                        except OSError:
+                            # probably under pycharm pytest
+                            interactive = False
                     cmdline = self.shell_command(target_script)
                     task = self.docker.exec(self.inside_workspace,
                                             cmdline,
@@ -356,7 +372,7 @@ class DockerJob(Job):
                                             user=user)
                     self.communicate(task, script=None)
                     break
-                except DockerExecError:
+                except DockerExecError:  # pragma: no cover
                     self.stdout.write(
                         "Warning: docker exec error - https://gitlab.com/cunity/gitlab-emulator/-/issues/10")
                     attempts -= 1
@@ -366,7 +382,8 @@ class DockerJob(Job):
                         time.sleep(2)
             return task
         finally:
-            os.unlink(temp)
+            if os.path.exists(temp):
+                os.unlink(temp)
 
     def check_docker_exec_failed(self, line):
         """
@@ -405,73 +422,74 @@ class DockerJob(Job):
         :return:
         """
         print("Job {} script error..".format(self.name), flush=True)
-        lines = self.error_shell
+        lines = "\n".join(self.error_shell)
         self.run_script(lines)
 
     def run_impl(self):
         from .resnamer import generate_resource_name
-        if is_windows():  # pragma: linux no cover
+        if is_windows():  # pragma: cover if windows
             warning("warning windows docker is experimental")
 
-        self.docker.image = self.docker_image
-        self.container = generate_resource_name()
-        self.docker.name = self.container
-
-        if not is_windows():
-            image_name = self.docker.image
-            image_name = image_name.split("/")[-1].split("@")[0].split(":")[0]
-            self.docker.privileged = True
-            if self.error_shell or self.enter_shell:
-                self.docker.add_env("PS1", f"[{self.name}] \\u@{image_name}:$PWD $ ")
-
-        if self.docker.pull_always or (self.docker.pull_if_not_present and not self.docker.image_present):
-            self.docker.pull()
-
-        environ = self.get_envs(expand_only_ci=False)
-        with docker_services(self, environ) as network:
-            if network:
-                self.docker.network = network.name
-            for envname in environ:
-                self.docker.add_env(envname, environ[envname])
-
-            if self.docker_entrypoint is not None:
-                self.docker.entrypoint = self.docker_entrypoint
-            volumes = get_user_config_context().docker.runtime_volumes()
-            if volumes:
-                info("Extra docker volumes registered:")
-                for item in volumes:
-                    info("- {}".format(item))
-
-            self.docker.volumes = volumes + [f"{self.workspace}:{self.inside_workspace}:rw"]
-
-            self.docker.run()
+        with self._container_lock:
+            self.docker.image = self.docker_image
+            self.container = generate_resource_name()
+            self.docker.name = self.container
 
             if not is_windows():
-                # work out USER
-                docker_user_cfg = self.docker.get_user()
-                if docker_user_cfg and ":" in docker_user_cfg:
-                    docker_user, docker_grp = docker_user_cfg.split(":", 1)
-                    self.stdout.write(f"Setting ownership to {docker_user}:{docker_grp}")
-                    self._run_script(f"chown -R {docker_user}.{docker_grp} .", attempts=1, user="0")
+                image_name = self.docker.image
+                image_name = image_name.split("/")[-1].split("@")[0].split(":")[0]
+                self.docker.privileged = True
+                if self.error_shell or self.enter_shell:
+                    self.docker.add_env("PS1", f"[{self.name}] \\u@{image_name}:$PWD $ ")
 
-            try:
-                lines = self.before_script + self.script
-                if self.enter_shell:
-                    lines.extend(self.get_interactive_shell_command())
+            if self.docker.pull_always or (self.docker.pull_if_not_present and not self.docker.image_present):
+                self.docker.pull()
 
-                self.build_process = self.run_script(make_script(lines, powershell=self.is_powershell()))
-            finally:
+            environ = self.get_envs(expand_only_ci=False)
+            with docker_services(self, environ) as network:
+                if network:
+                    self.docker.network = network.name
+                for envname in environ:
+                    self.docker.add_env(envname, environ[envname])
+
+                if self.docker_entrypoint is not None:
+                    self.docker.entrypoint = self.docker_entrypoint
+                volumes = get_user_config_context().docker.runtime_volumes()
+                if volumes:
+                    info("Extra docker volumes registered:")
+                    for item in volumes:
+                        info("- {}".format(item))
+
+                self.docker.volumes = volumes + [f"{self.workspace}:{self.inside_workspace}:rw"]
+
+                self.docker.run()
+
+                if not is_windows():  # pragma: cover if not windows
+                    # work out USER
+                    docker_user_cfg = self.docker.get_user()
+                    if docker_user_cfg and ":" in docker_user_cfg:
+                        docker_user, docker_grp = docker_user_cfg.split(":", 1)
+                        self.stdout.write(f"Setting ownership to {docker_user}:{docker_grp}")
+                        self._run_script(f"chown -R {docker_user}.{docker_grp} .", attempts=1, user="0")
+
                 try:
-                    if self.error_shell:
-                        if not self.build_process or self.build_process.returncode:
-                            self.shell_on_error()
-                    if self.after_script:
-                        info("Running after_script..")
-                        self.run_script(make_script(self.after_script, powershell=self.is_powershell()))
-                except subprocess.CalledProcessError:
-                    pass
+                    lines = self.before_script + self.script
+                    if self.enter_shell:
+                        lines.extend(self.get_interactive_shell_command())
+
+                    self.build_process = self.run_script(make_script(lines, powershell=self.is_powershell()))
                 finally:
-                    subprocess.call(["docker", "kill", self.container], stderr=subprocess.STDOUT)
+                    try:
+                        if self.error_shell:
+                            if not self.build_process or self.build_process.returncode:
+                                self.shell_on_error()
+                        if self.after_script:
+                            info("Running after_script..")
+                            self.run_script(make_script(self.after_script, powershell=self.is_powershell()))
+                    except subprocess.CalledProcessError:  # pragma: no cover
+                        pass
+                    finally:
+                        subprocess.call(["docker", "kill", self.container], stderr=subprocess.STDOUT)
 
         result = self.build_process.returncode
         if result:
@@ -526,9 +544,9 @@ def has_docker() -> bool:
             client = docker.DockerClient()
             client.info()
             return True
-        except Exception:
+        except Exception:  # pragma: no cover
             pass
-    return False
+    return False  # pragma: no cover
 
 
 @contextmanager
@@ -575,11 +593,12 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
                     aliases.append(service["alias"])
 
                 job.stdout.write(f"create docker service : {name} ({aliases})\n")
-
-                try:
-                    client.images.pull(image)
-                except docker.errors.ImageNotFound:
-                    fatal(f"No such image {image}")
+                if job.docker.can_pull:
+                    try:
+                        job.stdout.write(f"pulling {image} ..\n")
+                        client.images.pull(image)
+                    except docker.errors.ImageNotFound:
+                        fatal(f"No such image {image}")
                 priv = not is_windows()
                 container = client.containers.run(
                     image,
@@ -597,7 +616,8 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
     finally:
         for container in containers:
             info(f"clean up docker service {container.id}")
-            container.kill()
+            container.kill(signal=9)
+        time.sleep(1)
         if service_network:
             info(f"clean up docker network {service_network.name}")
             service_network.remove()

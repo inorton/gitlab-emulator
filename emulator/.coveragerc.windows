@@ -3,9 +3,25 @@
 [run]
 branch = True
 source = gitlabemu
+plugins =
+    coverage_conditional_plugin
+
+[coverage:coverage_conditional_plugin]
+rules =
+    "sys.platform == 'win32'": no cover if windows
+    "sys.platform == 'win32'": cover if not windows
+    "sys.platform == 'win32'": cover if posix
+    "sys.platform != 'win32'": no cover if not windows
+    "sys.platform != 'win32'": cover if windows
+    "sys.platform == 'linux'": no cover if linux
+    "sys.platform != 'linux'": no cover if not linux
+    "sys.platform != 'linux'": cover if linux
+    "sys.platform == 'darwin'": no cover if apple
+    "sys.platform != 'darwin'": no cover if not apple
+    "sys.platform != 'darwin'": cover if apple
 
 [report]
-fail_under = 69
+fail_under = 76
 
 omit =
     gitlabemu/gitlab/types.py

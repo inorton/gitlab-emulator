@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 import pytest
 import uuid
@@ -244,11 +245,11 @@ def test_git_worktree(linux_docker, top_dir):
         subprocess.call(["git", "worktree", "prune"], cwd=os.path.dirname(__file__))
 
 
-def test_windows_docker(windows_docker, top_dir):
+@pytest.mark.usefixtures("in_tests")
+@pytest.mark.usefixtures("windows_docker")
+def test_windows_docker():
     """Test we can launch a windows container job"""
     # emulator/gitlabemu/tests/test-powershell-fail.yml
-    folder = os.path.join(top_dir, "emulator", "gitlabemu", "tests")
-    os.chdir(folder)
     run(["-c", "test-powershell-fail.yml", "windows-powershell-ok", "--powershell"])
     run(["-c", "test-powershell-fail.yml", "windows-cmd-ok", "--cmd"])
 
@@ -256,3 +257,40 @@ def test_windows_docker(windows_docker, top_dir):
         run(["-c", "test-powershell-fail.yml", "windows-powershell-fail", "--powershell"])
     with pytest.raises(SystemExit):
         run(["-c", "test-powershell-fail.yml", "windows-cmd-fail", "--cmd"])
+
+
+@pytest.mark.usefixtures("has_docker")
+@pytest.mark.usefixtures("posix_only")
+def test_docker_user(top_dir, capfd):
+    os.chdir(top_dir)
+    uid = os.getuid()
+    run(["-c", "test-ci.yml", "-u", "alpine-test"])
+    stdout, stderr = capfd.readouterr()
+    assert f"uid={uid}" in stdout
+
+@pytest.mark.usefixtures("has_docker")
+@pytest.mark.usefixtures("posix_only")
+def test_docker_fail_shell(top_dir, capfd):
+    os.chdir(top_dir)
+    magic = str(uuid.uuid4())
+    with pytest.raises(SystemExit):
+        run(["-c", "test-ci.yml", "-u", "alpine-fail", "-e", f"echo {magic}"])
+    stdout, stderr = capfd.readouterr()
+    assert f"{magic}" in stdout
+
+
+@pytest.mark.usefixtures("has_docker")
+@pytest.mark.usefixtures("posix_only")
+def test_docker_runner_exec(top_dir, capfd, temp_folder: Path):
+    """Test running gitlab-runner exec"""
+    os.chdir(top_dir)
+    fake_gitlab_runner = temp_folder / "gitlab-runner"
+    with open(fake_gitlab_runner, "w") as fd:
+        print("#!/bin/sh", file=fd)
+        print("echo running: \"$@\"", file=fd)
+    os.chmod(str(fake_gitlab_runner), 0o755)
+    os.environ["PATH"] = str(temp_folder.absolute()) + os.pathsep + os.environ["PATH"]
+
+    run(["-c", "test-ci.yml", "--exec", "alpine-test"])
+    stdout, stderr = capfd.readouterr()
+    assert "running: exec docker --cicd-config-file" in stdout

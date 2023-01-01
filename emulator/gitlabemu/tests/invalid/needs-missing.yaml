@@ -1,0 +1,8 @@
+test:
+  script:
+    - echo
+
+job1:
+  needs: [ job0, test ]
+  script:
+    - echo

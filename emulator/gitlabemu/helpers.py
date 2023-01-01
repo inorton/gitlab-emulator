@@ -8,6 +8,7 @@ import re
 import platform
 import subprocess
 from typing import Optional, List, Dict, Union
+from urllib.parse import urlparse
 
 from .errors import DockerExecError
 from .resnamer import resource_owner_alive, is_gle_resource
@@ -315,7 +316,7 @@ def trim_quotes(text: str) -> str:
 
 
 def powershell_escape(text: str, variables=False) -> str:
-    # pragma: linux no cover
+    # pragma: cover if windows
     # taken from: http://www.robvanderwoude.com/escapechars.php
     text = text.replace("`", "``")
     text = text.replace("\a", "`a")
@@ -411,3 +412,22 @@ def stringlist_if_string(value: Union[str, list]) -> list:
     if isinstance(value, str):
         return [value]
     return value
+
+
+def remote_servers(remotes: Dict[str, str]) -> Dict[str, str]:
+    """From a map of git remotes, Get a map of git remotes to server addresses"""
+    servers: Dict[str, str] = {}
+    for remote_name in remotes:
+        remote_url = remotes[remote_name]
+        if remote_url.startswith("git@") and remote_url.endswith(".git"):
+            if ":" in remote_url:
+                lhs, rhs = remote_url.split(":", 1)
+                host = lhs.split("@", 1)[1]
+                project_path = rhs.rsplit(".", 1)[0].lstrip("/")
+                servers[remote_name] = f"{host}/{project_path}"
+        elif "://" in remote_url and remote_url.startswith("http"):
+            parsed = urlparse(remote_url)
+            host = parsed.hostname
+            project_path = parsed.path.rsplit(".", 1)[0].lstrip("/")
+            servers[remote_name] = f"{host}/{project_path}"
+    return servers

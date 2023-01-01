@@ -10,7 +10,7 @@ parser.add_argument("UID", type=int, help="UID to set")
 parser.add_argument("GID", type=int, help="GID to set")
 
 
-def run(args=None):  # pragma: windows no cover
+def run(args=None):  # pragma: cover if posix
     opts = parser.parse_args(args=args)
     started = time.time()
     cmdline = ["chown", "-R", "-h", f"{str(opts.UID)}.{str(opts.GID)}", os.getcwd()]

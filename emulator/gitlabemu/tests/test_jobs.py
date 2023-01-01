@@ -18,13 +18,13 @@ def test_nosuchjob():
 def test_job_basic():
     job = Job()
     job.name = "fred"
-
+    assert job.duration() == 0
     assert str(job) == "job fred"
 
-    job.started_time = time.time() - 61
+    job.started_time = int(time.monotonic()) - 61
     assert job.duration() > 60
 
-    job.started_time = time.time()
+    job.started_time = int(time.monotonic())
     job.ended_time = job.started_time + 300
     assert job.duration() == 300
 

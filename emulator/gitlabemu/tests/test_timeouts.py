@@ -2,9 +2,10 @@
 Test that the timeout keyword works
 """
 import time
-
 import pytest
-from .. import runner, helpers
+from pytest_mock import MockerFixture
+
+from .. import runner, helpers, logmsg
 
 
 def test_timeout_set_but_ample(caplog, posix_only, in_tests):
@@ -12,12 +13,20 @@ def test_timeout_set_but_ample(caplog, posix_only, in_tests):
     assert "job run-ok timeout set to 14 mins" in caplog.messages
 
 
-def test_timeout_set_job_slow(caplog, linux_docker, in_tests):
-    start = time.time()
+@pytest.mark.usefixtures("linux_only")
+def test_timeout_set_job_slow(caplog, in_tests, mocker: MockerFixture):
+    now = time.monotonic()
+    patched_time = None
+    def mocked_time() -> float:
+        rv =  now + patched_time.call_count * 25
+        logmsg.info(f"time.monotonic() -> {rv}")
+        return rv
+
     with pytest.raises(SystemExit):
+        logmsg.info("patching time.monotonic..")
+        patched_time = mocker.patch("time.monotonic", side_effect=mocked_time)
         runner.run(["--config", "test-timeout.yaml", "run-slow"])
-    ended = time.time()
-    assert (ended - start) < 240, "job should not have run for it's max time"
+
     assert "job run-slow timeout set to 1 mins" in caplog.messages
     assert "Job exceeded 60 sec timeout" in caplog.messages
     assert "kill container run-slow" in caplog.messages

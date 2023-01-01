@@ -11,7 +11,7 @@ def test_load_expected(top_dir):
     job = loader.load_job("emulator-linux-test_py3.10")
     assert job.artifacts
     assert job.artifacts.when == "always"
-    assert job.artifacts.paths == []
+    assert job.artifacts.paths == ["emulator/coverage_html/**"]
     assert not job.artifacts.name
     assert job.artifacts.reports
     assert job.artifacts.reports["junit"] == ["emulator/test-results.xml"]

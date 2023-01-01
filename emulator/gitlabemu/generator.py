@@ -132,6 +132,7 @@ def create_pipeline_branch(repo: str,
 
 
 def wait_for_project_commit_pipeline(project, commit, timeout=30) -> Optional[ProjectPipeline]:
+    # pragma: no cover
     started = time.time()
     while time.time() - started < timeout:
         time.sleep(2)

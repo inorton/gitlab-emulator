@@ -3,6 +3,7 @@ import random
 import shutil
 import tempfile
 import time
+from pathlib import Path
 from typing import Optional, List
 
 import pytest
@@ -198,3 +199,15 @@ def mock_client_project_remote():
     project = MockAPIProject()
     remote = "moose"
     return client, project, remote
+
+
+@pytest.fixture(scope="function")
+def temp_folder() -> Path:
+    folder = tempfile.mkdtemp()
+    yield Path(folder)
+    shutil.rmtree(folder)
+
+
+@pytest.fixture(scope="function")
+def in_topdir(repo_root: str) -> None:
+    os.chdir(repo_root)

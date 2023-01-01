@@ -18,6 +18,7 @@ from ..helpers import die
 
 
 def override_server(server: str) -> str:
+    # pragma: no cover
     if server:
         if "/" not in server:
             raise ArgumentError("--project should be HOST/GROUP/PROJECT")

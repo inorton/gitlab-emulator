@@ -5,10 +5,9 @@ import os
 
 import pytest
 
-import gitlabemu.errors
 from .. import configloader
 from .. import yamlloader
-from ..docker import DockerJob
+from ..errors import BadSyntaxError, ConfigLoaderError
 
 HERE = os.path.dirname(__file__)
 TOPDIR = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
@@ -63,81 +62,23 @@ def test_loading_ci():
     assert loader.config
 
 
-def test_load_extends():
-    loader = configloader.Loader()
-    loader.load(os.path.join(HERE, "test-extends.yaml"))
-
-    job1 = loader.get_job("job1")
-    assert job1["image"] == "base1:image"
-    assert job1["before_script"][0] == "base2"
-
-    job2 = loader.get_job("job2")
-    assert "image" not in job2
-    assert job2["before_script"][0] == "base2"
-
-    top = loader.load_job("top")
-    assert top.docker_image == "baseimage:image"
-    assert top.before_script[0] == "middle before_script"
-    assert top.script[0] == "top script"
-    assert top.variables
-    assert "BASE" in top.variables
-    assert "COLOR" in top.variables
-    assert top.variables["BASE"] == "baseimage"
-    assert top.variables["COLOR"] == "purple"
-
-    last = loader.load_job("last")
-
-    assert last.docker_image == "busybox:latest"
-    assert last.after_script == ["echo template-basic after_script"]
-    assert last.before_script == top.before_script
-    assert last.script == top.script
-
-
-def test_missing_extends():
-    """Test that extending a non-existing job does not hang"""
-    loader = configloader.Loader()
-    with pytest.raises(gitlabemu.errors.BadSyntaxError) as err:
-        loader.load(os.path.join(HERE, "invalid", "extends-missing.yaml"))
-    assert "Job 'job2' extends 'thing' which does not exist" in str(err.value)
-
-
 def test_missing_script():
     """Test that forgetting to add script to a job raises an error"""
     loader = configloader.Loader()
-    with pytest.raises(gitlabemu.errors.BadSyntaxError) as err:
+    with pytest.raises(BadSyntaxError) as err:
         loader.load(os.path.join(HERE, "invalid", "script-missing.yaml"))
     assert "Job 'job' does not have a 'script' element." in str(err.value)
 
 
-def test_inherit():
-    """Test the inherit keyword"""
+def test_missing_needs():
     loader = configloader.Loader()
-    loader.load(os.path.join(HERE, "test-inherit.yaml"))
+    with pytest.raises(ConfigLoaderError) as err:
+        loader.load(os.path.join(HERE, "invalid", "needs-missing.yaml"))
+    assert "job job1 needs job job0 which does not exist" in str(err.value)
 
-    job1: DockerJob = loader.load_job("job1")
-    job2: DockerJob = loader.load_job("job2")
-    job3: DockerJob = loader.load_job("job3")
-    job4: DockerJob = loader.load_job("job4")
-    job5: DockerJob = loader.load_job("job5")
 
-    assert job1.docker_image == "ruby:3.0"
-    assert job1.before_script == ["df -h"]
-    assert job1.variables["COLOR"] == "red"
-    assert job2.docker_image == "ruby:3.0"
-    assert job2.before_script == []
-    assert job2.variables["COLOR"] == "red"
-
-    assert job3.docker_image == job2.docker_image
-    assert job3.before_script == job2.before_script
-    assert job3.variables["COLOR"] == "red"
-    assert job3.variables["SIZE"] == "big"
-
-    assert "COLOR" in job4.variables
-    assert "SIZE" not in job4.variables
-    assert job4.before_script == ["df -h"]
-    assert job4.script == ['echo COLOR="$COLOR"', 'echo SIZE="$SIZE"']
-
-    assert "COLOR" not in job5.variables
-    assert "SIZE" not in job5.variables
-    assert job5.before_script == ["df -h"]
-    assert job5.script == ["echo job5 script"]
+def test_missing_stage():
+    loader = configloader.Loader()
+    with pytest.raises(ConfigLoaderError) as err:
+        loader.load(os.path.join(HERE, "invalid", "stage-missing.yaml"))
+    assert "job job1 has stage fish which does not exist" in str(err.value)

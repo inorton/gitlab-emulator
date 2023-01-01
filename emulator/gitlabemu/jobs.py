@@ -58,9 +58,9 @@ class Job(object):
         self._shell = None
         self._parallel = None
         self._config = {}
-        if is_windows():  # pragma: linux no cover
+        if is_windows():  # pragma: cover if windows
             self._shell = "powershell"
-        else:
+        else:  # pragma: cover if not windows
             self._shell = "sh"
 
         self.workspace = None
@@ -69,6 +69,7 @@ class Job(object):
         self.started_time = 0
         self.ended_time = 0
         self.timeout_seconds = 0
+        self.timed_out = False
         self.monitor_thread = None
         self.exit_monitor = False
         self.skipped_reason = None
@@ -93,7 +94,7 @@ class Job(object):
         if self.started_time:
             ended = self.ended_time
             if not ended:
-                ended = time.time()
+                ended = time.monotonic()
             return ended - self.started_time
         return 0
 
@@ -106,6 +107,7 @@ class Job(object):
             duration = self.duration()
             if duration > self.timeout_seconds:
                 info(f"Job exceeded {int(self.timeout_seconds)} sec timeout")
+                self.timed_out = True
                 self.abort()
                 self.exit_monitor = True
 
@@ -115,7 +117,11 @@ class Job(object):
         and exits when it finishes
         """
         while not self.exit_monitor:
-            self.monitor_thread_loop_once()
+            try:
+                self.monitor_thread_loop_once()
+            except Exception as err:  # pragma: no cover
+                info(f"timeout monitor thread error: {err}")
+                break
             time.sleep(2)
 
     def is_powershell(self) -> bool:
@@ -132,7 +138,7 @@ class Job(object):
         self._shell = value
 
     def shell_command(self, scriptfile):
-        if is_windows():  # pragma: linux no cover
+        if is_windows():  # pragma: cover if windows
             if self.shell == "powershell":
                 return ["powershell.exe",
                         "-NoProfile",
@@ -200,8 +206,6 @@ class Job(object):
         if self.configloader:
             rules = config[self.name].get("rules", [])
             if rules:
-                if not isinstance(rules, list):
-                    raise SyntaxError(f"error parsing rules in job {self.name}")
                 for rule_item in rules:
                     rule_item: dict
                     # each should be a dict,
@@ -274,20 +278,11 @@ class Job(object):
         if self.build_process and self.build_process.poll() is None:
             info("killing child build process..")
             os.kill(self.build_process.pid, signal.SIGTERM)
-            killing = time.time()
+            killing = time.monotonic()
             while self.build_process.poll() is None: # pragma: no cover
                 time.sleep(1)
-                if time.time() - killing > 10:
+                if time.monotonic() - killing > 10:
                     os.kill(self.build_process.pid, signal.SIGKILL)
-
-    def check_communicate(self, process, script=None):
-        """
-        Process STDIO for a build process but raise an exception on error
-        :param process: child started by POpen
-        :param script: script (eg bytes) to pipe into stdin
-        :return:
-        """
-        comm(process, stdout=self.stdout, script=script, throw=True)
 
     def communicate(self, process, script=None):
         """
@@ -302,9 +297,9 @@ class Job(object):
         """
         Return True if this system has bash and isn't windows
         """
-        if not is_windows():
+        if not is_windows():  # pragma: cover if not windows
             return os.path.exists("/bin/bash")
-        return False  # pragma: linux no cover
+        return False  # pragma: cover if windows
 
     def base_variables(self) -> Dict[str, str]:
         return dict(self._config.get("variables", {}))
@@ -348,7 +343,7 @@ class Job(object):
 
     def get_script_fileext(self):
         ext = ".sh"
-        if is_windows():  # pragma: linux no cover
+        if is_windows():  # pragma: cover if windows
             if self.is_powershell():
                 ext = ".ps1"
             else:
@@ -372,7 +367,8 @@ class Job(object):
                 print(script, file=fd)
             cmdline = self.shell_command(generated)
             debug_print("cmdline: {}".format(cmdline))
-            if self.enter_shell or self.error_shell:
+            if self.enter_shell or self.error_shell:  # pragma: no cover
+                # TODO figure out how to cover tty stuff
                 opened = subprocess.Popen(cmdline,
                                           env=envs,
                                           shell=False,
@@ -394,7 +390,7 @@ class Job(object):
 
     def get_interactive_shell_command(self) -> List[str]:
         prog = ["/bin/sh"]
-        if is_windows():  # pragma: linux no cover
+        if is_windows():  # pragma:  cover if windows
             if "powershell.exe" in self.shell:
                 prog = ["powershell"]
             else:
@@ -407,8 +403,7 @@ class Job(object):
         :return:
         """
         # this is interactive only and cant really be easily tested
-        # pragma: no cover
-        try:
+        try:  # pragma: no cover
             print("Job {} script error..".format(self.name), flush=True)
             print("Running error-shell..", flush=True)
             subprocess.check_call("\n".join(self.error_shell))
@@ -420,7 +415,7 @@ class Job(object):
         Run the job on the local machine
         :return:
         """
-        self.started_time = time.time()
+        self.started_time = time.monotonic()
         self.monitor_thread = None
 
         if self.timeout_seconds and not self.interactive_mode():
@@ -434,9 +429,8 @@ class Job(object):
                 self.monitor_thread = None
 
             info("job {} timeout set to {} mins".format(self.name, int(self.timeout_seconds/60)))
-            if not self.monitor_thread:
+            if not self.monitor_thread:  # pragma: no cover
                 # funky hpux special case
-                # pragma: no cover
                 def alarm_handler(x, y):
                     info("Got SIGALRM, aborting build..")
                     self.abort()
@@ -447,7 +441,7 @@ class Job(object):
         try:
             self.run_impl()
         finally:
-            self.ended_time = time.time()
+            self.ended_time = time.monotonic()
             self.exit_monitor = True
             if self.monitor_thread and self.timeout_seconds:
                 self.monitor_thread.join(timeout=5)
@@ -455,13 +449,15 @@ class Job(object):
     def run_impl(self):
         info("running shell job {}".format(self.name))
         lines = self.before_script + self.script
-        if self.enter_shell:
+        if self.enter_shell:  # pragma: no cover
+            # TODO cover TTY tests
             lines.extend(self.get_interactive_shell_command())
         result = self.run_script(lines)
         if result and self.error_shell:  # pragma: no cover
             self.shell_on_error()
         if self.after_script:
-            self.run_script(self.after_script)
+            if not self.timed_out:
+                self.run_script(self.after_script)
 
         if result:
             fatal("Shell job {} failed".format(self.name))
@@ -482,7 +478,7 @@ def make_script(lines, powershell=False):
     if is_linux() or is_apple():
         extra = ["set -e"]
 
-    if is_windows():  # pragma: linux no cover
+    if is_windows():  # pragma: cover if windows
         if powershell:
             extra = [
                 '$ErrorActionPreference = "Stop"',
@@ -516,7 +512,7 @@ def make_script(lines, powershell=False):
             tail = [
                 'goto :EOF',
             ]
-    else:
+    else:  # pragma: not-windows
         powershell = False
 
     content = os.linesep.join(extra) + os.linesep
@@ -525,7 +521,7 @@ def make_script(lines, powershell=False):
             content += line
         else:
             content += os.linesep.join(line_wrap_before)
-            if powershell:  # pragma: linux no cover
+            if powershell:  # pragma: cover if windows
                 content += f"echo {powershell_escape(ANSI_GREEN + line + ANSI_RESET, variables=True)}" + os.linesep
                 content += "& " + line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
@@ -535,7 +531,7 @@ def make_script(lines, powershell=False):
     for line in tail:
         content += line
 
-    if is_windows():  # pragma: linux no cover
+    if is_windows():  # pragma: cover if windows
         content += os.linesep
 
     return content

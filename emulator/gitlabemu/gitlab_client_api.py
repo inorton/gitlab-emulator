@@ -12,15 +12,14 @@ import certifi
 import multiprocessing
 from functools import lru_cache
 from threading import RLock
-from typing import Optional, Set, Tuple, Iterable, List, Any, Dict
+from typing import Optional, Tuple, Iterable, List, Any, Dict
 from urllib.parse import urlparse
 from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import Project
 from urllib3.exceptions import InsecureRequestWarning
 
-from .helpers import die, note, get_git_remote_urls, is_linux
+from .helpers import die, note, get_git_remote_urls, remote_servers
 from .userconfig import get_user_config_context
-from .userconfigdata import GitlabServer
 
 GITLAB_SERVER_ENV = "GLE_GITLAB_SERVER"
 GITLAB_PROJECT_ENV = "GLE_GITLAB_PROJECT"
@@ -35,8 +34,7 @@ class GitlabIdent:
         self.gitref: Optional[str] = gitref
         self.secure: Optional[bool] = secure
 
-    def __str__(self):
-        ret = ""
+    def __str__(self):  # pragma: no cover
         attribs = []
         if self.server:
             attribs.append(f"server={self.server}")
@@ -291,15 +289,13 @@ def multi_download_unpack_jobs(gitlab: Gitlab,
                                jobs,
                                callback: Optional[List[str]] = None,
                                headers: Optional[dict] = None,
-                               export_mode: Optional[bool] = False,
-                               workers: Optional[int] = None):
+                               export_mode: Optional[bool] = False):
     """Download and unpack multiple jobs, use parallelization if in export mode"""
-    if workers is None:
-        workers = (multiprocessing.cpu_count() - 1)
-        if workers < 1:
-            workers = 1
-        if workers > 4:
-            workers = 4
+    workers = (multiprocessing.cpu_count() - 1)
+    if workers < 1:
+        workers = 1
+    if workers > 4:  # pragma: no cover
+        workers = 4
     if not export_mode:
         workers = 1
     downloads = []
@@ -342,7 +338,7 @@ def multi_download_unpack_jobs(gitlab: Gitlab,
         for task in tasks:
             try:
                 size, download_time = task.get()
-            except TaskError as err:
+            except TaskError as err:  # pragma: no cover
                 note(f"error! failed downloading {err.task}!")
                 raise err.inner
             sizes.append(size)
@@ -430,8 +426,10 @@ def do_gitlab_fetch(from_pipeline: str,
     if get_jobs:
         want_jobs = list(get_jobs)
         for item in list(want_jobs):
-            if item not in known_jobs:
-
+            if item not in known_jobs:  # pragma: no cover
+                # most of the time this is not reached, but if a pipeline has job
+                # rules then the server may not have made a job for this even if it
+                # existed in the yaml. This is quite hard to test without mocking more of the server
                 errmsg = f"Pipeline {pipeline.id} does not contain a job named '{item}'"
                 similar = [name for name in known_jobs if "/" in name and name.startswith(item)]
                 if not similar:
@@ -457,25 +455,6 @@ def do_gitlab_fetch(from_pipeline: str,
                                callback=callback,
                                headers=headers,
                                export_mode=export_to)
-
-
-def remote_servers(remotes: Dict[str, str]) -> Dict[str, str]:
-    """From a map of git remotes, Get a map of git remotes to server addresses"""
-    servers: Dict[str, str] = {}
-    for remote_name in remotes:
-        remote_url = remotes[remote_name]
-        if remote_url.startswith("git@") and remote_url.endswith(".git"):
-            if ":" in remote_url:
-                lhs, rhs = remote_url.split(":", 1)
-                host = lhs.split("@", 1)[1]
-                project_path = rhs.rsplit(".", 1)[0].lstrip("/")
-                servers[remote_name] = f"{host}/{project_path}"
-        elif "://" in remote_url and remote_url.startswith("http"):
-            parsed = urlparse(remote_url)
-            host = parsed.hostname
-            project_path = parsed.path.rsplit(".", 1)[0].lstrip("/")
-            servers[remote_name] = f"{host}/{project_path}"
-    return servers
 
 
 def find_gitlab_project_config(servers: Dict[str, str]) -> Optional[GitlabIdent]:
@@ -553,6 +532,6 @@ def get_current_project_client(tls_verify: Optional[bool] = True,
         die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
 
     if need_remote:
-        if not remotename:  # pragma: no-cover
+        if not remotename:  # pragma: no cover
             die("Could not find a gitlab configuration that matches any of our git remotes")
     return client, project, remotename

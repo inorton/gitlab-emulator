@@ -69,7 +69,8 @@ class SubsetCommand(MatcherCommand):
                 print(f"Saving generated pipeline as: {opts.dump}", file=sys.stderr)
                 with open(opts.dump, "w") as dumpcfg:
                     dumpcfg.write(ordered_dump(result))
-        else:
+        else:  # pragma: no cover
+            # TODO figure out how to test this in gitlab
             client, project, remotename = get_current_project_client(tls_verify=opts.tls_verify)
 
             reference = generate_subset_branch_name(client, os.getcwd())

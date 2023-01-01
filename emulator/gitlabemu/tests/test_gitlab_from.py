@@ -1,8 +1,10 @@
 """Test the --from options"""
+import multiprocessing
 import os
 import random
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 import argparse
@@ -12,7 +14,7 @@ from requests import ConnectionError
 
 from . import mocked_gitlab
 from .mocked_gitlab import MOCK_PROJECT_DIR, MOCK_HOST
-from ..gitlab_client_api import parse_gitlab_from_arg
+from ..gitlab_client_api import parse_gitlab_from_arg, downloader
 from ..runner import do_gitlab_from, run
 from ..userconfig import get_user_config
 
@@ -88,12 +90,18 @@ def test_mock_list_pipelines(requests_mock: Mocker, capfd: pytest.CaptureFixture
                       status_code=404)
     with pytest.raises(SystemExit):
         run(["--list", "--from", unknown_path])
-    stdout, stderr = capfd.readouterr()
+    _, stderr = capfd.readouterr()
     assert f"Cannot find pipeline '{unknown_path}'" in stderr
+
+    # try an invalid pipeline name
+    with pytest.raises(SystemExit):
+        run(["--list", "--from", "moose"])
+    _, stderr = capfd.readouterr()
+    assert "error: 'moose' is not a valid pipeline specification" in stderr
 
 
 @pytest.mark.usefixtures("linux_only")
-def test_mock_download(requests_mock: Mocker, capfd: pytest.CaptureFixture):
+def test_mock_download(requests_mock: Mocker, capfd: pytest.CaptureFixture, temp_folder: Path):
     """Test downloading individual job artifacts"""
     os.environ["GITLAB_PRIVATE_TOKEN"] = "aaaaa"
     os.environ["CI_SERVER_TLS_CA_FILE"] = "/not/exist.crt"
@@ -101,12 +109,37 @@ def test_mock_download(requests_mock: Mocker, capfd: pytest.CaptureFixture):
     pipeline = random.choice(project.pipelines)
     simple_path = f"{MOCK_HOST}/{project.path_with_namespace}/{pipeline.id}"
 
+    # try a job that doesnt exist
+    with pytest.raises(SystemExit):
+        run(["-k", "--download", "flibble", "--from", simple_path])
+    _, stderr = capfd.readouterr()
+    assert "NoSuchJob flibble" in stderr
+
     for job in pipeline.jobs:
         run(["-k", "--download", job.name, "--from", simple_path])
         _, stderr = capfd.readouterr()
         assert "TLS server validation disabled" in stderr
         assert f"Download '{job.name}' artifacts" in stderr
-        assert os.path.isfile(f"artifact.{job.name}.txt")
+        filename = f"artifact.{job.name}.txt"
+        assert os.path.isfile(filename)
+        os.unlink(filename)
+
+    # call downloader directly
+    job = pipeline.jobs[0]
+    printlock = multiprocessing.Lock()
+    execlock = multiprocessing.Lock()
+    project_id = project.id
+    job_id = job.id
+    filename = f"artifact.{job.name}.txt"
+    assert not (temp_folder / filename).exists()
+    callback = ["ls", "%p"]
+    downloader(job.name, None, callback, str(temp_folder.absolute()),
+               f"https://gitlab.none/api/v4/projects/{project_id}/jobs/{job_id}/artifacts",
+               f"https://gitlab.none/api/v4/projects/{project_id}/jobs/{job_id}/artifacts",
+               None,
+               printlock, execlock)
+    assert (temp_folder / filename).exists()
+    assert (temp_folder / "trace.log").exists()
 
 
 @pytest.mark.usefixtures("linux_only")

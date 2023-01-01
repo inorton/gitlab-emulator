@@ -1,6 +1,7 @@
 """Tests for helpers.py"""
 import os
 import sys
+from typing import Dict
 
 import docker.errors
 import pytest
@@ -20,7 +21,7 @@ from ..helpers import (communicate,
                        git_current_branch,
                        git_commit_sha,
                        git_uncommitted_changes,
-                       git_worktree
+                       git_worktree, remote_servers
                        )
 from random import randint
 
@@ -184,3 +185,18 @@ def test_git_helpers(top_dir: str):
     # just check that they don't crash, can't get relaible values from these locally and on CI runs
     git_uncommitted_changes(top_dir)
     git_worktree(top_dir)
+
+
+@pytest.mark.parametrize(["remotes", "expected_servers"], [
+    (
+            {"origin": "https://my.git.server/my/repo"},
+            {"origin": "my.git.server/my/repo"},
+    ),
+    (
+            {"origin": "git@my.git.server:my/repo.git"},
+            {"origin": "my.git.server/my/repo"},
+    )
+])
+def test_parse_remote_servers(remotes: Dict[str, str], expected_servers: [Dict[str, str]]):
+    servers = remote_servers(remotes)
+    assert servers == expected_servers

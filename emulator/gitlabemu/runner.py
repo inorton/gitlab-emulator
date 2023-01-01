@@ -109,7 +109,7 @@ list_mutex.add_argument("--cancel", default=False, action="store_true",
                         help="Cancel pipelines that match --match x=y, (requires --pipeline)")
 
 
-if is_windows():  # pragma: linux no cover
+if is_windows():  # pragma: cover if windows
     shellgrp = parser.add_mutually_exclusive_group()
     shellgrp.add_argument("--powershell",
                           dest="windows_shell",
@@ -425,7 +425,7 @@ def run(args=None):
     except gitlabemu.errors.ConfigLoaderError as err:
         die(f"Config error: {err}")
 
-    if is_windows():  # pragma: linux no cover
+    if is_windows():  # pragma: cover if windows
         windows_shell = "powershell"
         if ctx.windows.cmd:
             windows_shell = "cmd"
@@ -511,7 +511,7 @@ def run(args=None):
         loader.config["ci_config_file"] = os.path.relpath(fullpath, rootdir)
 
         if options.error_shell:  # pragma: no cover
-            loader.config["error_shell"] = [options.error_shell]
+            job_options["error_shell"] = [options.error_shell]
         try:
             executed_jobs = set()
             execute_job(loader.config, jobname,
@@ -524,6 +524,7 @@ def run(args=None):
             if not options.noop:
                 if has_docker() and fix_ownership:
                     if is_linux() or is_apple():
+                        # pragma: cover if posix
                         if os.getuid() > 0:
                             note("Fixing up local file ownerships..")
                             restore_path_ownership(os.getcwd())

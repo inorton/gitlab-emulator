@@ -2,16 +2,16 @@ stages:
   - test
 
 services:
-  - name: nginx:1.19.2
+  - name: nginx:stable
     alias: globalservice
 
 job1:
   # test both expanded service map and service string
   image: alpine:latest
   services:
-    - name: nginx:1.19.2
+    - name: nginx:stable
       alias: aliased
-    - nginx:1.19.2
+    - nginx:stable
   script:
     - sleep 5
     - ping -c 5 aliased

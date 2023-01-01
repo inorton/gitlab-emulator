@@ -69,3 +69,7 @@ simple_image_extends:
     - .simple_base
   image:
     name: alpine:latest
+
+string_image_overrides_map:
+  extends: simple_image_extends
+  image: busybox:latest
