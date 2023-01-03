@@ -3,6 +3,7 @@ variables:
   TITLE:
     expand: true
     value: The Magic $SHAPE
+  KUBERNETES_CPU_REQUEST: 1
 
   ID_TEMPLATE:
     expand: false

@@ -6,7 +6,7 @@ from ..runner import run
 @pytest.mark.usefixtures("has_docker")
 @pytest.mark.usefixtures("posix_only")
 def test_expand(in_tests, capfd):
-    run(["-c", "test-variables.yml", "book"])
+    run(["-c", "test_variables.yml", "book"])
     stdout, _ = capfd.readouterr()
     lines = stdout.splitlines()
 

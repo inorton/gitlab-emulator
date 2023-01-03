@@ -12,6 +12,8 @@ def expand_variable(variables: Dict[str, str], haystack: Union[str, Dict[str, An
             return haystack.get("value", "")
         # expandable variable
         haystack = haystack.get("value", "")
+    else:
+        haystack = str(haystack)
 
     while True:
         match = VARIABLE_PATTERN.search(haystack)
