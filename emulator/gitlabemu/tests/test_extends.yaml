@@ -73,3 +73,8 @@ simple_image_extends:
 string_image_overrides_map:
   extends: simple_image_extends
   image: busybox:latest
+
+null-extends:
+  extends:
+  script:
+    - uname -r

@@ -203,6 +203,8 @@ class ExtendsMixin:
         pipeline_variables = alljobs.get("variables", {})
 
         base_jobs = stringlist_if_string(current_un_extended.get("extends", []))
+        if base_jobs is None:
+            base_jobs = []
         if name in base_jobs:
             raise BadSyntaxError(f"Job '{name}' cannot extend itself")
 
