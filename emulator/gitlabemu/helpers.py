@@ -2,6 +2,7 @@
 Various useful common funcs
 """
 import os.path
+from select import select
 from threading import Thread
 import sys
 import re
@@ -47,11 +48,13 @@ class ProcessLineProxyThread(Thread):
                     self.errors.append(err)
 
     def run(self):
-        data = None
-        while True:
+        """Pump stdout Wait for a job to end """
+        # do nothing for interactive jobs
+        while self.process.stdout is not None:
+            data = None
+            select([self.process.stdout], [], [], 1)
             try:
-                if self.process.stdout is not None:  # in interactive mode
-                    data = self.process.stdout.readline()
+                data = self.process.stdout.readline()
             except ValueError:  # pragma: no cover
                 pass
             except Exception as err:  # pragma: no cover
@@ -77,6 +80,11 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     :param linehandler: if set, pass the line to this callable
     :return:
     """
+    if process.stdout is None:
+        # interactive job, just wait
+        process.wait()
+        return
+
     data = None
     if script is not None:
         process.stdin.write(script)
