@@ -1,0 +1,7 @@
+.template:
+  variables:
+    COLOR: red
+    SHAPE: triangle
+  artifacts:
+    paths:
+      - pwd.txt

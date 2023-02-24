@@ -16,6 +16,7 @@ from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
 from .yamlloader import GitlabReference
+from .references import process_references
 from .userconfig import get_user_config_context
 from gitlabemu.ruleparser import evaluate_rule
 from .logmsg import warning, debugrule, fatal
@@ -590,6 +591,9 @@ def read(
     handle_include(baseobj, topdir, loaded.get("include", []))
     baseobj["include"].append(yamlfile)
 
+    # now process references
+    baseobj = process_references(baseobj)
+
     if parent:
         # now do extends
         handle_extends(baseobj)
@@ -724,7 +728,6 @@ class Loader(BaseLoader, JobLoaderMixin, ValidatorMixin, ExtendsMixin):
         :return:
         """
         return do_single_include(baseobj, yamldir, inc, handle_read=self._read, variables=self.variables, filename=filename)
-
 
     def do_validate(self, baseobj: Dict[str, Any]) -> None:
         """

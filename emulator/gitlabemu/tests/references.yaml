@@ -1,10 +1,5 @@
-.template:
-  variables:
-    COLOR: red
-    SHAPE: triangle
-  artifacts:
-    paths:
-      - pwd.txt
+include:
+  - local: template.yaml
 
 .base:
   script:

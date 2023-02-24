@@ -2,6 +2,7 @@
 Preserve order of keys
 """
 import json
+from typing import List
 
 import yaml
 from collections import OrderedDict
@@ -16,7 +17,7 @@ class StringableOrderedDict(OrderedDict):
         return json.dumps(self)
 
 
-class ReferenceError(Exception):
+class GitlabReferenceError(Exception):
     def __init__(self, message):
         self.message = message
 
@@ -56,22 +57,21 @@ def reference_constructor(loader: OrderedLoader, node):
         elementvalue = address[2]
 
     reference = GitlabReference(jobname, jobelement, elementvalue)
-
-    if len(loader.first_pass):
-        # resolve the reference using the first-pass data
-        if jobname not in loader.first_pass:
-            raise ReferenceError(f"cannot find referent job for {reference} at {node.start_mark}")
-        first_job = loader.first_pass.get(jobname)
-
-        if jobelement not in first_job:
-            raise ReferenceError(f"cannot find referent key for {reference} at {node.start_mark}")
-        first_element = first_job.get(jobelement)
-
-        if elementvalue is not None:
-            if elementvalue not in first_element:
-                raise ReferenceError(f"cannot find referent value for {reference} at {node.start_mark}")
-            return first_element.get(elementvalue)
-        return first_element
+    # if len(loader.first_pass):
+    #     # resolve the reference using the first-pass data
+    #     if jobname not in loader.first_pass:
+    #         raise GitlabReferenceError(f"cannot find referent job for {reference} at {node.start_mark}")
+    #     first_job = loader.first_pass.get(jobname)
+    #
+    #     if jobelement not in first_job:
+    #         raise GitlabReferenceError(f"cannot find referent key for {reference} at {node.start_mark}")
+    #     first_element = first_job.get(jobelement)
+    #
+    #     if elementvalue is not None:
+    #         if elementvalue not in first_element:
+    #             raise GitlabReferenceError(f"cannot find referent value for {reference} at {node.start_mark}")
+    #         return first_element.get(elementvalue)
+    #     return first_element
     return reference
 
 
