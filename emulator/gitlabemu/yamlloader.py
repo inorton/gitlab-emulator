@@ -27,6 +27,7 @@ class GitlabReference:
         self.job = job
         self.element = element
         self.value = value
+        self.location = ""
 
     def __repr__(self):
         if self.value:
@@ -34,7 +35,7 @@ class GitlabReference:
         return "!reference [{}, {}]".format(self.job, self.element)
 
     def __str__(self):
-        return repr(self)
+        return repr(self) + f" at {self.location}"
 
 
 class OrderedLoader(yaml.FullLoader):
@@ -57,21 +58,7 @@ def reference_constructor(loader: OrderedLoader, node):
         elementvalue = address[2]
 
     reference = GitlabReference(jobname, jobelement, elementvalue)
-    # if len(loader.first_pass):
-    #     # resolve the reference using the first-pass data
-    #     if jobname not in loader.first_pass:
-    #         raise GitlabReferenceError(f"cannot find referent job for {reference} at {node.start_mark}")
-    #     first_job = loader.first_pass.get(jobname)
-    #
-    #     if jobelement not in first_job:
-    #         raise GitlabReferenceError(f"cannot find referent key for {reference} at {node.start_mark}")
-    #     first_element = first_job.get(jobelement)
-    #
-    #     if elementvalue is not None:
-    #         if elementvalue not in first_element:
-    #             raise GitlabReferenceError(f"cannot find referent value for {reference} at {node.start_mark}")
-    #         return first_element.get(elementvalue)
-    #     return first_element
+    reference.location = node.start_mark
     return reference
 
 
