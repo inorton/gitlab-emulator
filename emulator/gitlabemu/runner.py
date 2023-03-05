@@ -7,11 +7,11 @@ from typing import Dict, Any, Optional
 
 import gitlabemu.errors
 from . import configloader
-from .docker import has_docker, DockerJob
+from .docker import DockerJob
 from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
 from .jobs import Job
 from .localfiles import restore_path_ownership
-from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note
+from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note, has_docker
 from .logmsg import debugrule, enable_rule_debug
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
 from .userconfig import USER_CFG_ENV, get_user_config_context
@@ -144,14 +144,6 @@ def apply_user_config(loader: configloader.Loader, is_docker: bool):
 
     for name in ctx.variables:
         loader.config[".gle-extra_variables"][name] = ctx.variables[name]
-
-    if is_docker:
-        jobvars = ctx.docker.variables
-    else:
-        jobvars = ctx.local.variables
-
-    for name in jobvars:
-        loader.config[".gle-extra_variables"][name] = jobvars[name]
 
 
 def gitlab_runner_exec(jobobj: Job):

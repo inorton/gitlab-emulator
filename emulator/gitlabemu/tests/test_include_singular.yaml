@@ -1,0 +1,6 @@
+include: included-simple.yml
+
+jobname:
+  extends: .template-basic
+  script:
+    - echo

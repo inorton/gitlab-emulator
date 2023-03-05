@@ -8,7 +8,7 @@ import sys
 import re
 import platform
 import subprocess
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Union, Tuple
 from urllib.parse import urlparse
 
 from .errors import DockerExecError
@@ -52,7 +52,8 @@ class ProcessLineProxyThread(Thread):
         # do nothing for interactive jobs
         while self.process.stdout is not None:
             data = None
-            select([self.process.stdout], [], [], 1)
+            if not is_windows():
+                select([self.process.stdout], [], [], 1)
             try:
                 data = self.process.stdout.readline()
             except ValueError:  # pragma: no cover
@@ -439,3 +440,41 @@ def remote_servers(remotes: Dict[str, str]) -> Dict[str, str]:
             project_path = parsed.path.rsplit(".", 1)[0].lstrip("/")
             servers[remote_name] = f"{host}/{project_path}"
     return servers
+
+
+def has_docker() -> bool:
+    """
+    Return True if this system can run docker containers
+    :return:
+    """
+    from .dockersupport import docker
+    if docker:
+        # noinspection PyBroadException
+        try:
+            subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT)
+            return True
+        except Exception as err:  # pragma: no cover
+            pass
+    return False  # pragma: no cover
+
+
+def warning(text: str) -> None:
+    print(f"warning: {text}", file=sys.stderr, flush=True)
+
+
+def notice(text: str) -> None:
+    print(f"notice: {text}", file=sys.stderr, flush=True)
+
+
+def truth_string(text: str) -> bool:
+    if text:
+        text = text.lower()
+        if text in ["y", "yes", "true", "on", "1"]:
+            return True
+    return False
+
+def setenv_string(text: str) -> Tuple[str, str]:
+    parts = text.split("=", 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    raise ValueError(f"{text} is not in the form NAME=VALUE")

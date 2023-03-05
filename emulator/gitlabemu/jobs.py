@@ -10,14 +10,16 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Optional, Dict, List, Union, Any
+from typing import Optional, Dict, List
 
 from .artifacts import GitlabArtifacts
-from .logmsg import info, fatal, debugrule
+from .logmsg import info, fatal, debugrule, warning
 from .errors import GitlabEmulatorError
 from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
 from .ansi import ANSI_GREEN, ANSI_RESET
 from .ruleparser import evaluate_rule
+from .userconfig import get_user_config_context
+from .userconfigdata import GleRunnerConfig
 from .variables import expand_variable
 from .gitlab.constraints import JOB_PERSISTED_VARIABLES, PIPELINE_PERSISTED_VARIABLES
 
@@ -56,6 +58,7 @@ class Job(object):
         self.needed_artifacts = []
         self.artifacts = GitlabArtifacts()
         self._shell = None
+        self._runner: Optional[GleRunnerConfig] = None
         self._parallel = None
         self._config = {}
         if is_windows():  # pragma: cover if windows
@@ -75,6 +78,10 @@ class Job(object):
         self.skipped_reason = None
         self.rules = None
         self.configloader = None
+
+    def get_emulator_runner(self) -> GleRunnerConfig:
+        ctx = get_user_config_context()
+        return ctx.find_runner(image=False, tags=self.tags)
 
     def copy_config(self) -> dict:
         return dict(self._config)
@@ -133,7 +140,7 @@ class Job(object):
 
     @shell.setter
     def shell(self, value):
-        if value not in ["cmd", "powershell", "sh"]:
+        if value not in ["cmd", "powershell", "sh", "bash"]:
             raise NotImplementedError("Unsupported shell type " + value)
         self._shell = value
 
@@ -147,14 +154,27 @@ class Job(object):
                         "-Command", scriptfile]
             return ["powershell", "-Command", "& cmd /Q /C " + scriptfile]
         # else unix/linux
-        interp = "/bin/sh"
-        if self.has_bash():
-            interp = "/bin/bash"
+        interp = f"/bin/{self.shell}"
+        if self.shell == "bash":
+            if not self.has_bash():
+                warning("settings said to use bash but it is not installed, using /bin/sh")
+                interp = "/bin/sh"
         return [interp, scriptfile]
 
     @property
     def parallel(self) -> Optional[int]:
         return self._parallel
+
+    def allocate_runner(self):
+        """Finish loading low level details before we run the job"""
+        if self.shell == "cmd":
+            warning("the windows cmd shell is obsolete and does not work on real gitlab any more")
+        else:
+            self.shell = self.runner.shell
+
+        for name, value in self.runner.environment.items():
+            if name not in self.variables:
+                self.variables[name] = value
 
     def load(self, name, config):
         """
@@ -166,6 +186,7 @@ class Job(object):
         self.workspace = config[".gitlab-emulator-workspace"]
         self.name = name
         job = config[name]
+
         self.shell = config.get(".gitlabemu-windows-shell", self.shell)
 
         self.error_shell = None
@@ -199,6 +220,7 @@ class Job(object):
         parallel = config[self.name].get("parallel", None)
         self._parallel = parallel
         self._config = dict(config)
+
         self.set_job_variables()
         self.artifacts.load(dict(job.get("artifacts", {})))
 
@@ -225,6 +247,14 @@ class Job(object):
                                 self.skipped_reason = f"matched {rule_item}"
                         # take the first hit
                         break
+
+    @property
+    def runner(self) -> GleRunnerConfig:
+        if self._runner is None:
+            runner = self.get_emulator_runner()
+            if runner is not None:
+                self._runner = runner
+        return self._runner
 
     def get_config(self, name: str):
         return self._config.get(name)
@@ -330,12 +360,17 @@ class Job(object):
         """
         envs = self.base_variables()
         envs.update(os.environ)
+        return self.get_defined_envs(envs, expand_only_ci=expand_only_ci)
 
+    def get_defined_envs(self, envs: dict, expand_only_ci=True):
         for name in self.variables:
             value = self.variables[name]
             if value is None:
                 value = ""
-            envs[name] = str(value)
+            if not isinstance(value, dict):
+                value = str(value)
+            envs[name] = value
+
         for name in self.extra_variables:
             envs[name] = self.extra_variables[name]
         # expand any predefeined variables
@@ -415,6 +450,7 @@ class Job(object):
         Run the job on the local machine
         :return:
         """
+        self.allocate_runner()
         self.started_time = time.monotonic()
         self.monitor_thread = None
 
@@ -447,7 +483,8 @@ class Job(object):
                 self.monitor_thread.join(timeout=5)
 
     def run_impl(self):
-        info("running shell job {}".format(self.name))
+        info(f"running shell job {self.name}")
+        info(f"runner = {self.runner}")
         lines = self.before_script + self.script
         if self.enter_shell:  # pragma: no cover
             # TODO cover TTY tests

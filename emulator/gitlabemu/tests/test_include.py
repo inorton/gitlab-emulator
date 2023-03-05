@@ -28,6 +28,12 @@ def test_include_unknown(in_tests: str, capfd: CaptureFixture):
 
 def test_include_twice(in_tests: str, capfd: CaptureFixture):
     with pytest.raises(SystemExit):
-        run(["-c", str(Path("invalid") / "include-twice.yaml"), "-l" ])
+        run(["-c", str(Path("invalid") / "include-twice.yaml"), "-l"])
     stdout, stderr = capfd.readouterr()
     assert "empty.yaml has already been included" in stderr
+
+
+def test_include_singular(in_tests: str, capfd: CaptureFixture):
+    run(["-c", "test_include_singular.yaml", "-l"])
+    stdout, stderr = capfd.readouterr()
+    assert "jobname" in stdout

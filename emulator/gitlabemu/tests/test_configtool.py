@@ -3,15 +3,9 @@ import os
 import uuid
 
 import pytest
+
+import gitlabemu.configtool_vars
 from .. import configtool, userconfig
-
-
-@pytest.fixture(scope="function")
-def custom_config():
-    os.environ["GLE_CONFIG"] = "/tmp/gle-tests/test-gle-config.yml"
-    if os.path.exists(os.environ["GLE_CONFIG"]):
-        os.unlink(os.environ["GLE_CONFIG"])
-    return os.environ["GLE_CONFIG"]
 
 
 @pytest.mark.usefixtures("linux_only")
@@ -19,7 +13,7 @@ def test_help_shows_commands(capfd: pytest.CaptureFixture):
     with pytest.raises(SystemExit):
         configtool.main(["--help"])
     stdout, stderr = capfd.readouterr()
-    assert "{context,gitlab,vars,volumes,windows-shell}" in stdout
+    assert "{context,gitlab,vars,volumes,runner,windows-shell}" in stdout
 
 
 def test_context(custom_config: str, capfd: pytest.CaptureFixture):
@@ -169,7 +163,7 @@ def test_gitlab_settings(custom_config: str, capfd: pytest.CaptureFixture):
 
 
 def test_print_sensitive(capfd: pytest.CaptureFixture):
-    configtool.print_sensitive_vars(
+    gitlabemu.configtool_vars.print_sensitive_vars(
         {
             "HELLO": "world",
             "MY_PASSWORD": "moosepass"

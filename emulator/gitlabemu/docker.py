@@ -12,14 +12,14 @@ from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 from .helpers import communicate as comm, is_windows
 from .userconfig import get_user_config_context
-from .errors import DockerExecError
+from .errors import DockerExecError, GitlabEmulatorError
 from .dockersupport import docker
+from .userconfigdata import GleRunnerConfig
 from .variables import expand_variable
 
 PULL_POLICY_ALWAYS = "always"
 PULL_POLICY_IF_NOT_PRESENT = "if-not-present"
 PULL_POLICY_NEVER = "never"
-
 
 
 class DockerTool(object):
@@ -39,7 +39,17 @@ class DockerTool(object):
         self._pull_policy = PULL_POLICY_ALWAYS
         self.network = None
         self._client = None
-    
+        self._is_hyerv = None
+
+    def is_windows_hyperv(self) -> bool:
+        if self._is_hyerv is None:
+            self._is_hyerv = False
+            if is_windows():
+                output = subprocess.check_output(["docker", "info", "-f", "{{.Isolation}}"], encoding="utf-8").strip()
+                if output == "hyperv":
+                    self._is_hyerv = True
+        return self._is_hyerv
+
     @property
     def pull_policy(self) -> str:
         return self._pull_policy
@@ -122,7 +132,20 @@ class DockerTool(object):
                 tf.add(src, os.path.basename(src))
             with open(tar, "rb") as td:
                 data = td.read()
+            # on windows, we need to do stop/start if using hyperv
+            need_start = False
+            if self.is_windows_hyperv():
+                info(f"Pause hyperv container {self.name} for file copy..")
+                subprocess.check_call(["docker", "stop", self.name])
+                info(f"Paused {self.name}")
+                need_start = True
+
             self.container.put_archive(dest, data)
+
+            if need_start:
+                info(f"Resume hyperv container {self.name} after file copy..")
+                subprocess.check_call(["docker", "start", self.name])
+
         finally:
             shutil.rmtree(temp)
 
@@ -160,6 +183,8 @@ class DockerTool(object):
     def run(self):
         from docker.errors import ImageNotFound
         priv = self.privileged and not is_windows()
+        if self.is_windows_hyperv():
+            warning("windows hyperv container support is very experimental, YMMV")
         volumes = []
         for volume in self.volumes:
             entry = volume
@@ -178,7 +203,7 @@ class DockerTool(object):
                 self.image,
                 detach=True,
                 stdin_open=True,
-                remove=True,
+                remove=not self.is_windows_hyperv(),
                 name=self.name,
                 privileged=priv,
                 network=self.network,
@@ -196,9 +221,12 @@ class DockerTool(object):
         if self.container:
             self.container.kill()
 
-    def check_call(self, cwd, cmd, stdout=None, stderr=None):
+    def check_call(self, cwd, cmd, stdout=None, stderr=None, capture=False):
         cmdline = ["docker", "exec", "-w", cwd, self.container.id] + cmd
-        subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
+        if capture:
+            return subprocess.check_output(cmdline, stderr=stderr)
+        else:
+            return subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
 
     def exec(self, cwd, shell, tty=False, user=None, pipe=True):
         cmdline = ["docker", "exec", "-w", cwd]
@@ -235,6 +263,7 @@ class DockerJob(Job):
         self.docker = DockerTool()
         self._force_pull_policy = None
         self._container_lock = threading.Lock()
+        self._has_bash = None
 
     @property
     def docker_image(self) -> str:
@@ -280,18 +309,31 @@ class DockerJob(Job):
 
         return self.workspace
 
+    def allocate_runner(self):
+        super().allocate_runner()
+        if self.runner and self.runner.docker:
+            if self._image is None:
+                self._image = self.runner.docker.image
+            self.docker.privileged = self.runner.docker.privileged
+
     def load(self, name, config):
-        all_images = config.get("image", None)
-        self._image = config[name].get("image", all_images)
-        self.services = get_services(config, name)
         super(DockerJob, self).load(name, config)
+        self.services = get_services(config, name)
         pull_policy = self.docker_pull_policy
         if pull_policy is not None:
             self.docker.pull_policy = pull_policy
+        self.set_job_variables()
+
+    def get_emulator_runner(self) -> Optional[GleRunnerConfig]:
+        ctx = get_user_config_context()
+        return ctx.find_runner(image=True, tags=self.tags)
 
     def set_job_variables(self):
         super(DockerJob, self).set_job_variables()
-        self.configure_job_variable("CI_JOB_IMAGE", str(self.docker_image), force=True)
+        all_images = self._config.get("image", None)
+        self._image = self._config[self.name].get("image", all_images)
+        if self.docker_image is not None:
+            self.configure_job_variable("CI_JOB_IMAGE", self.docker_image, force=True)
         self.configure_job_variable("CI_DISPOSABLE_ENVIRONMENT", "true", force=True)
         self.configure_job_variable("CI_PROJECT_DIR", self.inside_workspace)
         self.configure_job_variable("CI_BUILDS_DIR", os.path.dirname(self.inside_workspace))
@@ -321,17 +363,8 @@ class DockerJob(Job):
         Get env vars for a docker job
         :return:
         """
-        ret = self.base_variables()
-
-        for name in self.variables:
-            value = self.variables[name]
-            if value is None:
-                value = ""
-            ret[name] = value
-
-        for name in self.extra_variables:
-            ret[name] = self.extra_variables[name]
-        return self.expand_variables(ret, only_ci=expand_only_ci)
+        envs = self.base_variables()
+        return self.get_defined_envs(envs, expand_only_ci=expand_only_ci)
 
     def run_script(self, lines):
         return self._run_script(lines)
@@ -408,13 +441,19 @@ class DockerJob(Job):
         Return True of the container has bash
         :return:
         """
-        if not is_windows():
-            try:
-                self.docker.check_call(self.inside_workspace, ["which", "bash"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                return True
-            except subprocess.CalledProcessError:
-                pass
-        return False
+        if self._has_bash is None:
+            self._has_bash = False
+            if not is_windows():
+                info("checking container for bash")
+                try:
+                    self.docker.check_call(
+                        self.inside_workspace, ["sh", "-c", "command -v bash"],
+                        capture=True,
+                        stderr=subprocess.STDOUT)
+                    self._has_bash = True
+                except subprocess.CalledProcessError as cpe:
+                    assert cpe
+        return self._has_bash
 
     def shell_on_error(self):
         """
@@ -425,20 +464,37 @@ class DockerJob(Job):
         lines = "\n".join(self.error_shell)
         self.run_script(lines)
 
+    def git_safe_dir(self):
+        """Configure git safe.directory if possible"""
+        info("attempting to set git safe.directory..")
+        folder = self.inside_workspace
+        cmdline = f"command -v git 2>&1 >/dev/null && git config --global --add safe.directory '{folder}'"
+        if is_windows():
+            folder = folder.replace("\\", "/") # windows git won't understand \ chars for this
+            cmdline = f"git config --global --add safe.directory {folder}"
+        info(f"running {cmdline}")
+        self.run_script(cmdline)
+
     def run_impl(self):
+        info(f"running docker job {self.name}")
+        info(f"runner = {self.runner}")
         from .resnamer import generate_resource_name
         if is_windows():  # pragma: cover if windows
             warning("warning windows docker is experimental")
+        if self.runner.docker is None:
+            raise GitlabEmulatorError("docker not detected")
 
         with self._container_lock:
             self.docker.image = self.docker_image
             self.container = generate_resource_name()
             self.docker.name = self.container
+            if not is_windows():
+                if self.runner.docker:
+                    self.docker.privileged = self.runner.docker.privileged
 
             if not is_windows():
                 image_name = self.docker.image
                 image_name = image_name.split("/")[-1].split("@")[0].split(":")[0]
-                self.docker.privileged = True
                 if self.error_shell or self.enter_shell:
                     self.docker.add_env("PS1", f"[{self.name}] \\u@{image_name}:$PWD $ ")
 
@@ -454,7 +510,7 @@ class DockerJob(Job):
 
                 if self.docker_entrypoint is not None:
                     self.docker.entrypoint = self.docker_entrypoint
-                volumes = get_user_config_context().docker.runtime_volumes()
+                volumes = self.runner.docker.runtime_volumes()
                 if volumes:
                     info("Extra docker volumes registered:")
                     for item in volumes:
@@ -463,6 +519,7 @@ class DockerJob(Job):
                 self.docker.volumes = volumes + [f"{self.workspace}:{self.inside_workspace}:rw"]
 
                 self.docker.run()
+                self.git_safe_dir()
 
                 if not is_windows():  # pragma: cover if not windows
                     # work out USER
@@ -471,7 +528,6 @@ class DockerJob(Job):
                         docker_user, docker_grp = docker_user_cfg.split(":", 1)
                         self.stdout.write(f"Setting ownership to {docker_user}:{docker_grp}")
                         self._run_script(f"chown -R {docker_user}.{docker_grp} .", attempts=1, user="0")
-
                 try:
                     lines = self.before_script + self.script
                     if self.enter_shell:
@@ -490,6 +546,8 @@ class DockerJob(Job):
                         pass
                     finally:
                         subprocess.call(["docker", "kill", self.container], stderr=subprocess.STDOUT)
+                        if self.docker.is_windows_hyperv():
+                            subprocess.call(["docker", "rm", self.container])
 
         result = self.build_process.returncode
         if result:
@@ -533,22 +591,6 @@ def get_services(config, jobname):
     return service_defs
 
 
-def has_docker() -> bool:
-    """
-    Return True if this system can run docker containers
-    :return:
-    """
-    if docker:
-        # noinspection PyBroadException
-        try:
-            client = docker.DockerClient()
-            client.info()
-            return True
-        except Exception:  # pragma: no cover
-            pass
-    return False  # pragma: no cover
-
-
 @contextmanager
 def docker_services(job: DockerJob, variables: Dict[str, str]):
     """
@@ -563,7 +605,7 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
     containers = []
     try:
         if services:
-            client = docker.DockerClient()
+            client = docker.from_env()
             # create a network, start each service attached
             info("create docker services network")
             service_network = client.networks.create(

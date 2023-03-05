@@ -82,3 +82,9 @@ def test_missing_stage():
     with pytest.raises(ConfigLoaderError) as err:
         loader.load(os.path.join(HERE, "invalid", "stage-missing.yaml"))
     assert "job job1 has stage fish which does not exist" in str(err.value)
+
+def test_bad_default_job():
+    loader = configloader.Loader()
+    with pytest.raises(BadSyntaxError) as err:
+        loader.load(os.path.join(HERE, "invalid", "bad_default_job.yaml"))
+    assert "default config contains unknown keys:" in str(err.value)

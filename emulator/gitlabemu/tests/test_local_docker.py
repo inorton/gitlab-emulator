@@ -16,10 +16,37 @@ from pytest_mock import MockerFixture
 from ..helpers import ProcessLineProxyThread
 from ..runner import run
 from ..errors import DockerExecError
-from ..docker import DockerJob
+from ..docker import DockerJob, DockerTool
 
 TOPDIR = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 TEST_DIR = os.path.join(TOPDIR, "emulator", "gitlabemu", "tests")
+
+
+def test_inspect_image(linux_docker):
+    subprocess.call(["docker", "image", "rm", "hello-world"])
+    tool = DockerTool()
+    tool.image = "hello-world"
+    info = tool.inspect()
+    assert info
+
+
+def test_inspect_image_deeper(linux_docker, tmp_path):
+    """Build a temp image and inspect it"""
+    image = "tmpimg"
+    with open(tmp_path / "Dockerfile", "w") as df:
+        print("FROM alpine", file=df)
+        print("ENV COLOR=red", file=df)
+        print("USER nobody", file=df)
+    subprocess.check_call(["docker", "build", "-t", image, "."], cwd=tmp_path)
+    try:
+        tool = DockerTool()
+        tool.image = image
+        inspect = tool.inspect()
+        user = tool.get_user()
+        assert inspect.tags
+        assert user == "nobody"
+    finally:
+        subprocess.check_call(["docker", "image", "rm", image])
 
 
 def test_variables_var(linux_docker, capsys):
@@ -66,6 +93,7 @@ def test_job_workspace_longpath():
     job.workspace = "/foo/" + str(uuid.uuid4()) * 3 + "/bar"
 
     assert job.inside_workspace == "/b/bar"
+
 
 def test_job_workspace_non_c_path(mocker: MockerFixture):
     job = DockerJob()
@@ -129,6 +157,13 @@ def test_self_fail(linux_docker, capsys):
     out, err = capsys.readouterr()
     assert "running build bad" in out
     assert "running after" in out
+
+
+def test_cant_pull(linux_docker, caplog):
+    with pytest.raises(SystemExit):
+        run(["-c", os.path.join(TOPDIR, "test-ci.yml"), "un-pull-able-image"])
+    msgs = caplog.messages
+    assert "E!: cannot pull image: docker.io/nosuch/hkjgfhjkhkjfhgkjfhghkjhgkjhgfdjg - image not found" in msgs
 
 
 def test_no_such_exec():

@@ -2,8 +2,8 @@
 Utils for local file housekeeping
 """
 import os
-from .helpers import is_windows
-from .docker import DockerTool, has_docker
+from .helpers import is_windows, has_docker
+from .docker import DockerTool
 
 
 def restore_path_ownership(path):

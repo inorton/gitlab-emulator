@@ -31,7 +31,7 @@ alpine-fail:
 windows-docker-job:
   extends: .windows-dir-after  
   image:
-    name: cunity/windows-2019-vs2015-cmake:master
+    name: mcr.microsoft.com/windows/servercore:ltsc2019
     entrypoint:
       - "powershell.exe"
   stage: build
@@ -68,6 +68,11 @@ linux-shell-job:
     - /bin/false
   after_script:
     - echo running after
+
+un-pull-able-image:
+  image: docker.io/nosuch/hkjgfhjkhkjfhgkjfhghkjhgkjhgfdjg
+  script:
+    - echo
 
 linux-docker-job:
   image: alpine:latest

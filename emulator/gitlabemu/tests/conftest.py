@@ -33,6 +33,18 @@ def in_tests() -> str:
     yield os.getcwd()
     os.chdir(initdir)
 
+@pytest.fixture(scope="function")
+def custom_config():
+    before = dict(os.environ)
+    try:
+        os.environ["GLE_CONFIG"] = "/tmp/gle-tests/test-gle-config.yml"
+        if os.path.exists(os.environ["GLE_CONFIG"]):
+            os.unlink(os.environ["GLE_CONFIG"])
+        yield os.environ["GLE_CONFIG"]
+    finally:
+        os.environ.clear()
+        os.environ.update(before)
+
 
 @pytest.fixture(scope="session")
 def linux_only() -> None:

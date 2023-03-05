@@ -3,6 +3,7 @@ Load a .gitlab-ci.yml file
 """
 import os
 import copy
+import sys
 import tempfile
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Union, Optional, List
@@ -15,7 +16,6 @@ from .helpers import stringlist_if_string
 from .jobs import NoSuchJob, Job
 from .docker import DockerJob
 from . import yamlloader
-from .yamlloader import GitlabReference
 from .references import process_references
 from .userconfig import get_user_config_context
 from gitlabemu.ruleparser import evaluate_rule
@@ -249,7 +249,6 @@ class ExtendsMixin:
 
         return current_extended
 
-
     def do_extends(self, alljobs: Dict[str, Any]) -> None:
         """
         Process all the extends and !reference directives recursively
@@ -281,27 +280,10 @@ class ExtendsMixin:
             new_job = self.do_single_extend_recursive(unextended, default_job, name)
             alljobs[name] = new_job
 
-        # process !reference
+        # flatten lists and ensure default variables are populated
         for name in alljobs:
             if name not in RESERVED_TOP_KEYS:
                 variables = alljobs[name].get("variables", {})
-
-                if isinstance(variables, GitlabReference):
-                    ref: GitlabReference = variables
-                    variables = dict(alljobs[ref.job].get(ref.element, {}))
-
-                for varname in variables:
-                    if isinstance(variables[varname], GitlabReference):
-                        ref = variables[varname]
-                        # get a variable from another job
-                        if not ref.value:
-                            raise BadSyntaxError("reference {} does not specify a variable name to copy".format(ref))
-                        variables[varname] = alljobs[ref.job].get(ref.element, {})[ref.value]
-
-                for varname in variables:
-                    if isinstance(variables[varname], GitlabReference):
-                        raise BadSyntaxError("Only one level of !reference is allowed")
-
                 if name != "default":
                     alljobs[name]["variables"] = dict(variables)
                 for scriptpart in ["before_script", "script", "after_script"]:
@@ -311,17 +293,9 @@ class ExtendsMixin:
                         if scriptlines is not None:                            
                             for line in scriptlines:
                                 if isinstance(line, bool):
-                                    print(f"warning, line: {line} in job {name} evaluates to a yaml boolean, you probably want to quote \"true\" or \"false\"")
+                                    print(f"warning, line: {line} in job {name} evaluates to a yaml boolean, you probably want to quote \"true\" or \"false\"", file=sys.stderr)
                                     line = str(line).lower()
-                                if isinstance(line, GitlabReference):
-                                    ref: GitlabReference = line
-                                    newlines.extend(alljobs[ref.job].get(ref.element, []))
-                                else:
-                                    newlines.append(line)
-                            # check for more than one level of nesting
-                            for line in newlines:
-                                if isinstance(line, GitlabReference):
-                                    raise BadSyntaxError("Only one level of !reference is allowed")
+                                newlines.append(line)
                         alljobs[name][scriptpart] = list(newlines)
 
 
@@ -464,7 +438,6 @@ def do_variables(baseobj: Optional[Dict[str, Any]], yamlfile: str) -> Dict[str, 
     baseobj = compute_emulated_ci_vars(baseobj)
     vm = VariablesMixin()
     return vm.handle_variables(baseobj, yamlfile)
-
 
 
 def merge_dicts(baseobj: dict, updated: dict, key: Any) -> None:
@@ -722,10 +695,6 @@ class Loader(BaseLoader, JobLoaderMixin, ValidatorMixin, ExtendsMixin):
                           ) -> Dict[str, Any]:
         """
         Include a single file and process it
-        :param baseobj:
-        :param yamldir:
-        :param inc:
-        :return:
         """
         return do_single_include(baseobj, yamldir, inc, handle_read=self._read, variables=self.variables, filename=filename)
 
