@@ -2,8 +2,10 @@
 Test that the config file system works
 """
 import os
+import platform
 import shutil
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -25,14 +27,16 @@ def test_run_userconfig(top_dir, linux_docker, capfd):
     pipeline = os.path.join(top_dir, "emulator", "gitlabemu", "tests", "basic.yml")
 
     # create a temp dir that will be in our bound volume
-    tempdir = tempfile.mkdtemp(dir="/tmp")
+    tempdir = tempfile.mkdtemp(dir=str(Path("/tmp")))
     try:
         runner.run(["-c", pipeline, "vars-job"])
         stdout, _ = capfd.readouterr()
         assert "SOME_VAR_NAME=\"hello\"" in stdout
         assert "EXECUTE_VARIABLE=\"ls -l /volume-mount\"" in stdout
-        tempname = os.path.basename(tempdir)
-        assert tempname in stdout
+        # only check for this on linux, mac rancher doesn't map to our real /tmp
+        if platform.system() == "Linux":
+            tempname = os.path.basename(tempdir)
+            assert tempname in stdout
         assert "Build complete!" in stdout
     finally:
         shutil.rmtree(tempdir)

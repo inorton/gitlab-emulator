@@ -12,6 +12,7 @@ def setup_cmd(subparsers):
                          help="Volume to remove (eg /mount/path)")
     set_vols.set_defaults(func=volumes_cmd)
 
+
 def volumes_cmd(opts: Namespace):
     cfg = get_user_config()
     current = cfg.current_context

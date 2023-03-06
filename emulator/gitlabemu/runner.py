@@ -354,6 +354,7 @@ def run(args=None):
 
     if options.clean:
         clean_leftovers()
+        sys.exit()
 
     if options.chdir:
         if not os.path.exists(options.chdir):
@@ -466,7 +467,9 @@ def run(args=None):
             fix_ownership = False
 
         docker_job = loader.get_docker_image(jobname)
+        apply_docker_config = False
         if docker_job:
+            apply_docker_config = True
             if options.docker_pull is not None:
                 job_options["docker_pull_policy"] = options.docker_pull
             gwt = git_worktree(rootdir)
@@ -479,7 +482,7 @@ def run(args=None):
         else:
             fix_ownership = False
 
-        apply_user_config(loader, is_docker=docker_job)
+        apply_user_config(loader, is_docker=apply_docker_config)
 
         if not is_linux():
             fix_ownership = False
@@ -492,7 +495,7 @@ def run(args=None):
             job_options["script"] = []
             job_options["after_script"] = []
 
-        if options.enter_shell:
+        if options.enter_shell:  # pragma: no cover
             job_options["enter_shell"] = True
             if not options.only_before_script:
                 job_options["before_script"] = []
@@ -515,8 +518,7 @@ def run(args=None):
         finally:
             if not options.noop:
                 if has_docker() and fix_ownership:
-                    if is_linux() or is_apple():
-                        # pragma: cover if posix
+                    if is_linux() or is_apple():  # pragma: cover if posix
                         if os.getuid() > 0:
                             note("Fixing up local file ownerships..")
                             restore_path_ownership(os.getcwd())

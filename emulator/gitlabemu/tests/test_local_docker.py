@@ -43,7 +43,7 @@ def test_inspect_image_deeper(linux_docker, tmp_path):
         tool.image = image
         inspect = tool.inspect()
         user = tool.get_user()
-        assert inspect.tags
+        assert inspect.get("RepoTags", [])
         assert user == "nobody"
     finally:
         subprocess.check_call(["docker", "image", "rm", image])
@@ -329,3 +329,10 @@ def test_docker_runner_exec(top_dir, capfd, temp_folder: Path):
     run(["-c", "test-ci.yml", "--exec", "alpine-test"])
     stdout, stderr = capfd.readouterr()
     assert "running: exec docker --cicd-config-file" in stdout
+
+
+@pytest.mark.usefixtures("has_docker")
+@pytest.mark.usefixtures("linux_only")
+def test_cleanup(top_dir):
+    from .. import localfiles
+    localfiles.restore_path_ownership(str(top_dir))

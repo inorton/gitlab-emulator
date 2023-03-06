@@ -16,7 +16,7 @@ def restore_path_ownership(path):
             dt.name = generate_resource_name("chowner")
             dt.image = "python:3.9-alpine3.14"
             dt.add_volume(path, path)
-            dt.entrypoint = ["/bin/sh"]
+            dt.entrypoint = "/bin/sh"
             if not dt.image_present:
                 dt.pull()
             dt.run()

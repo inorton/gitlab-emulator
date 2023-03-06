@@ -21,7 +21,7 @@ rules =
     "sys.platform != 'darwin'": cover if apple
 
 [report]
-fail_under = 70
+fail_under = 86
 
 omit =
     gitlabemu/docker.py

@@ -33,6 +33,7 @@ def in_tests() -> str:
     yield os.getcwd()
     os.chdir(initdir)
 
+
 @pytest.fixture(scope="function")
 def custom_config():
     before = dict(os.environ)

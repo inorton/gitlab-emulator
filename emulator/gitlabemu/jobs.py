@@ -159,6 +159,7 @@ class Job(object):
             if not self.has_bash():
                 warning("settings said to use bash but it is not installed, using /bin/sh")
                 interp = "/bin/sh"
+                self.shell = "sh"
         return [interp, scriptfile]
 
     @property

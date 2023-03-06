@@ -1,11 +1,13 @@
 import pytest
 from ..runner import run
 
+
 def test_version(capfd):
     with pytest.raises(SystemExit):
         run(["--version"])
     stdout, _ = capfd.readouterr()
     assert "1.5." in stdout
+
 
 @pytest.mark.usefixtures("in_topdir")
 def test_not_parallel(capfd):

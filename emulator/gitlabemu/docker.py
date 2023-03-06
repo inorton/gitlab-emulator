@@ -1,25 +1,41 @@
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-import tarfile
+import json
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Dict, Optional, List, Any
 from .logmsg import warning, info, fatal
 from .jobs import Job, make_script
 from .helpers import communicate as comm, is_windows
 from .userconfig import get_user_config_context
 from .errors import DockerExecError, GitlabEmulatorError
-from .dockersupport import docker
 from .userconfigdata import GleRunnerConfig
 from .variables import expand_variable
 
 PULL_POLICY_ALWAYS = "always"
 PULL_POLICY_IF_NOT_PRESENT = "if-not-present"
 PULL_POLICY_NEVER = "never"
+
+
+class DockerToolError(GitlabEmulatorError):
+    """An error using docker"""
+    def __init__(self, msg: str):
+        self.message = msg
+
+
+class DockerToolFailed(DockerToolError):
+    """Running docker returned an error"""
+    def __init__(self, msg: str, stdout: str, stderr: str):
+        super().__init__(msg)
+        self.stdout = stdout
+        self.stderr = stderr
+
+    def __str__(self):
+        return f"docker error: {self.message}\nstderr: {self.stderr}\nstdout:{self.stdout}"
 
 
 class DockerTool(object):
@@ -40,13 +56,43 @@ class DockerTool(object):
         self.network = None
         self._client = None
         self._is_hyerv = None
+        self.tool = "docker"
+
+    @property
+    def containers(self) -> List[str]:
+        try:
+            output = self.docker_call("container", "ps", "-q").stdout.strip()
+            return output.splitlines(keepends=False)
+        except DockerToolError:
+            return []
+
+    def container_name(self, containerid: str) -> str:
+        output = self.docker_call("container", "inspect", containerid).stdout.strip()
+        data = json.loads(output)[0]
+        return data["Name"][1:]
+
+    def docker_call(self, *args, cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
+        """Run the docker command line tool"""
+        basic_args = [self.tool] + list(args[:1])
+        cmdline = [self.tool] + [str(x) for x in args]
+        if cwd is None:
+            cwd = Path.cwd()
+        try:
+            return subprocess.run(cmdline,
+                                  cwd=str(cwd.absolute()),
+                                  encoding="utf-8",
+                                  capture_output=True, check=True)
+        except subprocess.CalledProcessError as cpe:
+            raise DockerToolFailed(f"{basic_args} failed", cpe.stdout, cpe.stderr)
+        except Exception as err:
+            raise DockerToolError(f"could not run {basic_args}, {err}")
 
     def is_windows_hyperv(self) -> bool:
         if self._is_hyerv is None:
             self._is_hyerv = False
-            if is_windows():
-                output = subprocess.check_output(["docker", "info", "-f", "{{.Isolation}}"], encoding="utf-8").strip()
-                if output == "hyperv":
+            if is_windows():  # pramga: cover if windows
+                output = self.docker_call("info", "-f", "{{.Isolation}}")
+                if output == "hyperv":  # pragma: no cover
                     self._is_hyerv = True
         return self._is_hyerv
 
@@ -71,25 +117,6 @@ class DockerTool(object):
     def pull_if_not_present(self) -> bool:
         return self.pull_policy == PULL_POLICY_IF_NOT_PRESENT
 
-    @property
-    def client(self):
-        from docker.errors import DockerException
-        if not self._client:
-            retry_sleep = 10
-            errors = 0
-            while True:
-                try:
-                    self._client = docker.from_env()
-                    break
-                except DockerException as err:  # pragma: no cover
-                    errors += 1
-                    if errors > self.retries:
-                        raise
-                    warning(f"cannot connect to docker daemon {err}")
-                    warning(f"retry in {retry_sleep} seconds")
-                    time.sleep(retry_sleep)
-        return self._client
-
     def add_volume(self, outside, inside):
         self.volumes.append("{}:{}".format(outside, inside))
 
@@ -98,11 +125,10 @@ class DockerTool(object):
 
     @property
     def image_present(self) -> bool:
-        from docker.errors import ImageNotFound
         try:
-            self.client.images.get(self.image)
+            self.docker_call("image", "inspect", self.image)
             return True
-        except ImageNotFound:
+        except DockerToolFailed:
             return False
 
     def inspect(self):
@@ -114,7 +140,11 @@ class DockerTool(object):
             if not self.image_present:
                 if self.can_pull:
                     self.pull()
-            return self.client.images.get(self.image)
+            try:
+                output = self.docker_call("image", "inspect", self.image).stdout
+                return json.loads(output)[0]
+            except DockerToolError:
+                pass
         return None
 
     def add_file(self, src, dest):
@@ -125,46 +155,35 @@ class DockerTool(object):
         :return:
         """
         assert self.container
-        temp = tempfile.mkdtemp()
-        tar = os.path.join(temp, "add.tar")
-        try:
-            with tarfile.open(tar, "w") as tf:
-                tf.add(src, os.path.basename(src))
-            with open(tar, "rb") as td:
-                data = td.read()
-            # on windows, we need to do stop/start if using hyperv
-            need_start = False
-            if self.is_windows_hyperv():
-                info(f"Pause hyperv container {self.name} for file copy..")
-                subprocess.check_call(["docker", "stop", self.name])
-                info(f"Paused {self.name}")
-                need_start = True
+        need_start = False
+        if self.is_windows_hyperv():  # pragma:  cover if windows
+            info(f"Pause hyperv container {self.name} for file copy..")
+            self.docker_call("stop", self.name)
+            info(f"Paused {self.name}")
+            need_start = True
 
-            self.container.put_archive(dest, data)
+        self.docker_call("cp", src, f"{self.name}:{dest}")
 
-            if need_start:
-                info(f"Resume hyperv container {self.name} after file copy..")
-                subprocess.check_call(["docker", "start", self.name])
-
-        finally:
-            shutil.rmtree(temp)
+        if need_start:  # pragma:  cover if windows
+            info(f"Resume hyperv container {self.name} after file copy..")
+            self.docker_call("start", self.name)
 
     def get_user(self):
         image = self.inspect()
-        if image:
-            return image.attrs["Config"].get("User", None)
+        if image and len(image) > 0:
+            return image.get("Config", {}).get("User", None)
         return None
 
     def pull(self):
-        from docker.errors import ImageNotFound
         if self.can_pull:
             info("pulling docker image {}".format(self.image))
             sys.stdout.write("Pulling {}...\n".format(self.image))
             sys.stdout.flush()
             try:
-                self.client.images.pull(self.image)
+                self.docker_call("pull", self.image)
                 self.pulled = True
-            except ImageNotFound:
+            except DockerToolFailed as err:
+                info(f"error pulling image: {err}")
                 fatal(f"cannot pull image: {self.image} - image not found")
 
     def get_envs(self):
@@ -177,13 +196,9 @@ class DockerTool(object):
                 cmdline.extend(["-e", name])
         return cmdline
 
-    def wait(self):
-        self.container.wait()
-
     def run(self):
-        from docker.errors import ImageNotFound
         priv = self.privileged and not is_windows()
-        if self.is_windows_hyperv():
+        if self.is_windows_hyperv():  # pragma: cover if windows
             warning("windows hyperv container support is very experimental, YMMV")
         volumes = []
         for volume in self.volumes:
@@ -194,49 +209,58 @@ class DockerTool(object):
         try:
             image = self.inspect()
             if self.entrypoint == ['']:
-                if image.attrs["Os"] == "linux":
-                    self.entrypoint = ["/bin/sh"]
+                if image.get("Os") == "linux":  # pragma: cover if not windows
+                    self.entrypoint = "/bin/sh"
                 else:
                     self.entrypoint = None
             info(f"launching image {self.image} as container {self.name} ..")
-            self.container = self.client.containers.run(
-                self.image,
-                detach=True,
-                stdin_open=True,
-                remove=not self.is_windows_hyperv(),
-                name=self.name,
-                privileged=priv,
-                network=self.network,
-                entrypoint=self.entrypoint,
-                volumes=volumes,
-                environment=self.env
-            )
-        except ImageNotFound:
-            fatal(f"Docker image {self.image} does not exist, (pull_policy={self.pull_policy})")
-        except Exception:  # pragma: no cover
+            cmdline = [
+                "run",
+                "-d",
+                "--name", self.name,
+            ]
+            if self.entrypoint is not None:
+                cmdline.extend(["--entrypoint", str(self.entrypoint)])
+            if self.network is not None:
+                cmdline.extend(["--network", self.network])
+            if priv:
+                cmdline.append("--privileged")
+            if not self.is_windows_hyperv():
+                cmdline.append("--rm")
+            for volume in volumes:
+                cmdline.extend(["-v", volume])
+            for name, value in self.env.items():
+                cmdline.extend(["-e", f"{name}={value}"])
+            cmdline.extend(["-i", self.image])
+
+            proc = self.docker_call(*cmdline)
+            self.container = proc.stdout.strip()
+        except DockerToolFailed:  # pragma: no cover
+            if not self.image_present:
+                fatal(f"Docker image {self.image} does not exist, (pull_policy={self.pull_policy})")
             warning(f"problem running {self.image}")
             raise
 
     def kill(self):
         if self.container:
-            self.container.kill()
+            self.docker_call("kill", "-s", "9", self.container)
 
     def check_call(self, cwd, cmd, stdout=None, stderr=None, capture=False):
-        cmdline = ["docker", "exec", "-w", cwd, self.container.id] + cmd
+        cmdline = [self.tool, "exec", "-w", cwd, self.container] + cmd
         if capture:
             return subprocess.check_output(cmdline, stderr=stderr)
         else:
             return subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
 
     def exec(self, cwd, shell, tty=False, user=None, pipe=True):
-        cmdline = ["docker", "exec", "-w", cwd]
+        cmdline = [self.tool, "exec", "-w", cwd]
         cmdline.extend(self.get_envs())
         if user is not None:
             cmdline.extend(["-u", str(user)])
-        if tty:
+        if tty:  # pragma: no cover
             cmdline.append("-t")
             pipe = False
-        cmdline.extend(["-i", self.container.id])
+        cmdline.extend(["-i", self.container])
         cmdline.extend(shell)
 
         if pipe:
@@ -246,7 +270,7 @@ class DockerTool(object):
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
             return proc
-        else:
+        else:  # pragma: no cover
             return subprocess.Popen(cmdline,
                                     shell=False)
 
@@ -350,7 +374,7 @@ class DockerJob(Job):
 
         if self.container and self.docker.container:
             info("kill container {}".format(self.name))
-            self.docker.container.kill(signal=9)
+            self.docker.kill()
         if self.build_process is not None:
             try:  # pragma: no cover
                 if self.build_process.poll() is None:
@@ -469,8 +493,8 @@ class DockerJob(Job):
         info("attempting to set git safe.directory..")
         folder = self.inside_workspace
         cmdline = f"command -v git 2>&1 >/dev/null && git config --global --add safe.directory '{folder}'"
-        if is_windows():
-            folder = folder.replace("\\", "/") # windows git won't understand \ chars for this
+        if is_windows():  # pragma: cover if windows
+            folder = folder.replace("\\", "/")  # windows git won't understand \ chars for this
             cmdline = f"git config --global --add safe.directory {folder}"
         info(f"running {cmdline}")
         self.run_script(cmdline)
@@ -488,11 +512,11 @@ class DockerJob(Job):
             self.docker.image = self.docker_image
             self.container = generate_resource_name()
             self.docker.name = self.container
-            if not is_windows():
+            if not is_windows():  # pragma: cover if not windows
                 if self.runner.docker:
                     self.docker.privileged = self.runner.docker.privileged
 
-            if not is_windows():
+            if not is_windows():  # pragma: cover if not windows
                 image_name = self.docker.image
                 image_name = image_name.split("/")[-1].split("@")[0].split(":")[0]
                 if self.error_shell or self.enter_shell:
@@ -504,7 +528,7 @@ class DockerJob(Job):
             environ = self.get_envs(expand_only_ci=False)
             with docker_services(self, environ) as network:
                 if network:
-                    self.docker.network = network.name
+                    self.docker.network = network
                 for envname in environ:
                     self.docker.add_env(envname, environ[envname])
 
@@ -536,7 +560,7 @@ class DockerJob(Job):
                     self.build_process = self.run_script(make_script(lines, powershell=self.is_powershell()))
                 finally:
                     try:
-                        if self.error_shell:
+                        if self.error_shell:  # pragma: no cover
                             if not self.build_process or self.build_process.returncode:
                                 self.shell_on_error()
                         if self.after_script:
@@ -546,7 +570,7 @@ class DockerJob(Job):
                         pass
                     finally:
                         subprocess.call(["docker", "kill", self.container], stderr=subprocess.STDOUT)
-                        if self.docker.is_windows_hyperv():
+                        if self.docker.is_windows_hyperv():  # pragma: no cover
                             subprocess.call(["docker", "rm", self.container])
 
         result = self.build_process.returncode
@@ -599,23 +623,20 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
     :param variables: dict of env vars to set in the service container
     :return:
     """
-    from .resnamer import generate_resource_name
     services = job.services
     service_network = None
     containers = []
     try:
         if services:
-            client = docker.from_env()
-            # create a network, start each service attached
-            info("create docker services network")
-            service_network = client.networks.create(
-                generate_resource_name(),
-                driver="bridge",
-                ipam=docker.types.IPAMConfig(
-                        pool_configs=[
-                            docker.types.IPAMPool(subnet="192.168.94.0/24")
-                        ]
-                    )
+            net_name = "gle-service-network"
+            try:
+                job.docker.docker_call("network", "inspect", net_name)
+            except DockerToolFailed:
+                job.docker.docker_call(
+                    "network", "create",
+                    "--driver", "bridge",
+                    "--subnet", "192.168.94.0/24",
+                    net_name
                 )
 
             for service in services:
@@ -638,28 +659,41 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
                 if job.docker.can_pull:
                     try:
                         job.stdout.write(f"pulling {image} ..\n")
-                        client.images.pull(image)
-                    except docker.errors.ImageNotFound:
+                        job.docker.docker_call("pull", image)
+                    except DockerToolFailed:  # pragma: no cover
                         fatal(f"No such image {image}")
                 priv = not is_windows()
-                container = client.containers.run(
-                    image,
-                    privileged=priv,
-                    environment=dict(variables),
-                    remove=True, detach=True)
+                service_cmdline = [
+                    "run",
+                    "--rm",
+                    "-d",
+                ]
+                if priv:  # pragma: cover if not windows
+                    service_cmdline.append("--privileged")
+                for name, value in variables.items():
+                    service_cmdline.extend(["-e", f"{name}={value}"])
+                service_cmdline.append(image)
+
+                container = job.docker.docker_call(
+                    *service_cmdline
+                ).stdout.strip()
+
                 info(f"creating docker service {name} ({aliases})")
-                info(f"service {name} is container {container.id}")
+                info(f"service {name} is container {container}")
                 containers.append(container)
                 info(f"connect {name} to service network")
-                service_network.connect(container=container,
-                                        aliases=aliases)
+                connect_cmdline = [
+                    "network", "connect"
+                ]
+                for alias in aliases:
+                    connect_cmdline.extend(["--alias", alias])
+                connect_cmdline.extend([net_name, container])
+                job.docker.docker_call(*connect_cmdline)
+                service_network = net_name
 
         yield service_network
     finally:
         for container in containers:
-            info(f"clean up docker service {container.id}")
-            container.kill(signal=9)
+            info(f"clean up docker service {container}")
+            job.docker.docker_call("kill", "-s", "9", container)
         time.sleep(1)
-        if service_network:
-            info(f"clean up docker network {service_network.name}")
-            service_network.remove()

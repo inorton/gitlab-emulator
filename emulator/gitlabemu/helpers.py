@@ -81,7 +81,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     :param linehandler: if set, pass the line to this callable
     :return:
     """
-    if process.stdout is None:
+    if process.stdout is None:  # pragma: no cover
         # interactive job, just wait
         process.wait()
         return
@@ -143,7 +143,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
             raise subprocess.CalledProcessError(process.returncode, cmd=args)
 
     if comm_thread:
-        for err in comm_thread.errors:
+        for err in comm_thread.errors:  # pragma: cover if windows
             if isinstance(err, DockerExecError) or throw:
                 raise err
 
@@ -162,7 +162,7 @@ def is_apple():
 
 def parse_timeout(text):
     """
-    Decode a human readable time to seconds.
+    Decode a human-readable time to seconds.
     eg, 1h 30m
 
     default is minutes without any suffix
@@ -245,25 +245,20 @@ def debug_print(msg):
 
 def clean_leftovers():
     """Clean up any unused leftover docker containers or networks"""
-    from .dockersupport import docker
-    if docker:
-        from .docker import DockerTool
-        tool = DockerTool()
-        for container in tool.client.containers.list():
-            name = container.name
-            pid = is_gle_resource(name)
-            if pid is not None:
-                if not resource_owner_alive(name):
-                    # kill this container
-                    info(f"Killing leftover docker container: {name}")
-                    container.kill()
-
-        for network in tool.client.networks.list():
-            pid = is_gle_resource(network.name)
-            if pid is not None:
-                if not resource_owner_alive(network.name):
-                    info(f"Remove leftover docker network: {network.name}")
-                    network.remove()
+    from .docker import DockerTool, DockerToolFailed
+    tool = DockerTool()
+    for container in tool.containers:  # pragma: no cover
+        name = tool.container_name(container)
+        pid = is_gle_resource(name)
+        if pid is not None:
+            if not resource_owner_alive(name):
+                # kill this container
+                info(f"Killing leftover docker container: {name}")
+                tool.docker_call("kill", container)
+    try:
+        tool.docker_call("network", "rm", "gle-service-network")
+    except DockerToolFailed:
+        pass
 
 
 class DockerVolume:
@@ -324,8 +319,7 @@ def trim_quotes(text: str) -> str:
     return text
 
 
-def powershell_escape(text: str, variables=False) -> str:
-    # pragma: cover if windows
+def powershell_escape(text: str, variables=False) -> str:  # pragma: cover if windows
     # taken from: http://www.robvanderwoude.com/escapechars.php
     text = text.replace("`", "``")
     text = text.replace("\a", "`a")
@@ -447,14 +441,12 @@ def has_docker() -> bool:
     Return True if this system can run docker containers
     :return:
     """
-    from .dockersupport import docker
-    if docker:
-        # noinspection PyBroadException
-        try:
-            subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT)
-            return True
-        except Exception as err:  # pragma: no cover
-            pass
+    # noinspection PyBroadException
+    try:
+        subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT)
+        return True
+    except Exception as err:  # pragma: no cover
+        pass
     return False  # pragma: no cover
 
 
@@ -472,6 +464,7 @@ def truth_string(text: str) -> bool:
         if text in ["y", "yes", "true", "on", "1"]:
             return True
     return False
+
 
 def setenv_string(text: str) -> Tuple[str, str]:
     parts = text.split("=", 1)
