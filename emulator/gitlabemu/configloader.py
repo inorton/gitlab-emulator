@@ -387,6 +387,7 @@ class JobLoaderMixin:
 
         return job
 
+
 def load_job(config: Dict[str, Any],
              name: str,
              allow_add_variables: Optional[bool] = True,
@@ -494,7 +495,7 @@ class ValidatorMixin:
                 if need not in jobs:
                     raise ConfigLoaderError("job {} needs job {} which does not exist".format(name, need))
 
-                # check the needed job in in an earlier stage if running in <14.2 mode
+                # check the needed job in an earlier stage if running in <14.2 mode
                 if strict_needs_stages():
                     needed = get_job(config, need)
                     stage_order = stages.index(job["stage"])
@@ -509,6 +510,7 @@ class ValidatorMixin:
                 if "reports" in job["artifacts"]:
                     if not isinstance(job["artifacts"]["reports"], dict):
                         raise ConfigLoaderError("artifacts->reports must be a map")
+
 
 def validate(config: Dict[str, Any]) -> None:
     vm = ValidatorMixin()

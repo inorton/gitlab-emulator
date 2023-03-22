@@ -339,6 +339,8 @@ class DockerJob(Job):
             if self._image is None:
                 self._image = self.runner.docker.image
             self.docker.privileged = self.runner.docker.privileged
+            if self.runner.docker.docker_cli is not None:
+                self.docker.tool = self.runner.docker.docker_cli
 
     def load(self, name, config):
         super(DockerJob, self).load(name, config)
@@ -569,9 +571,9 @@ class DockerJob(Job):
                     except subprocess.CalledProcessError:  # pragma: no cover
                         pass
                     finally:
-                        subprocess.call(["docker", "kill", self.container], stderr=subprocess.STDOUT)
+                        subprocess.call([self.docker.tool, "kill", self.container], stderr=subprocess.STDOUT)
                         if self.docker.is_windows_hyperv():  # pragma: no cover
-                            subprocess.call(["docker", "rm", self.container])
+                            subprocess.call([self.docker.tool, "rm", self.container])
 
         result = self.build_process.returncode
         if result:

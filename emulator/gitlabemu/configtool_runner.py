@@ -6,7 +6,7 @@ import yaml
 from .helpers import note, die, truth_string, setenv_string
 from .userconfig import get_user_config
 from .userconfigdata import GleRunnerConfig, DockerExecutorConfig, RUNNER_SHELL_SHELLS, RUNNER_EXECUTOR_TYPES, \
-    EXECUTOR_DOCKER
+    EXECUTOR_DOCKER, DEFAULT_DOCKER_CLI
 
 
 def setup_cmd(subparsers):
@@ -38,9 +38,11 @@ def setup_cmd(subparsers):
                               help="Add a docker volume")
     docker_group.add_argument("--remove-volume", type=str, metavar="VOLUME",
                               help="Remove a docker volume")
+    docker_group.add_argument("--docker-cli", type=str, metavar="TOOL", default=None,
+                              help="Use an alternate docker cli program (eg podman, nerdctl etc)")
 
     shell_group.add_argument("--shell", default=None, type=str, choices=RUNNER_SHELL_SHELLS,
-                        help="Set the shell executor shell")
+                             help="Set the shell executor shell")
 
     runner.set_defaults(func=runner_cmd)
 
@@ -94,6 +96,8 @@ def runner_cmd(opts: Namespace):
                 runner.docker.add_volume(opts.add_volume)
             if opts.remove_volume:
                 runner.docker.remove_volume(opts.remove_volume)
+            if opts.docker_cli is not None:
+                runner.docker.docker_cli = opts.docker_cli
         if opts.setenv is not None:
             set_envname, set_envval = opts.setenv
             runner.environment[set_envname] = set_envval
@@ -112,6 +116,7 @@ def runner_cmd(opts: Namespace):
                     ctx.docker.privileged = runner.docker.privileged
                     ctx.docker.volumes = runner.docker.volumes
                     ctx.docker.variables = runner.environment
+                    ctx.docker.docker_cli = runner.docker.docker_cli
             note(f"saved runner {runner.name} :-")
         else:
             note(f"current settings for runner {runner.name} :-")

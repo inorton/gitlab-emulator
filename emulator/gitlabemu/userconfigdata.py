@@ -14,6 +14,7 @@ FORBIDDEN_CONTEXT_NAMES = [
     "version",
 ]
 DEFAULT_GITLAB_VERSION = "15.7"
+DEFAULT_DOCKER_CLI = "docker"
 
 EXECUTOR_SHELL = "shell"
 EXECUTOR_DOCKER = "docker"
@@ -124,6 +125,7 @@ class GitlabConfiguration(ToYaml):
             self.servers.append(server)
         return self
 
+
 class VariablesConfiguration(ToYaml):
     def __init__(self):
         self.variables = dict()
@@ -173,16 +175,17 @@ class VolumesMixin:
 class DockerConfiguration(VariablesConfiguration, VolumesMixin):
     def __init__(self):
         self.privileged = True
+        self.docker_cli = DEFAULT_DOCKER_CLI
         super(DockerConfiguration, self).__init__()
         self.volumes = []
 
     @property
     def yaml_keys(self) -> List[str]:
-        return super().yaml_keys + ["volumes", "privileged"]
+        return super().yaml_keys + ["volumes", "privileged", "docker_cli"]
 
     def populate(self, data: dict):
         super(DockerConfiguration, self).populate(data)
-        self.setattrs_from_dict(data, "volumes", "privileged")
+        self.setattrs_from_dict(data, "volumes", "privileged", "docker_cli")
         # validate the volumes
         self.validate()
         return self
@@ -373,6 +376,7 @@ class DockerExecutorConfig(ToYaml, VolumesMixin):
         self.volumes: List[str] = []
         self.cap_add: str = ""
         self.mac_address: str = ""
+        self.docker_cli = DEFAULT_DOCKER_CLI
 
     @property
     def yaml_keys(self) -> List[str]:
@@ -380,7 +384,10 @@ class DockerExecutorConfig(ToYaml, VolumesMixin):
                 "image",
                 "volumes",
                 "cap_add",
-                "mac_address"]
+                "mac_address",
+                "docker_cli",
+                ]
+
 
 class GleRunnerConfig(ToYaml):
 
