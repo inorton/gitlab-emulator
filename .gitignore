@@ -12,3 +12,4 @@
 date.txt
 linux-docker-job
 /emulator/pytest-coverage.xml
+.temp/

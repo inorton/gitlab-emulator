@@ -143,12 +143,14 @@ class MockPipelineJob:
         self.status = status
         self.artifacts: List[dict] = []
 
+
 class MockPipelineJobs:
     def __init__(self, pipeline):
         self.pipeline = pipeline
 
     def list(self, **kwargs):
         return self.pipeline.api_jobs
+
 
 class MockPipeline:
     def __init__(self):
@@ -166,6 +168,7 @@ class MockPipeline:
         job.artifacts = artifacts
         self.api_jobs.append(job)
         return job
+
 
 class MockProjectPipelines:
     def __init__(self, project):
@@ -195,6 +198,7 @@ class MockAPIProject:
         p = MockPipeline()
         self.api_pipelines.append(p)
         return p
+
 
 class MockAPIClient:
 

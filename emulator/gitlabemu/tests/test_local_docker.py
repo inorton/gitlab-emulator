@@ -207,16 +207,15 @@ def test_global_services(linux_docker, capsys):
     assert "Welcome to nginx!" in out
 
 
-def test_additional_volumes(linux_docker, capsys):
+def test_additional_volumes(linux_docker, capsys, repo_root):
     """
     Test GLE_DOCKER_VOLUMES
-    :param linux_docker:
-    :param capsys:
-    :param envs:
-    :return:
     """
-    tmpdir1 = tempfile.mkdtemp()
-    tmpdir2 = tempfile.mkdtemp()
+    temp_root = os.path.join(repo_root, ".temp")
+    if not os.path.exists(temp_root):
+        os.makedirs(temp_root)
+    tmpdir1 = tempfile.mkdtemp(dir=temp_root)
+    tmpdir2 = tempfile.mkdtemp(dir=temp_root)
     try:
         os.environ["GLE_DOCKER_VOLUMES"] = ",".join([
             f"{tmpdir1}:/volumes/dir1",
