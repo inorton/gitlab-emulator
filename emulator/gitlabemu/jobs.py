@@ -13,9 +13,9 @@ import time
 from typing import Optional, Dict, List
 
 from .artifacts import GitlabArtifacts
-from .logmsg import info, fatal, debugrule, warning
+from .logmsg import info, fatal, debugrule, warning, debug
 from .errors import GitlabEmulatorError
-from .helpers import communicate as comm, is_windows, is_apple, is_linux, debug_print, parse_timeout, powershell_escape
+from .helpers import communicate as comm, is_windows, is_apple, is_linux, parse_timeout, powershell_escape
 from .ansi import ANSI_GREEN, ANSI_RESET
 from .ruleparser import evaluate_rule
 from .userconfig import get_user_config_context
@@ -168,6 +168,7 @@ class Job(object):
 
     def allocate_runner(self):
         """Finish loading low level details before we run the job"""
+        info("allocating runner")
         if self.shell == "cmd":
             warning("the windows cmd shell is obsolete and does not work on real gitlab any more")
         else:
@@ -402,7 +403,7 @@ class Job(object):
             with open(generated, "w") as fd:
                 print(script, file=fd)
             cmdline = self.shell_command(generated)
-            debug_print("cmdline: {}".format(cmdline))
+            debug("cmdline: {}".format(cmdline))
             if self.enter_shell or self.error_shell:  # pragma: no cover
                 # TODO figure out how to cover tty stuff
                 opened = subprocess.Popen(cmdline,

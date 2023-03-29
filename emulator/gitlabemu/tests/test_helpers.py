@@ -10,7 +10,6 @@ from io import StringIO
 from ..helpers import (
     clean_leftovers,
     communicate,
-    debug_enabled,
     get_git_remote_urls,
     git_commit_sha,
     git_current_branch,
@@ -25,6 +24,7 @@ from ..helpers import (
     setenv_string,
     trim_quotes, truth_string,
 )
+from ..logmsg import debug_enabled
 
 
 @pytest.mark.usefixtures("posix_only")
@@ -64,11 +64,11 @@ def test_clean():
 
 def test_debug_enabled():
     for enabled in ["y", "yes", "1"]:
-        os.environ["GITLAB_EMULATOR_DEBUG"] = enabled
+        os.environ["GLE_DEBUG"] = enabled
         assert debug_enabled()
 
     for negative in ["0", "no", "moose", str(uuid.uuid4())]:
-        os.environ["GITLAB_EMULATOR_DEBUG"] = negative
+        os.environ["GLE_DEBUG"] = negative
         assert not debug_enabled()
 
 

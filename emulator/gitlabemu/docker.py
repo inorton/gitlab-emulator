@@ -91,7 +91,7 @@ class DockerTool(object):
         if self._is_hyerv is None:
             self._is_hyerv = False
             if is_windows():  # pramga: cover if windows
-                output = self.docker_call("info", "-f", "{{.Isolation}}")
+                output = self.docker_call("info", "-f", "{{.Isolation}}").stdout.strip()
                 if output == "hyperv":  # pragma: no cover
                     self._is_hyerv = True
         return self._is_hyerv
@@ -341,6 +341,8 @@ class DockerJob(Job):
             self.docker.privileged = self.runner.docker.privileged
             if self.runner.docker.docker_cli is not None:
                 self.docker.tool = self.runner.docker.docker_cli
+        if self.runner is None:
+            raise GitlabEmulatorError(f"could not find a local runner for this job@ {self.name}")
 
     def load(self, name, config):
         super(DockerJob, self).load(name, config)
@@ -535,7 +537,15 @@ class DockerJob(Job):
                     self.docker.add_env(envname, environ[envname])
 
                 if self.docker_entrypoint is not None:
-                    self.docker.entrypoint = self.docker_entrypoint
+                    if is_windows():
+                        # windows can't have multiple args
+                        args = self.docker_entrypoint
+                        if len(args) > 0:
+                            if len(args) > 1:
+                                warning("windows docker entrypoint override may fail with several args")
+                            self.docker.entrypoint = args[0]
+                    else:
+                        self.docker.entrypoint = self.docker_entrypoint
                 volumes = self.runner.docker.runtime_volumes()
                 if volumes:
                     info("Extra docker volumes registered:")

@@ -4,8 +4,7 @@ from typing import Optional, Dict, List, cast
 from yaml import safe_dump, safe_load
 
 from .helpers import plausible_docker_volume, DockerVolume, is_windows, has_docker, notice
-from .logmsg import fatal
-
+from .logmsg import fatal, debug
 
 DEFAULT_CONTEXT = "emulator"
 FORBIDDEN_CONTEXT_NAMES = [
@@ -235,30 +234,32 @@ class UserContext(VariablesConfiguration):
         """Find a runner configuration for the given image+tag combo"""
         if tags is None:
             tags = []
-        runner = None
+
         tagset = set(tags)
+        debug(f"find runner for image={image}, tags={tags}")
         for runner in self.runners + self.builtin_runners():
             if image and runner.executor not in [EXECUTOR_DOCKER, EXECUTOR_DOCKER_WINDOWS]:
                 continue
             if not image:
                 if runner.executor in [EXECUTOR_DOCKER, EXECUTOR_DOCKER_WINDOWS]:
                     continue
+            debug(f"considering runner {runner}")
             if len(tagset) == 0:
                 if runner.run_untagged:
+                    debug(f"matching {runner} - allow untagged")
                     return runner
             else:
                 runner_tagset = set(runner.tags)
                 if tagset.issubset(runner_tagset):
+                    debug(f"matching {runner} - tags {tagset}")
                     return runner
 
         # nothing matched, return the defaults but warn
-        if runner is None:
-            if image:
-                runner = self.get_runner("default-docker")
-            else:
-                runner = self.get_runner("default-shell")
-            notice(f"selecting {runner}")
-
+        if image:
+            runner = self.get_runner("default-docker", builtins=True)
+        else:
+            runner = self.get_runner("default-shell", builtins=True)
+        debug(f"matched default {runner}")
         return runner
 
     def get_runner(self, name: str, builtins=False) -> Optional["GleRunnerConfig"]:

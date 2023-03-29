@@ -19,13 +19,28 @@ FATAL_EXIT = True
 def enable_rule_debug():
     os.environ["GLE_DEBUG_RULES"] = "y"
 
+def enable_debug():
+    os.environ["GLE_DEBUG"] = "y"
+
 
 def info(msg):
     LOGGER.info(msg)
 
+def debug_enabled() -> bool:
+    return os.environ.get("GLE_DEBUG", "n").lower() in ["y", "1", "enabled"]
+
+
+def debugrule_enabled() -> bool:
+    return os.environ.get("GLE_DEBUG_RULES", "n").lower() in ["y", "1", "enabled"]
+
 
 def debugrule(msg):
-    if os.environ.get("GLE_DEBUG_RULES", "n") != "n":
+    if debugrule_enabled() or debug_enabled():
+        LOGGER.info(f"D: {msg}")
+
+
+def debug(msg):
+    if debug_enabled():
         LOGGER.info(f"D: {msg}")
 
 

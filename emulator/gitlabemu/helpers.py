@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 from .errors import DockerExecError
 from .resnamer import resource_owner_alive, is_gle_resource
-from .logmsg import info
+from .logmsg import info, debug
 
 
 class ProcessLineProxyThread(Thread):
@@ -231,16 +231,7 @@ def git_worktree(path: str) -> Optional[str]:
 
 def make_path_slug(text: str) -> str:
     """Convert a string into one suitable for a folder basename"""
-    return re.sub(r"[^a-zA-Z0-9\-\.]", "_", text)
-
-
-def debug_enabled():
-    return os.environ.get("GITLAB_EMULATOR_DEBUG", "no") in ["1", "y", "yes"]
-
-
-def debug_print(msg):
-    if debug_enabled():  # pragma: no cover
-        print("GLE DEBUG: {}".format(msg))
+    return re.sub(r"[^a-zA-Z0-9\-.]", "_", text)
 
 
 def clean_leftovers():
@@ -444,6 +435,7 @@ def has_docker() -> bool:
     # noinspection PyBroadException
     try:
         subprocess.check_output(["docker", "info"], stderr=subprocess.STDOUT)
+        debug("docker detected")
         return True
     except Exception as err:  # pragma: no cover
         pass
