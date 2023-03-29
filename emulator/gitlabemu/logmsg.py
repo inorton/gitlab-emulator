@@ -15,6 +15,11 @@ LOGGER.setLevel(logging.INFO)
 
 FATAL_EXIT = True
 
+AFIRMATIVE = ["y", "yes", "1", "enabled", "on"]
+
+def is_afirmative(txt: str) -> bool:
+    return str(txt).lower() in AFIRMATIVE
+
 
 def enable_rule_debug():
     os.environ["GLE_DEBUG_RULES"] = "y"
@@ -27,11 +32,11 @@ def info(msg):
     LOGGER.info(msg)
 
 def debug_enabled() -> bool:
-    return os.environ.get("GLE_DEBUG", "n").lower() in ["y", "1", "enabled"]
+    return is_afirmative(os.environ.get("GLE_DEBUG", "n"))
 
 
 def debugrule_enabled() -> bool:
-    return os.environ.get("GLE_DEBUG_RULES", "n").lower() in ["y", "1", "enabled"]
+    return is_afirmative(os.environ.get("GLE_DEBUG_RULES", "n"))
 
 
 def debugrule(msg):
