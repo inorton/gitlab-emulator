@@ -245,14 +245,14 @@ class DockerTool(object):
         if self.container:
             self.docker_call("kill", "-s", "9", self.container)
 
-    def check_call(self, cwd, cmd, stdout=None, stderr=None, capture=False):
+    def check_call(self, cwd: str, cmd: List[str], stdout=None, stderr=None, capture=False):
         cmdline = [self.tool, "exec", "-w", cwd, self.container] + cmd
         if capture:
             return subprocess.check_output(cmdline, stderr=stderr)
         else:
             return subprocess.check_call(cmdline, stdout=stdout, stderr=stderr)
 
-    def exec(self, cwd, shell, tty=False, user=None, pipe=True):
+    def exec(self, cwd: str, shell: List[str], tty=False, user=None, pipe=True):
         cmdline = [self.tool, "exec", "-w", cwd]
         cmdline.extend(self.get_envs())
         if user is not None:
@@ -288,6 +288,19 @@ class DockerJob(Job):
         self._force_pull_policy = None
         self._container_lock = threading.Lock()
         self._has_bash = None
+        self._shell_uid = 0
+        self._shell_gid = 0
+
+    @property
+    def shell_is_user(self):
+        return super().shell_is_user
+
+    @shell_is_user.setter
+    def shell_is_user(self, value: bool):
+        self._shell_is_user = value
+        if value:
+            self._shell_uid = os.getuid()
+            self._shell_gid = os.getgid()
 
     @property
     def docker_image(self) -> str:
@@ -334,6 +347,8 @@ class DockerJob(Job):
         return self.workspace
 
     def allocate_runner(self):
+        if self.runner is None:  # pragma: no cover
+            raise GitlabEmulatorError(f"could not find a local docker runner for this job@ {self.name}")
         super().allocate_runner()
         if self.runner and self.runner.docker:
             if self._image is None:
@@ -341,8 +356,6 @@ class DockerJob(Job):
             self.docker.privileged = self.runner.docker.privileged
             if self.runner.docker.docker_cli is not None:
                 self.docker.tool = self.runner.docker.docker_cli
-        if self.runner is None:
-            raise GitlabEmulatorError(f"could not find a local runner for this job@ {self.name}")
 
     def load(self, name, config):
         super(DockerJob, self).load(name, config)
@@ -401,7 +414,7 @@ class DockerJob(Job):
         task = None
         if user is None:
             if self.shell_is_user:  # pragma: cover if posix
-                user = os.getuid()
+                user = self._shell_uid
 
         filename = "generated-gitlab-script" + self.get_script_fileext()
         temp = os.path.join(tempfile.gettempdir(), filename)
@@ -537,7 +550,7 @@ class DockerJob(Job):
                     self.docker.add_env(envname, environ[envname])
 
                 if self.docker_entrypoint is not None:
-                    if is_windows():
+                    if is_windows():  # pragma: cover if windows
                         # windows can't have multiple args
                         args = self.docker_entrypoint
                         if len(args) > 0:
@@ -555,15 +568,45 @@ class DockerJob(Job):
                 self.docker.volumes = volumes + [f"{self.workspace}:{self.inside_workspace}:rw"]
 
                 self.docker.run()
-                self.git_safe_dir()
 
                 if not is_windows():  # pragma: cover if not windows
-                    # work out USER
+                    # work out default USER from the image
                     docker_user_cfg = self.docker.get_user()
                     if docker_user_cfg and ":" in docker_user_cfg:
+                        info(f"Container image defines USER: {docker_user_cfg}")
                         docker_user, docker_grp = docker_user_cfg.split(":", 1)
-                        self.stdout.write(f"Setting ownership to {docker_user}:{docker_grp}")
+                        info(f"Setting ownership to {docker_user}:{docker_grp}")
                         self._run_script(f"chown -R {docker_user}.{docker_grp} .", attempts=1, user="0")
+
+                if self.shell_is_user:
+                    if not is_windows():  # pragma: cover if not windows
+                        # try to make a more functional user account inside the container, this may not always
+                        # work due to missing tools, but it's worth a try
+                        _homedir = "/gle-tmp-home"
+                        _passwd = f"gle:x:{self._shell_uid}:{self._shell_gid}:gitlab-emulator:{_homedir}:/bin/sh"
+                        _shadow = f"gle:!:{self._shell_uid}::::::"
+                        try:
+                            info(f"setting up interactive user with uid={self._shell_uid}..")
+                            self.docker.check_call("/",
+                                                   ["sh", "-c", f"echo {_passwd} >> /etc/passwd"], capture=True)
+                            self.docker.check_call("/",
+                                                   ["sh", "-c", f"echo {_shadow} >> /etc/shadow"], capture=True)
+                            self.docker.check_call("/",
+                                                   ["mkdir", _homedir], capture=True)
+                            self.docker.check_call("/",
+                                                   ["chown", str(self._shell_uid), _homedir], capture=True)
+                            self.docker.check_call("/",
+                                                   ["chgrp", str(self._shell_gid), _homedir], capture=True)
+                            # append this user to the sudoers file
+                            info(f"granting sudo inside container..")
+                            self.docker.check_call("/",
+                                                   ["sh", "-c", f"echo 'gle ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers"])
+                            info("interactive user setup completed.")
+                        except subprocess.CalledProcessError:
+                            warning("interactive user setup failed, some features may not work fully.")
+
+                self.git_safe_dir()
+
                 try:
                     lines = self.before_script + self.script
                     if self.enter_shell:

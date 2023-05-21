@@ -4,7 +4,6 @@ Utils for local file housekeeping
 import os
 from .helpers import is_windows, has_docker
 from .docker import DockerTool
-from .userconfig import get_user_config_context
 
 
 def restore_path_ownership(path):

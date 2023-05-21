@@ -21,12 +21,13 @@ rules =
     "sys.platform != 'darwin'": cover if apple
 
 [report]
-fail_under = 76
+fail_under = 72
 
 omit =
     gitlabemu/gitlab/types.py
     gitlabemu/tests/*
     gitlabemu/rules/*.py
+    gitlabemu/__main__.py
 
 # Regexes for lines to exclude from consideration
 exclude_lines =

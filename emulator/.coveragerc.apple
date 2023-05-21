@@ -28,6 +28,7 @@ omit =
     gitlabemu/dockersupport.py
     gitlabemu/gitlab/types.py
     gitlabemu/rules/*.py
+    gitlabemu/__main__.py
 
 # Regexes for lines to exclude from consideration
 exclude_lines =

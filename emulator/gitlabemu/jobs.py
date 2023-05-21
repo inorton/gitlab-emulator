@@ -48,7 +48,6 @@ class Job(object):
         self.error_shell = None
         self.enter_shell = False
         self.before_script_enter_shell = False
-        self.shell_is_user = False
         self.tags = []
         self.stage = "test"
         self.variables = {}
@@ -78,6 +77,15 @@ class Job(object):
         self.skipped_reason = None
         self.rules = None
         self.configloader = None
+        self._shell_is_user = False
+
+    @property
+    def shell_is_user(self) -> bool:
+        return self._shell_is_user
+
+    @shell_is_user.setter
+    def shell_is_user(self, value: bool):
+        self._shell_is_user = value
 
     def get_emulator_runner(self) -> GleRunnerConfig:
         ctx = get_user_config_context()
