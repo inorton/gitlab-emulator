@@ -357,8 +357,8 @@ class DockerJob(Job):
             if self.runner.docker.docker_cli is not None:
                 self.docker.tool = self.runner.docker.docker_cli
 
-    def load(self, name, config):
-        super(DockerJob, self).load(name, config)
+    def load(self, name, config, overrides: Optional[Dict[str, Any]] = None):
+        super(DockerJob, self).load(name, config, overrides=overrides)
         self.services = get_services(config, name)
         pull_policy = self.docker_pull_policy
         if pull_policy is not None:

@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 from .artifacts import GitlabArtifacts
 from .logmsg import info, fatal, debugrule, warning, debug
@@ -186,16 +186,25 @@ class Job(object):
             if name not in self.variables:
                 self.variables[name] = value
 
-    def load(self, name, config):
+    def load(self, name: str, config: dict, overrides: Optional[Dict[str, Any]] = None):
         """
         Load a job from a dictionary
         :param name:
         :param config:
+        :param overrides: set/unset any item in the job config.
         :return:
         """
         self.workspace = config[".gitlab-emulator-workspace"]
         self.name = name
         job = config[name]
+        if overrides is not None:
+            # set/unset things in the job
+            for ov_name, ov_value in overrides.items():
+                if ov_value is None:
+                    if ov_name in job:
+                        del job[ov_name]
+                else:
+                    job[ov_name] = ov_value
 
         self.shell = config.get(".gitlabemu-windows-shell", self.shell)
 

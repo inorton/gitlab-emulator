@@ -51,6 +51,11 @@ parser.add_argument("--before-script", "-b", dest="only_before_script", default=
                     action="store_true",
                     help="Run only the 'before_script' commands"
                     )
+parser.add_argument("--image", type=str, default=None,
+                    help="Replace the 'image'. Can be used to force running a shell job in a container or to change "
+                         "the container a job uses")
+parser.add_argument("--timeout", type=int, default=None,
+                    help="Set/unset a timeout. set to 0 to disable timeouts")
 parser.add_argument("--user", "-u", dest="shell_is_user", default=False, action="store_true",
                     help="Run the interactive shell as the current user instead of root")
 
@@ -193,7 +198,8 @@ def execute_job(config: Dict[str, Any],
                 recurse=False,
                 use_runner=False,
                 noop=False,
-                options: Optional[Dict[str, Any]] = None
+                options: Optional[Dict[str, Any]] = None,
+                overrides: Optional[Dict[str, Any]] = None,
                 ):
     """
     Run a job, optionally run required dependencies
@@ -204,12 +210,13 @@ def execute_job(config: Dict[str, Any],
     :param use_runner: if True, execute using "gitlab-runner exec"
     :param noop: if True, print instead of execute commands
     :param options: If given, set attributes on the job before use.
+    :param overrides: If given, replace properties in the top level of a job dictionary.
     :return:
     """
     if seen is None:
         seen = set()
     if jobname not in seen:
-        jobobj = configloader.load_job(config, jobname)
+        jobobj = configloader.load_job(config, jobname, overrides=overrides)
         if options:
             for name in options:
                 setattr(jobobj, name, options[name])
@@ -482,6 +489,15 @@ def run(args=None):
         else:
             fix_ownership = False
 
+        overrides = {}
+        if options.image:
+            overrides["image"] = options.image
+        if options.timeout:
+            if options.timeout == 0:
+                overrides["timeout"] = None
+            else:
+                overrides["timeout"] = options.timeout
+
         apply_user_config(loader, is_docker=apply_docker_config)
 
         if not is_linux():
@@ -496,6 +512,7 @@ def run(args=None):
             job_options["after_script"] = []
 
         if options.enter_shell:  # pragma: no cover
+            overrides["timeout"] = None
             job_options["enter_shell"] = True
             if not options.only_before_script:
                 job_options["before_script"] = []
@@ -507,6 +524,7 @@ def run(args=None):
 
         if options.error_shell:  # pragma: no cover
             job_options["error_shell"] = [options.error_shell]
+            overrides["timeout"] = None
         try:
             executed_jobs = set()
             execute_job(loader.config, jobname,
