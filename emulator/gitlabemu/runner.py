@@ -55,7 +55,7 @@ parser.add_argument("--image", type=str, default=None,
                     help="Replace the 'image'. Can be used to force running a shell job in a container or to change "
                          "the container a job uses")
 parser.add_argument("--timeout", type=int, default=None,
-                    help="Set/unset a timeout. set to 0 to disable timeouts")
+                    help="Set/unset a timeout (minutes). set to 0 to disable timeouts")
 parser.add_argument("--user", "-u", dest="shell_is_user", default=False, action="store_true",
                     help="Run the interactive shell as the current user instead of root")
 
@@ -532,7 +532,9 @@ def run(args=None):
                         use_runner=options.exec,
                         recurse=options.FULL,
                         noop=options.noop,
-                        options=job_options)
+                        options=job_options,
+                        overrides=overrides,
+                        )
         finally:
             if not options.noop:
                 if has_docker() and fix_ownership:

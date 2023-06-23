@@ -167,6 +167,8 @@ def parse_timeout(text):
 
     default is minutes without any suffix
     """
+    if isinstance(text, int):
+        text = str(text)
     # collapse the long form
     text = text.replace(" hours", "h")
     text = text.replace(" minutes", "m")
