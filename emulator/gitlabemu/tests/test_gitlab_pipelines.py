@@ -118,7 +118,7 @@ def test_mocked_generate(capfd: pytest.CaptureFixture):
     assert "job4" not in generated
 
 
-@pytest.mark.usefixtures("linux_only")
+@pytest.mark.usefixtures("posix_only")
 def test_mocked_branch_creation(tmp_path, mocker):
     pushed = mocker.patch("gitlabemu.generator.git_push_force_upstream", autospec=True)
 
