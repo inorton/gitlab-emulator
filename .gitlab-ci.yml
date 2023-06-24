@@ -87,8 +87,8 @@ emulator-linux-test_py3.10:
 
 
 emulator-apple-test:
-  tags: [ shared-macos-amd64 ]
-  image: macos-11-xcode-12
+  tags: [ saas-macos-medium-m1 ]
+  image: macos-12-xcode-14
   stage: build
   script:
     - pip install -r test_requirements.txt
