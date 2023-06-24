@@ -1,11 +1,13 @@
 check-alpine:
   extends:
+    - .docker-linux-job
     - .alpine-image
   script:
     - env|sort|grep PATH
 
 .check-interactive:
   extends:
+    - .docker-linux-job
     - .alpine-image
   before_script:
     - echo hello-stderr >&2
@@ -17,6 +19,8 @@ check-alpine:
     - echo
 
 git-alpine:
+  extends:
+    - .docker-linux-job
   image:
     name: alpine/git:v2.30.2
     entrypoint: [""]
@@ -40,6 +44,7 @@ extends-checker_1:
   stage: build
   image: alpine:latest
   extends:
+    - .docker-linux-job
     - .extends_base1
     - .extends_base2
   script:

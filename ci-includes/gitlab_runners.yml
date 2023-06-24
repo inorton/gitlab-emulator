@@ -1,0 +1,9 @@
+# runner tags for gitlab saas (ie. gitlab premium)
+.docker-linux-job:
+  tags:
+    - saas-linux-medium-amd64
+
+.macos-job:
+  tags:
+    - saas-macos-medium-m1
+  image: macos-12-xcode-14

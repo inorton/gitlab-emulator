@@ -1,4 +1,8 @@
 include:
+  - local: ci-includes/default_runners.yml
+  - local: ci-includes/gitlab_runners.yml
+    rules:
+      - if: ($CI_SERVER_HOST == "gitlab.com") && ($CI_PROJECT_NAMESPACE == "cunity")
   - local: ci-includes/alpine-image.yml
   - local: ci-includes/subdir/jobs.yml
   - local: ci-includes/optional.yml
@@ -15,6 +19,7 @@ stages:
 - test
 - last
 
+
 .fail-job:
   stage: build
   image: busybox:latest
@@ -23,6 +28,7 @@ stages:
     - /bin/false
 
 emulator-linux-ubuntu1804-install:
+  extends: .docker-linux-job
   image: ubuntu:18.04
   before_script:
     - apt-get update
@@ -49,6 +55,7 @@ emulator-linux-ubuntu2204-install:
 
 
 emulator-linux-test_py3.8:
+  extends: .docker-linux-job
   image:
     name: docker:19.03.12-dind
     entrypoint: [""]
@@ -87,8 +94,7 @@ emulator-linux-test_py3.10:
 
 
 emulator-apple-test:
-  tags: [ saas-macos-medium-m1 ]
-  image: macos-12-xcode-14
+  extends: .macos-job
   stage: build
   script:
     - pip install -r test_requirements.txt
@@ -106,6 +112,7 @@ emulator-apple-test:
         path: emulator/pytest-coverage.xml
 
 emulator-linux-run:
+  extends: .docker-linux-job
   variables:
     DOCKER_HOST: tcp://docker:2375/
   services:
@@ -153,6 +160,8 @@ emulator-windows-test:
     - c:\python38\python -m pytest -vv . --cov gitlabemu --cov-config .coveragerc.windows
 
 envs:
+  extends:
+    - .docker-linux-job
   stage: build
   image: alpine:3.14
   script:
@@ -160,6 +169,8 @@ envs:
     - env|grep DOCKER
 
 from-gitlab-list:
+  extends:
+    - .docker-linux-job
   stage: last
   image: python:3.7
   needs:
@@ -191,6 +202,8 @@ from-gitlab-export:
     - find archive -type f
 
 quick:
+  extends:
+    - .docker-linux-job
   image: alpine:3.14
   stage: build
   script:
@@ -200,6 +213,8 @@ quick:
       - date.txt
 
 needs-no-artifacts:
+  extends:
+    - .docker-linux-job
   image: alpine:3.14
   stage: test
   needs:
@@ -209,6 +224,8 @@ needs-no-artifacts:
     - mkdir date.txt # will fail if date.txt was fetched from the quick job
 
 needs-artifacts:
+  extends:
+    - .docker-linux-job
   image: alpine:3.14
   stage: test
   needs: [ quick ]
