@@ -104,3 +104,16 @@ def test_validate_mixin_artifacts():
         validator.validate(config)
     assert "artifacts->reports must be a map" in str(err.value)
 
+
+@pytest.mark.usefixtures("in_tests")
+def test_load_builtin_stages():
+    cfg_file = "builtin-stages.yaml"
+    loader = configloader.Loader()
+    loader.load(cfg_file)
+
+    job1 = loader.get_job("job1")
+    assert job1["stage"] == ".pre"
+    job2 = loader.get_job("job2")
+    assert job2["stage"] == "test"
+    job3 = loader.get_job("job3")
+    assert job3["stage"] == ".post"

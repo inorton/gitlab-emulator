@@ -474,7 +474,11 @@ class ValidatorMixin:
         Validate the jobs in the loaded config map, raise a GitlabEmulatorError on error
         """
         jobs = get_jobs(config)
-        stages = get_stages(config)
+        stages = list(get_stages(config))
+        if ".pre" not in stages:
+            stages.insert(0, ".pre")
+        if ".post" not in stages:
+            stages.append(".post")
 
         for name in jobs:
             if name.startswith("."):

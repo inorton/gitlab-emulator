@@ -1,0 +1,19 @@
+# jobs using the builtin stages
+
+stages:
+  - test
+
+job1:
+  script:
+    - echo hello
+  stage: .pre
+
+job2:
+  stage: test
+  script:
+    - echo hello
+
+job3:
+  script:
+    - echo hello
+  stage: .post
