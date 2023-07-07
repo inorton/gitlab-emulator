@@ -185,6 +185,8 @@ from-gitlab-list:
     - gle --list --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
 
 from-gitlab-export:
+  extends:
+    - .docker-linux-job
   stage: last
   image: python:3.7
   needs:
