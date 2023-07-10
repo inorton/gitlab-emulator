@@ -10,6 +10,7 @@ from . import configloader
 from .docker import DockerJob
 from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound, posix_cert_fixup
 from .jobs import Job
+from .jobtypes import JobFactory, ScriptJobFactory
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note, has_docker
 from .logmsg import debugrule, enable_rule_debug
@@ -65,6 +66,8 @@ parser.add_argument("--shell-on-error", "-e", dest="error_shell", type=str,
 parser.add_argument("--ignore-docker", dest="no_docker", action="store_true", default=False,
                     help="If set, run jobs using the local system as a shell job instead of docker"
                     )
+parser.add_argument("--gen-script", dest="gen_script", choices=["sh", "powershell"], default=None,
+                    help="Generate a sh or powershell script to execute a job without gle")
 
 parser.add_argument("--docker-pull", dest="docker_pull", type=str,
                     choices=["always", "if-not-present", "never"],
@@ -200,9 +203,11 @@ def execute_job(config: Dict[str, Any],
                 noop=False,
                 options: Optional[Dict[str, Any]] = None,
                 overrides: Optional[Dict[str, Any]] = None,
+                jobfactory: Optional[JobFactory] = None,
                 ):
     """
     Run a job, optionally run required dependencies
+    :param jobfactory:
     :param config: the config dictionary
     :param jobname: the job to start
     :param seen: completed jobs are added to this set
@@ -216,15 +221,15 @@ def execute_job(config: Dict[str, Any],
     if seen is None:
         seen = set()
     if jobname not in seen:
-        jobobj = configloader.load_job(config, jobname, overrides=overrides)
+        jobobj = configloader.load_job(config, jobname, overrides=overrides, jobfactory=jobfactory)
         if options:
             for name in options:
                 setattr(jobobj, name, options[name])
 
         if recurse:
             for need in jobobj.dependencies:
-                execute_job(config, need, seen=seen, recurse=True, noop=noop)
-        print(f">>> execute {jobobj.name}:")
+                execute_job(config, need, seen=seen, recurse=True, noop=noop, jobfactory=jobfactory)
+        print(f">>> execute {jobobj.name}:", file=sys.stderr)
         if noop:
             if isinstance(jobobj, DockerJob):
                 print(f"image: {jobobj.docker_image}")
@@ -526,6 +531,10 @@ def run(args=None):
             job_options["error_shell"] = [options.error_shell]
             overrides["timeout"] = None
         try:
+            jobfactory = JobFactory()
+            if options.gen_script:
+                jobfactory = ScriptJobFactory()
+
             executed_jobs = set()
             execute_job(loader.config, jobname,
                         seen=executed_jobs,
@@ -534,6 +543,7 @@ def run(args=None):
                         noop=options.noop,
                         options=job_options,
                         overrides=overrides,
+                        jobfactory=jobfactory
                         )
         finally:
             if not options.noop:
@@ -543,4 +553,5 @@ def run(args=None):
                             note("Fixing up local file ownerships..")
                             restore_path_ownership(os.getcwd())
                             note("finished")
-        print("Build complete!")
+        if not options.gen_script:
+            print("Build complete!")

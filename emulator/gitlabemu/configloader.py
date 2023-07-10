@@ -13,8 +13,8 @@ from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS, DEFAULT_JOB_KEYS
 from .gitlab.urls import GITLAB_ORG_TEMPLATE_BASEURL
 from .helpers import stringlist_if_string
-from .jobs import NoSuchJob, Job
-from .docker import DockerJob
+from .jobtypes import JobFactory, Job, DockerJob
+from .jobs import NoSuchJob
 from . import yamlloader
 from .references import process_references
 from .userconfig import get_user_config_context
@@ -303,6 +303,7 @@ def do_extends(alljobs: Dict[str, Any]) -> None:
     em = ExtendsMixin()
     return em.do_extends(alljobs)
 
+
 def do_single_extend_recursive(alljobs: dict, default_job: Dict[str, Any], name: str) -> Dict[str, Any]:
     em = ExtendsMixin()
     return em.do_single_extend_recursive(alljobs, default_job, name)
@@ -372,16 +373,16 @@ class JobLoaderMixin:
             allow_add_variables: Optional[bool] = True,
             configloader: Optional["BaseLoader"] = None,
             overrides: Optional[Dict[str, Any]] = None,
+            jobfactory: Optional[JobFactory] = None,
     ) -> Union["Job", "DockerJob"]:
         """Load a job from a parsed pipeline configuration dictionary"""
+        if jobfactory is None:
+            jobfactory = JobFactory()
         jobs = get_jobs(config)
         if name not in jobs:
             raise NoSuchJob(name)
         image = job_docker_image(config, name)
-        if image:
-            job = DockerJob()
-        else:
-            job = Job()
+        job = jobfactory.new_job(image)
         job.configloader = configloader
         job.allow_add_variables = allow_add_variables
         job.load(name, config, overrides=overrides)
@@ -394,9 +395,12 @@ def load_job(config: Dict[str, Any],
              allow_add_variables: Optional[bool] = True,
              configloader: Optional["BaseLoader"] = None,
              overrides: Optional[Dict[str, Any]] = None,
+             jobfactory: Optional[JobFactory] = None,
              ) -> Union["Job", "DockerJob"]:
     """
     Load a job from the configuration
+    :param jobfactory:
+    :param overrides:
     :param allow_add_variables:
     :param configloader:
     :param config:
@@ -407,7 +411,8 @@ def load_job(config: Dict[str, Any],
     return jl.load_job_ex(config, name,
                           overrides=overrides,
                           allow_add_variables=allow_add_variables,
-                          configloader=configloader)
+                          configloader=configloader,
+                          jobfactory=jobfactory)
 
 
 def compute_emulated_ci_vars(baseobj: Dict[str, Any]) -> Dict[str, Any]:
@@ -681,12 +686,18 @@ class Loader(BaseLoader, JobLoaderMixin, ValidatorMixin, ExtendsMixin):
         super().__init__()
         self.create_emulator_variables = emulator_variables
 
-    def load_job(self, name: str, overrides: Optional[Dict[str, Any]] = None) -> Union["Job", "DockerJob"]:
+    def load_job(self,
+                 name: str,
+                 overrides: Optional[Dict[str, Any]] = None,
+                 jobfactory: Optional[JobFactory] = None,
+                 ) -> Union["Job", "DockerJob"]:
         """Return a loaded job object"""
         job = self.load_job_ex(self.config, name,
                                overrides=overrides,
                                allow_add_variables=self.create_emulator_variables,
-                               configloader=self)
+                               configloader=self,
+                               jobfactory=jobfactory,
+                               )
         return job
 
     def do_includes(self, baseobj: Dict[str, Any], yamldir: str, incs: Union[List, str]) -> None:
