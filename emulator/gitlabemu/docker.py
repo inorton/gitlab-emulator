@@ -511,8 +511,8 @@ class DockerJob(Job):
         folder = self.inside_workspace
         cmdline = f"command -v git 2>&1 >/dev/null && git config --global --add safe.directory '{folder}'"
         if is_windows():  # pragma: cover if windows
-            folder = folder.replace("\\", "/")  # windows git won't understand \ chars for this
-            cmdline = f"git config --global --add safe.directory {folder}"
+            # windows git is annoying about filesystem case, and this is a container so just use *
+            cmdline = f"git config --global --add safe.directory *"
         info(f"running {cmdline}")
         self.run_script(cmdline)
 
