@@ -1,0 +1,83 @@
+PATCH https://gitlab.com/api/v4/jobs/4961926681/trace?debug_trace=false HTTP/1.1
+Host: gitlab.com
+User-Agent: gitlab-runner 16.3.0 (16-3-stable; go1.20.5; darwin/amd64)
+Content-Length: 2283
+Content-Range: 0-2282
+Content-Type: text/plain
+Job-Token: 64_hzNDxm9-5u8xL_z5pBsj
+Accept-Encoding: gzip
+
+.[0KRunning with gitlab-runner 16.3.0 (8ec04662).[0;m
+.[0K  on mac-test-runner VMGYtG-91, system ID: s_0c6409c5f651.[0;m
+section_start:1693178163:resolve_secrets
+.[0K.[0K.[36;1mResolving secrets.[0;m.[0;m
+section_end:1693178163:resolve_secrets
+.[0Ksection_start:1693178163:prepare_executor
+.[0K.[0K.[36;1mPreparing the "shell" executor.[0;m.[0;m
+.[0KUsing Shell (bash) executor....[0;m
+section_end:1693178163:prepare_executor
+.[0Ksection_start:1693178163:prepare_script
+.[0K.[0K.[36;1mPreparing environment.[0;m.[0;m
+Running on FVFCDBBYL40Y...
+section_end:1693178163:prepare_script
+.[0Ksection_start:1693178163:get_sources
+.[0K.[0K.[36;1mGetting source from Git repository.[0;m.[0;m
+.[32;1mFetching changes with git depth set to 20....[0;m
+Initialized empty Git repository in /Users/ian.norton/PycharmProjects/gitlab-emulator/emulator/builds/VMGYtG-91/0/cunity/gitlab-runner-test/.git/
+.[32;1mCreated fresh repository..[0;m
+.[32;1mChecking out 4440e199 as detached HEAD (ref is main)....[0;m
+.[32;1mSkipping Git submodules setup.[0;m
+section_end:1693178165:get_sources
+.[0Ksection_start:1693178165:step_script
+.[0K.[0K.[36;1mExecuting "step_script" stage of the job script.[0;m.[0;m
+.[32;1m$ uname -a.[0;m
+Darwin FVFCDBBYL40Y 22.6.0 Darwin Kernel Version 22.6.0: Wed Jul  5 22:21:56 PDT 2023; root:xnu-8796.141.3~6/RELEASE_X86_64 x86_64
+.[32;1m$ df -h.[0;m
+Filesystem       Size   Used  Avail Capacity iused     ifree %iused  Mounted on
+/dev/disk1s2s1  113Gi  8.5Gi   33Gi    21%  356050 342411080    0%   /
+devfs           190Ki  190Ki    0Bi   100%     658         0  100%   /dev
+/dev/disk1s3    113Gi  1.8Gi   33Gi     6%    2250 342411080    0%   /System/Volumes/Preboot
+/dev/disk1s5    113Gi  3.0Gi   33Gi     9%       3 342411080    0%   /System/Volumes/VM
+/dev/disk1s6    113Gi  9.2Mi   33Gi     1%      22 342411080    0%   /System/Volumes/Update
+/dev/disk1s1    113Gi   66Gi   33Gi    67%  790874 342411080    0%   /System/Volumes/Data
+map auto_home     0Bi    0Bi    0Bi   100%       0         0  100%   /System/Volumes/Data/home
+section_end:1693178165:step_script
+.[0Ksection_start:1693178165:cleanup_file_variables
+.[0K.[0K.[36;1mCleaning up project directory and file based variables.[0;m.[0;m
+section_end:1693178165:cleanup_file_variables
+.[0K.[32;1mJob succeeded.[0;m
+
+
+HTTP/1.1 202 Accepted
+Date: Sun, 27 Aug 2023 23:16:05 GMT
+Content-Type: application/json
+Content-Length: 2
+Connection: keep-alive
+Cache-Control: no-cache
+Content-Security-Policy: default-src 'none'
+Job-Status: running
+Range: 0-2283
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+X-Gitlab-Meta: {"correlation_id":"cca9f63b28811ebb177c5f1e49f5eba8","version":"1"}
+X-Gitlab-Trace-Update-Interval: 60
+X-Request-Id: cca9f63b28811ebb177c5f1e49f5eba8
+X-Runtime: 0.125626
+Strict-Transport-Security: max-age=31536000
+Referrer-Policy: strict-origin-when-cross-origin
+RateLimit-Observed: 27
+RateLimit-Remaining: 1973
+RateLimit-Reset: 1693178225
+RateLimit-ResetTime: Sun, 27 Aug 2023 23:17:05 GMT
+RateLimit-Limit: 2000
+GitLab-LB: fe-07-lb-gprd
+GitLab-SV: localhost
+CF-Cache-Status: DYNAMIC
+Report-To: {"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=0tVtiZrTd3LiyrOEzZNNLJTgYLeoO9rLiVph7GD3E3r9m4sg9LTzH%2FhowxrT3y2lugXOxG0NNx7sd960yIzAJfKbnf2a4jfWAkZHtVLtDh5R14LdAzoRsT4h62Q%3D"}],"group":"cf-nel","max_age":604800}
+NEL: {"success_fraction":0.01,"report_to":"cf-nel","max_age":604800}
+Set-Cookie: _cfuvid=e1UH.yiUDhxA0OsnBfQDq_feZNhhliOfHVNB6WJeHM8-1693178165968-0-604800000; path=/; domain=.gitlab.com; HttpOnly; Secure; SameSite=None
+Server: cloudflare
+CF-RAY: 7fd8052fab640764-MAN
+
+60

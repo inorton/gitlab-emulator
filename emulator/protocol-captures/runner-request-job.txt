@@ -1,0 +1,677 @@
+POST https://gitlab.com/api/v4/jobs/request HTTP/1.1
+Host: gitlab.com
+User-Agent: gitlab-runner 16.3.0 (16-3-stable; go1.20.5; darwin/amd64)
+Content-Length: 807
+Accept: application/json
+Content-Type: application/json
+Accept-Encoding: gzip
+
+{
+    "info": {
+        "architecture": "amd64",
+        "config": {
+            "gpus": ""
+        },
+        "executor": "shell",
+        "features": {
+            "artifacts": true,
+            "artifacts_exclude": true,
+            "cache": true,
+            "cancelable": true,
+            "fallback_cache_keys": true,
+            "image": false,
+            "masking": true,
+            "multi_build_steps": true,
+            "proxy": false,
+            "raw_variables": true,
+            "refspecs": true,
+            "return_exit_code": true,
+            "service_multiple_aliases": false,
+            "service_variables": false,
+            "services": false,
+            "session": true,
+            "shared": true,
+            "terminal": true,
+            "trace_checksum": true,
+            "trace_reset": true,
+            "trace_size": true,
+            "upload_multiple_artifacts": true,
+            "upload_raw_artifacts": true,
+            "variables": true,
+            "vault_secrets": true
+        },
+        "name": "gitlab-runner",
+        "platform": "darwin",
+        "revision": "8ec04662",
+        "shell": "bash",
+        "version": "16.3.0"
+    },
+    "last_update": "7f0ac92486d75799002905da50381df7",
+    "system_id": "s_0c6409c5f651",
+    "token": "RUNNER_TOKEN_SECRET_VALUE"
+}
+
+HTTP/1.1 201 Created
+Date: Sun, 27 Aug 2023 23:16:03 GMT
+Content-Type: application/json
+Content-Length: 17771
+Connection: keep-alive
+Cache-Control: max-age=0, private, must-revalidate
+Content-Security-Policy: default-src 'none'
+Etag: W/"4e121829cf33f663c8b91a8267bf1379"
+Gitlab-Ci-Builds-Polling: yes
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+X-Gitlab-Meta: {"correlation_id":"a9d314abbabe131a2e5f5ba0f58ddef5","version":"1"}
+X-Request-Id: a9d314abbabe131a2e5f5ba0f58ddef5
+X-Runtime: 0.562759
+Strict-Transport-Security: max-age=31536000
+Referrer-Policy: strict-origin-when-cross-origin
+RateLimit-Observed: 26
+RateLimit-Remaining: 1974
+RateLimit-Reset: 1693178223
+RateLimit-ResetTime: Sun, 27 Aug 2023 23:17:03 GMT
+RateLimit-Limit: 2000
+GitLab-LB: fe-22-lb-gprd
+GitLab-SV: localhost
+CF-Cache-Status: DYNAMIC
+Report-To: {"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=%2BQWYvqZTG7KSUU67lC1q53Po59G%2BxKTFgF6Arn6c9VMoKZ%2FeOLIzfPI5kg9zRs5Z5Kcx08A0JRzoGUPAlblnl4fdvi7tf55kQgsZ%2BIDQpN1ZTeUHIPpnptlT1%2BI%3D"}],"group":"cf-nel","max_age":604800}
+NEL: {"success_fraction":0.01,"report_to":"cf-nel","max_age":604800}
+Set-Cookie: _cfuvid=1FS1P.l2drO1mbTklEeCUiRSFHbqBfR8Pl9VUDeA9ko-1693178163385-0-604800000; path=/; domain=.gitlab.com; HttpOnly; Secure; SameSite=None
+Server: cloudflare
+CF-RAY: 7fd8051cb8ac0764-MAN
+
+
+{
+    "allow_git_fetch": true,
+    "artifacts": null,
+    "cache": [],
+    "credentials": [
+        {
+            "password": "5u8xL_z5pBsj",
+            "type": "registry",
+            "url": "registry.gitlab.com",
+            "username": "gitlab-ci-token"
+        },
+        {
+            "password": "5u8xL_z5pBsj",
+            "type": "registry",
+            "url": "gitlab.com:443",
+            "username": "gitlab-ci-token"
+        }
+    ],
+    "dependencies": [],
+    "features": {
+        "failure_reasons": [
+            "unknown_failure",
+            "script_failure",
+            "api_failure",
+            "stuck_or_timeout_failure",
+            "runner_system_failure",
+            "missing_dependency_failure",
+            "runner_unsupported",
+            "stale_schedule",
+            "job_execution_timeout",
+            "archived_failure",
+            "unmet_prerequisites",
+            "scheduler_failure",
+            "data_integrity_failure",
+            "forward_deployment_failure",
+            "user_blocked",
+            "project_deleted",
+            "ci_quota_exceeded",
+            "pipeline_loop_detected",
+            "no_matching_runner",
+            "trace_size_exceeded",
+            "builds_disabled",
+            "environment_creation_failure",
+            "deployment_rejected",
+            "failed_outdated_deployment_job",
+            "protected_environment_failure",
+            "insufficient_bridge_permissions",
+            "downstream_bridge_project_not_found",
+            "invalid_bridge_trigger",
+            "upstream_bridge_project_not_found",
+            "insufficient_upstream_permissions",
+            "bridge_pipeline_is_child_pipeline",
+            "downstream_pipeline_creation_failed",
+            "secrets_provider_not_found",
+            "reached_max_descendant_pipelines_depth",
+            "ip_restriction_failure",
+            "reached_max_pipeline_hierarchy_size"
+        ],
+        "trace_sections": true
+    },
+    "git_info": {
+        "before_sha": "a3659fbd77a0238f056df7b181d57e030abc773e",
+        "depth": 20,
+        "ref": "main",
+        "ref_type": "branch",
+        "refspecs": [
+            "+refs/pipelines/983387111:refs/pipelines/983387111",
+            "+refs/heads/main:refs/remotes/origin/main"
+        ],
+        "repo_url": "https://gitlab-ci-token:5u8xL_z5pBsj@gitlab.com/cunity/gitlab-runner-test.git",
+        "sha": "4440e199a8012a22d9da87da53cff88b4967c50c"
+    },
+    "hooks": [],
+    "id": 4961926681,
+    "image": null,
+    "job_info": {
+        "id": 4961926681,
+        "name": "test-job",
+        "project_id": 48844863,
+        "project_jobs_running_on_instance_runners_count": "+Inf",
+        "project_name": "gitlab-runner-test",
+        "stage": "test",
+        "time_in_queue_seconds": 0
+    },
+    "runner_info": {
+        "runner_session_url": null,
+        "timeout": 3600
+    },
+    "secrets": {},
+    "services": [],
+    "steps": [
+        {
+            "allow_failure": false,
+            "name": "script",
+            "script": [
+                "uname -a",
+                "df -h"
+            ],
+            "timeout": 3600,
+            "when": "on_success"
+        }
+    ],
+    "token": "5u8xL_z5pBsj",
+    "variables": [
+        {
+            "key": "CI_PIPELINE_ID",
+            "masked": false,
+            "public": true,
+            "value": "983387111"
+        },
+        {
+            "key": "CI_PIPELINE_URL",
+            "masked": false,
+            "public": true,
+            "value": "https://gitlab.com/cunity/gitlab-runner-test/-/pipelines/983387111"
+        },
+        {
+            "key": "CI_JOB_ID",
+            "masked": false,
+            "public": true,
+            "value": "4961926681"
+        },
+        {
+            "key": "CI_JOB_URL",
+            "masked": false,
+            "public": true,
+            "value": "https://gitlab.com/cunity/gitlab-runner-test/-/jobs/4961926681"
+        },
+        {
+            "key": "CI_JOB_TOKEN",
+            "masked": true,
+            "public": false,
+            "value": "5u8xL_z5pBsj"
+        },
+        {
+            "key": "CI_JOB_STARTED_AT",
+            "masked": false,
+            "public": true,
+            "value": "2023-08-27T23:16:02Z"
+        },
+        {
+            "key": "CI_REGISTRY_USER",
+            "masked": false,
+            "public": true,
+            "value": "gitlab-ci-token"
+        },
+        {
+            "key": "CI_REGISTRY_PASSWORD",
+            "masked": true,
+            "public": false,
+            "value": "5u8xL_z5pBsj"
+        },
+        {
+            "key": "CI_REPOSITORY_URL",
+            "masked": false,
+            "public": false,
+            "value": "https://gitlab-ci-token:5u8xL_z5pBsj@gitlab.com/cunity/gitlab-runner-test.git"
+        },
+        {
+            "key": "CI_DEPENDENCY_PROXY_USER",
+            "masked": false,
+            "public": true,
+            "value": "gitlab-ci-token"
+        },
+        {
+            "key": "CI_DEPENDENCY_PROXY_PASSWORD",
+            "masked": true,
+            "public": false,
+            "value": "5u8xL_z5pBsj"
+        },
+        {
+            "key": "CI_JOB_JWT",
+            "masked": true,
+            "public": false,
+            "value": "eyJraWQiOiI0aTNzRkU3c3hxTlBPVDdGZHZjR0ExWlZHR0lfci10c0RYbkV1WVQ0WnFFIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJuYW1lc3BhY2VfaWQiOiIyOTA3NjkyIiwibmFtZXNwYWNlX3BhdGgiOiJjdW5pdHkiLCJwcm9qZWN0X2lkIjoiNDg4NDQ4NjMiLCJwcm9qZWN0X3BhdGgiOiJjdW5pdHkvZ2l0bGFiLXJ1bm5lci10ZXN0IiwidXNlcl9pZCI6IjEyOTIzODciLCJ1c2VyX2xvZ2luIjoiaW5vcnRvbiIsInVzZXJfZW1haWwiOiJpbm9ydG9uQGdtYWlsLmNvbSIsInBpcGVsaW5lX2lkIjoiOTgzMzg3MTExIiwicGlwZWxpbmVfc291cmNlIjoicHVzaCIsImpvYl9pZCI6IjQ5NjE5MjY2ODEiLCJyZWYiOiJtYWluIiwicmVmX3R5cGUiOiJicmFuY2giLCJyZWZfcGF0aCI6InJlZnMvaGVhZHMvbWFpbiIsInJlZl9wcm90ZWN0ZWQiOiJ0cnVlIiwianRpIjoiOGZmMjVkMWUtZWMxNS00MzE4LWEwZWUtZTc1MjMxMTYxMzc4IiwiaXNzIjoiZ2l0bGFiLmNvbSIsImlhdCI6MTY5MzE3ODE2MywibmJmIjoxNjkzMTc4MTU4LCJleHAiOjE2OTMxODE3NjMsInN1YiI6ImpvYl80OTYxOTI2NjgxIn0.ru3Hx6ao1VV51xlGB0sYGMt9kT484tKJDUQUiCFsBINFZfP7qL-tf7RGlWIzXvPsuZ3nLIGMKfpxlyAxwcIsM7FLRq9Pi6mwiIudUmNu_5tKpfft125UMpyATtwqQCqkNnXjGte3zb2CQzhUNKWfQwrz2UNQNzwIFhfOA_w2Xiun5bv_cN8Gfrzaxsxfc4bqtC_mFtRLEpFOq0JKe55RDifMzpNdmfXTmwmBN0jzrMo8O9E0H95uApE-LtQCCDRCxU4G0nJEvaAQ7a0ApZDbNkdn3HiK17pscAUuy2HdK0PrpEJJOozqTGK7W7FQyXSZQly7XvE27VDrYh1WKLhVAg"
+        },
+        {
+            "key": "CI_JOB_JWT_V1",
+            "masked": true,
+            "public": false,
+            "value": "eyJraWQiOiI0aTNzRkU3c3hxTlBPVDdGZHZjR0ExWlZHR0lfci10c0RYbkV1WVQ0WnFFIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJuYW1lc3BhY2VfaWQiOiIyOTA3NjkyIiwibmFtZXNwYWNlX3BhdGgiOiJjdW5pdHkiLCJwcm9qZWN0X2lkIjoiNDg4NDQ4NjMiLCJwcm9qZWN0X3BhdGgiOiJjdW5pdHkvZ2l0bGFiLXJ1bm5lci10ZXN0IiwidXNlcl9pZCI6IjEyOTIzODciLCJ1c2VyX2xvZ2luIjoiaW5vcnRvbiIsInVzZXJfZW1haWwiOiJpbm9ydG9uQGdtYWlsLmNvbSIsInBpcGVsaW5lX2lkIjoiOTgzMzg3MTExIiwicGlwZWxpbmVfc291cmNlIjoicHVzaCIsImpvYl9pZCI6IjQ5NjE5MjY2ODEiLCJyZWYiOiJtYWluIiwicmVmX3R5cGUiOiJicmFuY2giLCJyZWZfcGF0aCI6InJlZnMvaGVhZHMvbWFpbiIsInJlZl9wcm90ZWN0ZWQiOiJ0cnVlIiwianRpIjoiOGZmMjVkMWUtZWMxNS00MzE4LWEwZWUtZTc1MjMxMTYxMzc4IiwiaXNzIjoiZ2l0bGFiLmNvbSIsImlhdCI6MTY5MzE3ODE2MywibmJmIjoxNjkzMTc4MTU4LCJleHAiOjE2OTMxODE3NjMsInN1YiI6ImpvYl80OTYxOTI2NjgxIn0.ru3Hx6ao1VV51xlGB0sYGMt9kT484tKJDUQUiCFsBINFZfP7qL-tf7RGlWIzXvPsuZ3nLIGMKfpxlyAxwcIsM7FLRq9Pi6mwiIudUmNu_5tKpfft125UMpyATtwqQCqkNnXjGte3zb2CQzhUNKWfQwrz2UNQNzwIFhfOA_w2Xiun5bv_cN8Gfrzaxsxfc4bqtC_mFtRLEpFOq0JKe55RDifMzpNdmfXTmwmBN0jzrMo8O9E0H95uApE-LtQCCDRCxU4G0nJEvaAQ7a0ApZDbNkdn3HiK17pscAUuy2HdK0PrpEJJOozqTGK7W7FQyXSZQly7XvE27VDrYh1WKLhVAg"
+        },
+        {
+            "key": "CI_JOB_JWT_V2",
+            "masked": true,
+            "public": false,
+            "value": "eyJraWQiOiI0aTNzRkU3c3hxTlBPVDdGZHZjR0ExWlZHR0lfci10c0RYbkV1WVQ0WnFFIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJuYW1lc3BhY2VfaWQiOiIyOTA3NjkyIiwibmFtZXNwYWNlX3BhdGgiOiJjdW5pdHkiLCJwcm9qZWN0X2lkIjoiNDg4NDQ4NjMiLCJwcm9qZWN0X3BhdGgiOiJjdW5pdHkvZ2l0bGFiLXJ1bm5lci10ZXN0IiwidXNlcl9pZCI6IjEyOTIzODciLCJ1c2VyX2xvZ2luIjoiaW5vcnRvbiIsInVzZXJfZW1haWwiOiJpbm9ydG9uQGdtYWlsLmNvbSIsInBpcGVsaW5lX2lkIjoiOTgzMzg3MTExIiwicGlwZWxpbmVfc291cmNlIjoicHVzaCIsImpvYl9pZCI6IjQ5NjE5MjY2ODEiLCJyZWYiOiJtYWluIiwicmVmX3R5cGUiOiJicmFuY2giLCJyZWZfcGF0aCI6InJlZnMvaGVhZHMvbWFpbiIsInJlZl9wcm90ZWN0ZWQiOiJ0cnVlIiwicnVubmVyX2lkIjoyNzI3MjgzMCwicnVubmVyX2Vudmlyb25tZW50Ijoic2VsZi1ob3N0ZWQiLCJzaGEiOiI0NDQwZTE5OWE4MDEyYTIyZDlkYTg3ZGE1M2NmZjg4YjQ5NjdjNTBjIiwicHJvamVjdF92aXNpYmlsaXR5IjoicHJpdmF0ZSIsImNpX2NvbmZpZ19yZWZfdXJpIjoiZ2l0bGFiLmNvbS9jdW5pdHkvZ2l0bGFiLXJ1bm5lci10ZXN0Ly8uZ2l0bGFiLWNpLnltbEByZWZzL2hlYWRzL21haW4iLCJjaV9jb25maWdfc2hhIjoiNDQ0MGUxOTlhODAxMmEyMmQ5ZGE4N2RhNTNjZmY4OGI0OTY3YzUwYyIsImp0aSI6ImE3MzhiZmQ1LTQ1YTQtNDllNS1iZGFhLWJmODAzNGJlYWY0OSIsImlzcyI6Imh0dHBzOi8vZ2l0bGFiLmNvbSIsImlhdCI6MTY5MzE3ODE2MywibmJmIjoxNjkzMTc4MTU4LCJleHAiOjE2OTMxODE3NjMsInN1YiI6InByb2plY3RfcGF0aDpjdW5pdHkvZ2l0bGFiLXJ1bm5lci10ZXN0OnJlZl90eXBlOmJyYW5jaDpyZWY6bWFpbiIsImF1ZCI6Imh0dHBzOi8vZ2l0bGFiLmNvbSJ9.jn9zIVbB0zBy_q6PaPXjT5qq3EpwZLt-ToJEDTB6ACT332TqIjoWch2AUA49e47eqVYQmcaO3ZVSM-cyIExWFVT3NYxU5_HQm5wHTjstcLkmiEiSQPVh8N3-Vk9cR2oEk8vZMZEbtWSGVqAWqjCRSQjY5KoyngMwzp7RiT0o3uEgG9raIpfkhfROp27ZNlOA4CxwOfBQ18zsudz5W55Lzivt3RUosPJ1SLrkFF_gemyMVmY5pNS145FbdbvNgfsFshaq2rC8vm9q1HYyiTNGRRTq25yxbeYJjO2h8p9kKZ-5Id08J1TK32mhejAhl5N0niyWJ_GpbjavmYAWroZZNw"
+        },
+        {
+            "key": "CI_JOB_NAME",
+            "masked": false,
+            "public": true,
+            "value": "test-job"
+        },
+        {
+            "key": "CI_JOB_NAME_SLUG",
+            "masked": false,
+            "public": true,
+            "value": "test-job"
+        },
+        {
+            "key": "CI_JOB_STAGE",
+            "masked": false,
+            "public": true,
+            "value": "test"
+        },
+        {
+            "key": "CI_NODE_TOTAL",
+            "masked": false,
+            "public": true,
+            "value": "1"
+        },
+        {
+            "key": "CI",
+            "masked": false,
+            "public": true,
+            "value": "true"
+        },
+        {
+            "key": "GITLAB_CI",
+            "masked": false,
+            "public": true,
+            "value": "true"
+        },
+        {
+            "key": "CI_SERVER_URL",
+            "masked": false,
+            "public": true,
+            "value": "https://gitlab.com"
+        },
+        {
+            "key": "CI_SERVER_HOST",
+            "masked": false,
+            "public": true,
+            "value": "gitlab.com"
+        },
+        {
+            "key": "CI_SERVER_PORT",
+            "masked": false,
+            "public": true,
+            "value": "443"
+        },
+        {
+            "key": "CI_SERVER_PROTOCOL",
+            "masked": false,
+            "public": true,
+            "value": "https"
+        },
+        {
+            "key": "CI_SERVER_SHELL_SSH_HOST",
+            "masked": false,
+            "public": true,
+            "value": "gitlab.com"
+        },
+        {
+            "key": "CI_SERVER_SHELL_SSH_PORT",
+            "masked": false,
+            "public": true,
+            "value": "22"
+        },
+        {
+            "key": "CI_SERVER_NAME",
+            "masked": false,
+            "public": true,
+            "value": "GitLab"
+        },
+        {
+            "key": "CI_SERVER_VERSION",
+            "masked": false,
+            "public": true,
+            "value": "16.4.0-pre"
+        },
+        {
+            "key": "CI_SERVER_VERSION_MAJOR",
+            "masked": false,
+            "public": true,
+            "value": "16"
+        },
+        {
+            "key": "CI_SERVER_VERSION_MINOR",
+            "masked": false,
+            "public": true,
+            "value": "4"
+        },
+        {
+            "key": "CI_SERVER_VERSION_PATCH",
+            "masked": false,
+            "public": true,
+            "value": "0"
+        },
+        {
+            "key": "CI_SERVER_REVISION",
+            "masked": false,
+            "public": true,
+            "value": "39a090f21a6"
+        },
+        {
+            "key": "GITLAB_FEATURES",
+            "masked": false,
+            "public": true,
+            "value": "audit_events,blocked_issues,board_iteration_lists,code_owners,code_review_analytics,contribution_analytics,elastic_search,full_codequality_report,group_activity_analytics,group_bulk_edit,group_webhooks,issuable_default_templates,issue_weights,iterations,ldap_group_sync,member_lock,merge_request_approvers,milestone_charts,multiple_issue_assignees,multiple_ldap_servers,multiple_merge_request_assignees,multiple_merge_request_reviewers,project_merge_request_analytics,protected_refs_for_users,push_rules,repository_mirrors,resource_access_token,seat_link,usage_quotas,visual_review_app,wip_limits,zoekt_code_search,blocked_work_items,description_diffs,send_emails_from_admin_area,repository_size_limit,maintenance_mode,scoped_issue_board,adjourned_deletion_for_projects_and_groups,admin_audit_log,auditor_user,blocking_merge_requests,board_assignee_lists,board_milestone_lists,ci_cd_projects,ci_namespace_catalog,ci_secrets_management,cluster_agents_ci_impersonation,cluster_agents_user_impersonation,cluster_deployments,code_owner_approval_required,code_suggestions,commit_committer_check,commit_committer_name_check,compliance_framework,custom_compliance_frameworks,cross_project_pipelines,custom_file_templates,custom_file_templates_for_namespace,custom_project_templates,cycle_analytics_for_groups,cycle_analytics_for_projects,db_load_balancing,default_branch_protection_restriction_in_groups,default_project_deletion_protection,delete_unconfirmed_users,dependency_proxy_for_packages,disable_name_update_for_users,disable_personal_access_tokens,domain_verification,email_additional_text,epics,extended_audit_events,external_authorization_service_api_management,feature_flags_related_issues,feature_flags_code_references,file_locks,geo,generic_alert_fingerprinting,git_two_factor_enforcement,github_integration,group_allowed_email_domains,group_coverage_reports,group_forking_protection,group_milestone_project_releases,group_project_templates,group_repository_analytics,group_saml,group_scoped_ci_variables,group_wikis,ide_schema_config,incident_metric_upload,incident_sla,instance_level_scim,issues_analytics,jira_issues_integration,ldap_group_sync_filter,merge_pipelines,merge_request_performance_metrics,admin_merge_request_approvers_rules,merge_trains,metrics_reports,multiple_alert_http_integrations,multiple_approval_rules,multiple_group_issue_boards,object_storage,microsoft_group_sync,operations_dashboard,package_forwarding,pages_size_limit,pages_multiple_versions,productivity_analytics,project_aliases,protected_environments,reject_non_dco_commits,reject_unsigned_commits,remote_development,saml_group_sync,service_accounts,scoped_labels,smartcard_auth,swimlanes,target_branch_rules,type_of_work_analytics,minimal_access_role,unprotection_restrictions,ci_project_subscriptions,incident_timeline_view,oncall_schedules,escalation_policies,export_user_permissions,zentao_issues_integration,coverage_check_approval_rule,issuable_resource_links,group_protected_branches,group_level_merge_checks_setting,oidc_client_groups_claim,disable_deleting_account_for_users,group_ip_restriction,password_complexity,ai_chat,ai_config_chat,ai_features,ai_git_command,ai_tanuki_bot,ai_analyze_ci_job_failure,api_discovery,api_fuzzing,auto_rollback,breach_and_attack_simulation,fill_in_merge_request_template,no_code_automation,cluster_image_scanning,external_status_checks,combined_project_analytics_dashboards,compliance_pipeline_configuration,container_scanning,credentials_inventory,custom_roles,dast,dependency_scanning,devops_adoption,dora4_analytics,enterprise_templates,environment_alerts,evaluate_group_level_compliance_pipeline,explain_code,external_audit_events,generate_description,generate_commit_message,generate_test_file,git_abuse_rate_limit,group_ci_cd_analytics,group_level_compliance_dashboard,group_level_analytics_dashboard,group_level_devops_adoption,incident_management,inline_codequality,insights,instance_level_devops_adoption,issuable_health_status,issues_completed_analytics,jira_vulnerabilities_integration,jira_issue_association_enforcement,kubernetes_cluster_vulnerabilities,license_scanning,okrs,personal_access_token_expiration_policy,product_analytics,project_quality_summary,project_level_analytics_dashboard,prometheus_alerts,quality_management,related_epics,release_evidence_test_artifacts,report_approver_rules,required_ci_templates,requirements,runner_maintenance_note,runner_performance_insights,runner_upgrade_management,runner_upgrade_management_for_namespace,sast,sast_iac,sast_custom_rulesets,sast_fp_reduction,secret_detection,security_configuration_in_ui,security_dashboard,security_on_demand_scans,security_orchestration_policies,security_training,ssh_key_expiration_policy,summarize_mr_changes,summarize_my_mr_code_review,summarize_notes,summarize_submitted_review,stale_runner_cleanup_for_namespace,status_page,suggested_reviewers,subepics,unique_project_download_limit,vulnerability_auto_fix,vulnerability_finding_signatures,coverage_fuzzing"
+        },
+        {
+            "key": "CI_PROJECT_ID",
+            "masked": false,
+            "public": true,
+            "value": "48844863"
+        },
+        {
+            "key": "CI_PROJECT_NAME",
+            "masked": false,
+            "public": true,
+            "value": "gitlab-runner-test"
+        },
+        {
+            "key": "CI_PROJECT_TITLE",
+            "masked": false,
+            "public": true,
+            "value": "gitlab-runner-test"
+        },
+        {
+            "key": "CI_PROJECT_DESCRIPTION",
+            "masked": false,
+            "public": true,
+            "value": null
+        },
+        {
+            "key": "CI_PROJECT_PATH",
+            "masked": false,
+            "public": true,
+            "value": "cunity/gitlab-runner-test"
+        },
+        {
+            "key": "CI_PROJECT_PATH_SLUG",
+            "masked": false,
+            "public": true,
+            "value": "cunity-gitlab-runner-test"
+        },
+        {
+            "key": "CI_PROJECT_NAMESPACE",
+            "masked": false,
+            "public": true,
+            "value": "cunity"
+        },
+        {
+            "key": "CI_PROJECT_NAMESPACE_ID",
+            "masked": false,
+            "public": true,
+            "value": "2907692"
+        },
+        {
+            "key": "CI_PROJECT_ROOT_NAMESPACE",
+            "masked": false,
+            "public": true,
+            "value": "cunity"
+        },
+        {
+            "key": "CI_PROJECT_URL",
+            "masked": false,
+            "public": true,
+            "value": "https://gitlab.com/cunity/gitlab-runner-test"
+        },
+        {
+            "key": "CI_PROJECT_VISIBILITY",
+            "masked": false,
+            "public": true,
+            "value": "private"
+        },
+        {
+            "key": "CI_PROJECT_REPOSITORY_LANGUAGES",
+            "masked": false,
+            "public": true,
+            "value": ""
+        },
+        {
+            "key": "CI_PROJECT_CLASSIFICATION_LABEL",
+            "masked": false,
+            "public": true,
+            "value": ""
+        },
+        {
+            "key": "CI_DEFAULT_BRANCH",
+            "masked": false,
+            "public": true,
+            "value": "main"
+        },
+        {
+            "key": "CI_CONFIG_PATH",
+            "masked": false,
+            "public": true,
+            "value": ".gitlab-ci.yml"
+        },
+        {
+            "key": "CI_PAGES_DOMAIN",
+            "masked": false,
+            "public": true,
+            "value": "gitlab.io"
+        },
+        {
+            "key": "CI_PAGES_URL",
+            "masked": false,
+            "public": true,
+            "value": "https://cunity.gitlab.io/gitlab-runner-test"
+        },
+        {
+            "key": "CI_REGISTRY",
+            "masked": false,
+            "public": true,
+            "value": "registry.gitlab.com"
+        },
+        {
+            "key": "CI_REGISTRY_IMAGE",
+            "masked": false,
+            "public": true,
+            "value": "registry.gitlab.com/cunity/gitlab-runner-test"
+        },
+        {
+            "key": "CI_DEPENDENCY_PROXY_SERVER",
+            "masked": false,
+            "public": true,
+            "value": "gitlab.com:443"
+        },
+        {
+            "key": "CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX",
+            "masked": false,
+            "public": true,
+            "value": "gitlab.com:443/cunity/dependency_proxy/containers"
+        },
+        {
+            "key": "CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX",
+            "masked": false,
+            "public": true,
+            "value": "gitlab.com:443/cunity/dependency_proxy/containers"
+        },
+        {
+            "key": "CI_API_V4_URL",
+            "masked": false,
+            "public": true,
+            "value": "https://gitlab.com/api/v4"
+        },
+        {
+            "key": "CI_API_GRAPHQL_URL",
+            "masked": false,
+            "public": true,
+            "value": "https://gitlab.com/api/graphql"
+        },
+        {
+            "key": "CI_TEMPLATE_REGISTRY_HOST",
+            "masked": false,
+            "public": true,
+            "value": "registry.gitlab.com"
+        },
+        {
+            "key": "CI_PIPELINE_IID",
+            "masked": false,
+            "public": true,
+            "value": "1"
+        },
+        {
+            "key": "CI_PIPELINE_SOURCE",
+            "masked": false,
+            "public": true,
+            "value": "push"
+        },
+        {
+            "key": "CI_PIPELINE_CREATED_AT",
+            "masked": false,
+            "public": true,
+            "value": "2023-08-27T23:16:01Z"
+        },
+        {
+            "key": "CI_PIPELINE_NAME",
+            "masked": false,
+            "public": true,
+            "value": null
+        },
+        {
+            "key": "CI_COMMIT_SHA",
+            "masked": false,
+            "public": true,
+            "value": "4440e199a8012a22d9da87da53cff88b4967c50c"
+        },
+        {
+            "key": "CI_COMMIT_SHORT_SHA",
+            "masked": false,
+            "public": true,
+            "value": "4440e199"
+        },
+        {
+            "key": "CI_COMMIT_BEFORE_SHA",
+            "masked": false,
+            "public": true,
+            "value": "a3659fbd77a0238f056df7b181d57e030abc773e"
+        },
+        {
+            "key": "CI_COMMIT_REF_NAME",
+            "masked": false,
+            "public": true,
+            "value": "main"
+        },
+        {
+            "key": "CI_COMMIT_REF_SLUG",
+            "masked": false,
+            "public": true,
+            "value": "main"
+        },
+        {
+            "key": "CI_COMMIT_BRANCH",
+            "masked": false,
+            "public": true,
+            "value": "main"
+        },
+        {
+            "key": "CI_COMMIT_MESSAGE",
+            "masked": false,
+            "public": true,
+            "value": "Add new file"
+        },
+        {
+            "key": "CI_COMMIT_TITLE",
+            "masked": false,
+            "public": true,
+            "value": "Add new file"
+        },
+        {
+            "key": "CI_COMMIT_DESCRIPTION",
+            "masked": false,
+            "public": true,
+            "value": ""
+        },
+        {
+            "key": "CI_COMMIT_REF_PROTECTED",
+            "masked": false,
+            "public": true,
+            "value": "true"
+        },
+        {
+            "key": "CI_COMMIT_TIMESTAMP",
+            "masked": false,
+            "public": true,
+            "value": "2023-08-27T23:15:57+00:00"
+        },
+        {
+            "key": "CI_COMMIT_AUTHOR",
+            "masked": false,
+            "public": true,
+            "value": "Ian Norton <inorton@gmail.com>"
+        },
+        {
+            "key": "CI_RUNNER_ID",
+            "masked": false,
+            "public": true,
+            "value": "27272830"
+        },
+        {
+            "key": "CI_RUNNER_DESCRIPTION",
+            "masked": false,
+            "public": true,
+            "value": "test-runner"
+        },
+        {
+            "key": "CI_RUNNER_TAGS",
+            "masked": false,
+            "public": true,
+            "value": "[\"test-runner\"]"
+        },
+        {
+            "key": "GITLAB_USER_ID",
+            "masked": false,
+            "public": true,
+            "value": "1292387"
+        },
+        {
+            "key": "GITLAB_USER_EMAIL",
+            "masked": false,
+            "public": true,
+            "value": "inorton@gmail.com"
+        },
+        {
+            "key": "GITLAB_USER_LOGIN",
+            "masked": false,
+            "public": true,
+            "value": "inorton"
+        },
+        {
+            "key": "GITLAB_USER_NAME",
+            "masked": false,
+            "public": true,
+            "value": "Ian Norton"
+        }
+    ]
+}
