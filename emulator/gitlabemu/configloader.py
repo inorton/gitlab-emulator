@@ -18,8 +18,14 @@ from .jobs import NoSuchJob
 from . import yamlloader
 from .references import process_references
 from .userconfig import get_user_config_context
-from gitlabemu.ruleparser import evaluate_rule
 from .logmsg import warning, debugrule, fatal
+
+try:
+    from .ruleparser import evaluate_rule
+except ImportError:
+    # pragma: no cover
+    evaluate_rule = None
+
 
 DEFAULT_CI_FILE = ".gitlab-ci.yml"
 
