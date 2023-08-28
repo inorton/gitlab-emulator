@@ -6,7 +6,7 @@ def test_version(capfd):
     with pytest.raises(SystemExit):
         run(["--version"])
     stdout, _ = capfd.readouterr()
-    assert "1.5." in stdout
+    assert "16." in stdout
 
 
 @pytest.mark.usefixtures("in_topdir")
