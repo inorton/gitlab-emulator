@@ -138,6 +138,7 @@ def test_mock_request_one_job(mocker, tmp_path, caplog):
         (glr.workdir / "project").mkdir()
         glr.poll()
     messages = caplog.messages
+    assert check_output.called
     assert f"got a job id={jobid}" in messages
     assert "running shell job myjob" in messages
     assert f"job {jobid} done" in messages
