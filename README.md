@@ -124,4 +124,26 @@ emulator:
 
 # Gitlab Python Runner
 
-The python implementation of gitlab-runner is no longer supported.
+Gitlab-emulator now contains a very basic (experimental) shell runner, aimed at use on systems that cannot run the official gitlab-runner
+program such as those that have no Golang support.
+
+The runner only supports the shell executor.  And uses a basic configuration file format:
+
+```
+ca_cert: /etc/gitlab/my-ca.crt
+http_proxy: http://127.0.0.1:8080/
+https_proxy: http://127.0.0.1:8080/
+server: https://gitlab.com
+token: runner-token-secret-string
+builds_dir: /home/gitlab-runner/builds
+```
+
+`http_proxy`, `https_proxy` and `ca_cert` are optional. 
+
+`token` is the string typically set in a `config.toml` files as `token` in the `[[runners]]` section after you have run `gitlab-runner register` on another system.
+
+You can invoke the runner like so:
+
+```
+python3 -m gitlabemu.cirunner --config runner-config.yml
+```

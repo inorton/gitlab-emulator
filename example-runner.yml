@@ -1,0 +1,8 @@
+ca_cert: /etc/gitlab/my-ca.crt
+http_proxy: http://127.0.0.1:8080/
+https_proxy: http://127.0.0.1:8080/
+server: https://gitlab.com
+token: runner-token-secret-string
+builds_dir: /home/gitlab-runner/builds
+poll_interval: 10  # seconds between polling for jobs
+max_jobs: 5  # exit after 5 jobs,  set to -1 for infinate
