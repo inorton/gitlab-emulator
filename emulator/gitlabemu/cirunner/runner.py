@@ -65,10 +65,10 @@ class TraceUploader:
 
     def flush(self):
         if self.buf:
-            self._write(self.buf)
+            self.send(self.buf)
             self.buf = ""
 
-    def _write(self, data):
+    def send(self, data):
         url = f"{self.api_url}/api/v4/jobs/{self.job_number}/trace"
 
         for masked in self.masked_strings:
@@ -165,7 +165,6 @@ class JobRunner:
 
         if resp.status_code == 201:
             self.run_job(resp, session)
-
         else:
             logmsg.info("no job")
 
@@ -274,20 +273,24 @@ class JobRunner:
 
     def git_clone(self, giturl: str, folder: str, checkout: str) -> Path:
         workdir = Path(tempfile.mkdtemp(dir=self.workdir))
+        repo = workdir / folder
+        repo.mkdir(parents=True)
+        self.runner_info_msg(f"clone {giturl} into {workdir} ..")
         try:
-            output = subprocess.check_output(["git", "clone", giturl, folder],
+            output = subprocess.check_output(["git", "-C", ".", "clone", giturl],
                                              encoding="utf-8",
-                                             cwd=workdir, stderr=subprocess.STDOUT)
+                                             cwd=repo, stderr=subprocess.STDOUT)
             self.tracer.write(output)
-            output = subprocess.check_output(["git", "-C", folder, "checkout", "-f", checkout],
+            self.runner_info_msg(f"checkout {checkout} ..")
+            output = subprocess.check_output(["git", "-C", ".", "checkout", "-f", checkout],
                                              encoding="utf-8",
-                                             cwd=workdir, stderr=subprocess.STDOUT)
+                                             cwd=repo, stderr=subprocess.STDOUT)
             self.tracer.write(output)
         except subprocess.CalledProcessError as cpe:
             self.tracer.write(cpe.output)
             raise
 
-        return workdir / folder
+        return repo
 
     def runner_info_msg(self, msg):
         self.tracer.writeline(f"{ansi.ANSI_GREEN}{msg}{ansi.ANSI_RESET}")

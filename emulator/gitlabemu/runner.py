@@ -328,7 +328,10 @@ def do_gitlab_from(options: argparse.Namespace, loader):
 
 def get_version():
     import pkg_resources
-    return pkg_resources.get_distribution("gitlab-emulator").version
+    try:
+        return pkg_resources.get_distribution("gitlab-emulator").version
+    except pkg_resources.DistributionNotFound:
+        return "local"
 
 
 def do_version():
