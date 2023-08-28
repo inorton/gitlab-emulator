@@ -37,6 +37,7 @@ setup(
             "gle=gitlabemu.runner:run",
             "gle-config=gitlabemu.configtool:main",
             "glp=gitlabemu.glp.tool:run",
+            "gitlab-py-runner=gitlabemu.cirunner.runner:run"
         ]
     }
 )

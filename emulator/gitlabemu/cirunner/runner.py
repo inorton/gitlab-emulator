@@ -26,6 +26,12 @@ USER_AGENT = f"gitlab-emulator runner {runner.get_version()}"
 CONTENT_TYPE = "text/plain"
 
 
+def get_session() -> requests.Session:
+    session = requests.Session()
+    session.headers[HEADER_USER_AGENT] = USER_AGENT
+    return session
+
+
 def get_arch() -> str:
     mach = platform.machine()
     if mach == "x86_64":
@@ -40,8 +46,7 @@ class TraceUploader:
         self.api_url = api_url.rstrip("/")  # eg https://gitlab.com/api/v4/jobs/
         self.job_number = job_num   # eg 1234
         self.job_token = job_token
-        self.session = requests.Session()
-        self.session.headers[HEADER_USER_AGENT] = USER_AGENT
+        self.session = get_session()
         self.session.headers[HEADER_JOB_TOKEN] = job_token
         self.on_error = on_error
         self.masked_strings = []
@@ -153,10 +158,7 @@ class JobRunner:
         return request
 
     def poll(self):
-        session = requests.Session()
-        session.headers = {
-            HEADER_USER_AGENT: USER_AGENT,
-        }
+        session = get_session()
         request = self.make_job_request()
 
         resp = session.post(f"{self.api_url}/api/v4/jobs/request", json=request)
@@ -307,6 +309,21 @@ class RunnerConfig:
         self.poll_interval = 10
         self.max_jobs = -1
 
+    def dump(self, filepath: Path):
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        with filepath.open("w") as fd:
+            data = {
+                "builds_dir": str(self.builds_dir),
+                "token": self.token,
+                "server": self.server,
+                "poll_interval": self.poll_interval,
+                "max_jobs": self.max_jobs,
+            }
+            if self.ca_cert is not None:
+                data["ca_cert"] = str(self.ca_cert)
+
+            yaml.dump(data, fd, indent=2, sort_keys=True)
+
     def load(self, filepath: Path):
         with filepath.open("r") as fd:
             data = yaml.safe_load(fd)
@@ -333,13 +350,14 @@ class RunnerConfig:
         return envs
 
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--config", "-c", help="Runner config file", metavar="CONFIG", type=Path, required=True)
-parser.add_argument("--builds", "-C", help="Change to PATH before running jobs", metavar="PATH", type=Path)
-
-
 def run(args=None):
     opts = parser.parse_args(args)
+    if opts.config is None:
+        opts.config = Path(os.path.expanduser(os.path.join("~", "gitlab-py-runner.yml")))
+    opts.func(opts)
+
+
+def command_run(opts: argparse.Namespace):
     if not opts.config.exists():
         logmsg.info(f"no such config: {opts.config}")
 
@@ -365,3 +383,53 @@ def run(args=None):
                     break
     finally:
         logmsg.FATAL_EXIT = True
+
+
+def command_register(opts: argparse.Namespace):
+    cfg = RunnerConfig()
+    cfg.server = opts.server
+    reg_token = opts.reg_token
+
+    if reg_token:
+        logmsg.info(f"register new runner on {cfg.server} ..")
+        logmsg.info(f"with tags: {opts.tag_list} ")
+        session = get_session()
+        resp = session.post(
+            f"{cfg.server}/api/v4/runners",
+            data={
+                "tag_list": opts.tag_list,
+                "token": reg_token,
+                "description": f"{USER_AGENT} on {platform.node()}"
+            }
+        )
+        resp.raise_for_status()
+        logmsg.info("registration complete")
+        data = resp.json()
+        cfg.token = data["token"]
+
+    elif opts.token:
+        logmsg.info(f"saving runner config")
+        cfg.token = opts.token
+
+    logmsg.info(f"saving config {opts.config}")
+    cfg.dump(opts.config)
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--config", "-c", help="Runner config file", metavar="CONFIG", type=Path)
+parser.add_argument("--builds", "-C", help="Change to PATH before running jobs", metavar="PATH", type=Path)
+
+subparsers = parser.add_subparsers(help="commands")
+
+run_parser = subparsers.add_parser("run", help="Start the runner and poll for jobs")
+run_parser.set_defaults(func=command_run)
+
+reg_parser = subparsers.add_parser("register", help="Register this runner")
+reg_parser.add_argument("--server", type=str, default="https://gitlab.com")
+token_grp = reg_parser.add_mutually_exclusive_group()
+token_grp.add_argument("--reg-token", type=str)
+token_grp.add_argument("--token", type=str)
+reg_parser.add_argument("--ca-cert", type=Path, help="Path to a custom CA cert")
+reg_parser.add_argument("--https-proxy", type=str, help="Use a HTTP proxy")
+reg_parser.add_argument("--tag-list", type=str, help="Set the tags the runner will use")
+reg_parser.set_defaults(func=command_register)

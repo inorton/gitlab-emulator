@@ -140,10 +140,18 @@ builds_dir: /home/gitlab-runner/builds
 
 `http_proxy`, `https_proxy` and `ca_cert` are optional. 
 
-`token` is the string typically set in a `config.toml` files as `token` in the `[[runners]]` section after you have run `gitlab-runner register` on another system.
-
-You can invoke the runner like so:
+`token` is the string typically set in a `config.toml` files as `token` in the `[[runners]]` section after you have run `gitlab-runner register` on another system. Or if you have used the runner creation page on gitlab and have a new runner token, eg:
 
 ```
-python3 -m gitlabemu.cirunner --config runner-config.yml
+gitlab-py-runner register --token glrt-Cfx1-JPQzmhTuXNuR
+```
+
+You can then invoke the runner like so:
+
+```
+gitlab-py-runner run
+```
+
+```
+python3 -m gitlabemu.cirunner 
 ```
