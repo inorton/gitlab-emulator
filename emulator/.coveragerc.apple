@@ -2,7 +2,9 @@
 # .coveragerc to control coverage.py
 [run]
 branch = True
-source = gitlabemu
+source =
+    gitlabemu
+    gitlabemu/cirunner
 plugins =
     coverage_conditional_plugin
 
