@@ -157,7 +157,6 @@ class JobRunner:
         session.headers = {
             HEADER_USER_AGENT: USER_AGENT,
         }
-        logmsg.FATAL_EXIT = False
         request = self.make_job_request()
 
         resp = session.post(f"{self.api_url}/api/v4/jobs/request", json=request)
@@ -351,11 +350,15 @@ def run(args=None):
     os.chdir(cfg.builds_dir)
     os.environ.update(envs)
 
-    glr = JobRunner(cfg.server, cfg.token)
+    try:
+        logmsg.FATAL_EXIT = False
+        glr = JobRunner(cfg.server, cfg.token)
 
-    while True:
-        glr.poll()
-        time.sleep(cfg.poll_interval)
-        if cfg.max_jobs > 0:
-            if glr.job_count >= cfg.max_jobs:
-                break
+        while True:
+            glr.poll()
+            time.sleep(cfg.poll_interval)
+            if cfg.max_jobs > 0:
+                if glr.job_count >= cfg.max_jobs:
+                    break
+    finally:
+        logmsg.FATAL_EXIT = True
