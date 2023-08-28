@@ -11,6 +11,8 @@ It has some preliminary understanding of rule expressions allowing you to develo
 
 __glp__ is a recent tool added to explore and manage real pipelines, it supports downloading of artifacts and triggering of pipelines on the server. It also supports generation of subsets of a pipeline and either running those on a temporary branch or outputting to a file.  Aside from this last feature, _glp_ has been surpassed by the recent _glab_ [glab CLI project](https://gitlab.com/gitlab-org/cli) which you should use if you want to manage pipelines on a real server.
 
+__gitlab-py-runner__ is a basic shell runner intended to support systems that cannot run Golang apps such as AIX or HPUX or embedded systems on uncommon architectures.
+
 Supported Gitlab v14.2+ features:
 
  * `needs` can use any job regardless of the `stage` value
@@ -30,13 +32,14 @@ Requirements:
 
 Supported Platforms:
 
-| Emulator                         |
-| -------------------------------- |
-| Windows (shell + docker)         |
-| Linux (shell + docker)           |
-| Mac (shell + docker)             |
+|         | emulator (shell) | emulator (docker) | gitlab-py-runner (shell) |
+|---------|------------------|-------------------|--------------------------|
+| Linux   | yes              | yes               | test only                |
+| Windows | yes              | yes (windows)     | test only                |
+| MacOS   | yes              | yes (linux)       | test only                |
+| Unix    | yes              | no                | yes                      |
 
-_Note_ GitlabPythonRunner is no longer supported
+_Note_ GitlabPythonRunner is a earlier iteration of a python based runner and no longer supported
 
 ## Emulator Installation
 
