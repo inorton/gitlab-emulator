@@ -326,20 +326,15 @@ def do_gitlab_from(options: argparse.Namespace, loader):
             die(str(error))
 
 
+def get_version():
+    import pkg_resources
+    return pkg_resources.get_distribution("gitlab-emulator").version
+
+
 def do_version():
     """Print the current package version"""
-    try:  # pragma: no cover
-        ver = subprocess.check_output([sys.executable, "-m", "pip", "show", "gitlab-emulator"],
-                                      encoding="utf-8",
-                                      stderr=subprocess.STDOUT)
-        for line in ver.splitlines(keepends=False):
-            if "Version:" in line:
-                words = line.split(":", 1)
-                ver = words[1]
-                break
-    except subprocess.CalledProcessError:
-        ver = "unknown"
-    print(ver.strip())
+    ver = get_version()
+    print(ver)
     sys.exit(0)
 
 

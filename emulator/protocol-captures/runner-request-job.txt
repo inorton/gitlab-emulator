@@ -85,7 +85,18 @@ CF-RAY: 7fd8051cb8ac0764-MAN
 
 {
     "allow_git_fetch": true,
-    "artifacts": null,
+    "artifacts": [
+        {
+            "artifact_format": "zip",
+            "artifact_type": "archive",
+            "expire_in": null,
+            "name": null,
+            "paths": [
+                "space.txt"
+            ],
+            "when": null
+        }
+    ],
     "cache": [],
     "credentials": [
         {
@@ -179,10 +190,19 @@ CF-RAY: 7fd8051cb8ac0764-MAN
             "name": "script",
             "script": [
                 "uname -a",
-                "df -h"
+                "df -h > space.txt"
             ],
             "timeout": 3600,
             "when": "on_success"
+        },
+        {
+            "allow_failure": true,
+            "name": "after_script",
+            "script": [
+                "ls -l space.txt"
+            ],
+            "timeout": 3600,
+            "when": "always"
         }
     ],
     "token": "5u8xL_z5pBsj",
