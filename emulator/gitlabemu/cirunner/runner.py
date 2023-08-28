@@ -354,7 +354,10 @@ def run(args=None):
     opts = parser.parse_args(args)
     if opts.config is None:
         opts.config = Path(os.path.expanduser(os.path.join("~", "gitlab-py-runner.yml")))
-    opts.func(opts)
+    if hasattr(opts, "func"):
+        opts.func(opts)
+    else:
+        parser.print_usage()
 
 
 def command_run(opts: argparse.Namespace):

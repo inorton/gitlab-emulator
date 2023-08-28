@@ -31,7 +31,7 @@ def test_runner_config(in_topdir):
 
 def test_runner_bad_config(in_topdir, caplog, capfd):
     with pytest.raises(requests.HTTPError) as err:
-        run(["--builds", os.getcwd(), "--config", "example-runner.yml"])
+        run(["--builds", os.getcwd(), "--config", "example-runner.yml", "run"])
 
     assert err.value.response.status_code == 403
 
