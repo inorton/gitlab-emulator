@@ -15,6 +15,7 @@ from typing import Optional, Dict
 
 from .. import runner, logmsg, ansi
 from ..jobs import Job
+from .junitxml import merge_junit_files
 
 
 HEADER_JOB_TOKEN = "Job-Token"
@@ -219,45 +220,62 @@ class JobRunner:
             send["output"] = {"bytesize": self.tracer.offset + 1}
             if failed:
                 send["state"] = "failed"
+                self.runner_error_msg(f"job {send['state']}")
             else:
                 send["state"] = "success"
+                self.runner_info_msg(f"job {send['state']}")
 
             # do artifacts
-            self.runner_info_msg(f"job {send['state']}")
-            self.upload_job_artifacts(job_data, session, workspace)
-            shutil.rmtree(workspace)
+            try:
+                self.upload_job_artifacts(job_data, session, workspace)
+                shutil.rmtree(workspace)
 
-            session.put(f"{self.api_url}/api/v4/jobs/{job_data['id']}", json=send)
-            time.sleep(1)
-            # twice?
-            session.put(f"{self.api_url}/api/v4/jobs/{job_data['id']}", json=send)
+                session.put(f"{self.api_url}/api/v4/jobs/{job_data['id']}", json=send)
+                time.sleep(1)
+                # twice?
+                session.put(f"{self.api_url}/api/v4/jobs/{job_data['id']}", json=send)
+            except Exception as err:
+                assert err
+                import traceback
+                send["state"] = "failed"
+
+                self.runner_error_msg("runner failure")
+                error = traceback.format_exc()
+                self.runner_error_msg(error)
+                logmsg.warning(error)
+
+                session.put(f"{self.api_url}/api/v4/jobs/{job_data['id']}", json=send)
 
     def upload_job_artifacts(self, job_data, session, workspace):
         job_id = job_data['id']
         art_url = f"{self.api_url}/api/v4/jobs/{job_id}/artifacts"
         job_token = job_data['token']
         for arti in job_data["artifacts"]:
-            art_type = arti.get("artifact_type", None)
-            art_format = arti.get("artifact_format", None)
-            art_name = arti.get("name", None)
+            art_type = arti.get("artifact_type")
+            art_format = arti.get("artifact_format")
+            art_name = arti.get("name")
+
+            if art_name is None:
+                art_name = "archive.zip"
 
             if art_format:
                 temp_archives = Path(tempfile.mkdtemp(dir=self.workdir))
                 local_file = temp_archives / art_name
                 try:
                     if art_type == "junit":
-                        with gzip.GzipFile(local_file, "wb") as gz:
-                            # make a gzip of all the report files
-                            for art_path in arti.get("paths", []):
-                                matched_files = list(workspace.rglob(art_path))
-                                for found in matched_files:
-                                    gz.write(found.read_bytes())
-                        self.post_artifact(session, local_file, art_format, art_name, art_type, art_url, job_token)
+                        junit_files = []
+                        for art_path in arti.get("paths", []):
+                            junit_files.extend(list(workspace.rglob(art_path)))
+                        if len(junit_files):
+                            merged_file = temp_archives / "junit.xml"
+                            merge_junit_files(merged_file, junit_files)
+
+                            with gzip.GzipFile(local_file, "wb") as gz:
+                                gz.write(merged_file.read_bytes())
+                            self.post_artifact(session, local_file, art_format, art_name, art_type, art_url, job_token)
 
                     elif art_type == "archive":
-                        if not art_name:
-                            art_name = "archive.zip"
-                        with zipfile.ZipFile(temp_archives / art_name, mode="w") as zf:
+                        with zipfile.ZipFile(local_file, mode="w") as zf:
                             for art_path in arti.get("paths", []):
                                 matched_files = list(workspace.rglob(art_path))
                                 self.runner_info_msg(
@@ -311,6 +329,9 @@ class JobRunner:
 
     def runner_info_msg(self, msg):
         self.tracer.writeline(f"{ansi.ANSI_GREEN}{msg}{ansi.ANSI_RESET}")
+
+    def runner_error_msg(self, msg):
+        self.tracer.writeline(f"{ansi.ANSI_RED}{msg}{ansi.ANSI_RESET}")
 
 
 class RunnerConfig:

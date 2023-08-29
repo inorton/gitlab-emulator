@@ -10,6 +10,7 @@ requirements = [
     "python-gitlab==2.10.1; python_version<='3.6'",
     "certifi>=2022.6",
     "antlr4-python3-runtime==4.11.1",
+    "defusedxml==0.7.1",
 ]
 
 
