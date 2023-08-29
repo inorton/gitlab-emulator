@@ -294,12 +294,12 @@ class JobRunner:
         repo.mkdir(parents=True)
         self.runner_info_msg(f"clone {giturl} into {workdir} ..")
         try:
-            output = subprocess.check_output(["git", "-C", ".", "clone", giturl],
+            output = subprocess.check_output(["git", "clone", giturl, "."],
                                              encoding="utf-8",
                                              cwd=repo, stderr=subprocess.STDOUT)
             self.tracer.write(output)
             self.runner_info_msg(f"checkout {checkout} ..")
-            output = subprocess.check_output(["git", "-C", ".", "checkout", "-f", checkout],
+            output = subprocess.check_output(["git", "checkout", "-f", checkout],
                                              encoding="utf-8",
                                              cwd=repo, stderr=subprocess.STDOUT)
             self.tracer.write(output)
