@@ -9,6 +9,7 @@ import tempfile
 import time
 import yaml
 import zipfile
+import gzip
 from pathlib import Path
 from typing import Optional, Dict
 
@@ -232,46 +233,60 @@ class JobRunner:
             session.put(f"{self.api_url}/api/v4/jobs/{job_data['id']}", json=send)
 
     def upload_job_artifacts(self, job_data, session, workspace):
+        job_id = job_data['id']
+        art_url = f"{self.api_url}/api/v4/jobs/{job_id}/artifacts"
+        job_token = job_data['token']
         for arti in job_data["artifacts"]:
             art_type = arti.get("artifact_type", None)
+            art_format = arti.get("artifact_format", None)
+            art_name = arti.get("name", None)
 
-            if art_type == "archive":
-                art_format = arti.get("artifact_format", None)
-                art_name = arti.get("name", "archive.zip")
-                if not art_name:
-                    art_name = "archive.zip"
-
+            if art_format:
                 temp_archives = Path(tempfile.mkdtemp(dir=self.workdir))
+                local_file = temp_archives / art_name
                 try:
-                    with zipfile.ZipFile(temp_archives / art_name, mode="w") as zf:
-                        for art_path in arti.get("paths", []):
-                            matched_files = list(workspace.rglob(art_path))
-                            self.runner_info_msg(
-                                f"artifacts: paths: - {art_path} matched {len(matched_files)} files in {workspace}")
-                            for found in matched_files:
-                                rel_name = found.relative_to(workspace)
-                                zf.write(found, arcname=rel_name)
+                    if art_type == "junit":
+                        with gzip.GzipFile(local_file, "wb") as gz:
+                            # make a gzip of all the report files
+                            for art_path in arti.get("paths", []):
+                                matched_files = list(workspace.rglob(art_path))
+                                for found in matched_files:
+                                    gz.write(found.read_bytes())
+                        self.post_artifact(session, local_file, art_format, art_name, art_type, art_url, job_token)
 
-                    art_url = f"{self.api_url}/api/v4/jobs/{job_data['id']}/artifacts"
-                    self.runner_info_msg(f"uploading {art_name} ..")
-                    job_request = session.post(
-                        art_url,
-                        headers={
-                            HEADER_USER_AGENT: USER_AGENT,
-                            HEADER_JOB_TOKEN: job_data['token'],
-                        },
-                        params={
-                            "artifact_format": art_format,
-                            "artifact_type": art_type
-                        },
-                        files={
-                            "file": (art_name, (temp_archives / art_name).open("rb"))
-                        }
-                    )
-                    job_request.raise_for_status()
+                    elif art_type == "archive":
+                        if not art_name:
+                            art_name = "archive.zip"
+                        with zipfile.ZipFile(temp_archives / art_name, mode="w") as zf:
+                            for art_path in arti.get("paths", []):
+                                matched_files = list(workspace.rglob(art_path))
+                                self.runner_info_msg(
+                                    f"artifacts: paths: - {art_path} matched {len(matched_files)} files in {workspace}")
+                                for found in matched_files:
+                                    rel_name = found.relative_to(workspace)
+                                    zf.write(found, arcname=rel_name)
 
+                        self.post_artifact(session, local_file, art_format, art_name, art_type, art_url, job_token)
                 finally:
                     shutil.rmtree(temp_archives)
+
+    def post_artifact(self, session, local_file, art_format, art_name, art_type, art_url, job_token):
+        self.runner_info_msg(f"uploading {art_name} ..")
+        job_request = session.post(
+            art_url,
+            headers={
+                HEADER_USER_AGENT: USER_AGENT,
+                HEADER_JOB_TOKEN: job_token,
+            },
+            params={
+                "artifact_format": art_format,
+                "artifact_type": art_type
+            },
+            files={
+                "file": (art_name, local_file.open("rb"))
+            }
+        )
+        job_request.raise_for_status()
 
     def git_clone(self, giturl: str, folder: str, checkout: str) -> Path:
         workdir = Path(tempfile.mkdtemp(dir=self.workdir))
