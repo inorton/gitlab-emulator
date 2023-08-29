@@ -15,7 +15,6 @@ from typing import Optional, Dict
 
 from .. import runner, logmsg, ansi
 from ..jobs import Job
-from .junitxml import merge_junit_files
 
 
 HEADER_JOB_TOKEN = "Job-Token"
@@ -260,19 +259,22 @@ class JobRunner:
 
             if art_format:
                 temp_archives = Path(tempfile.mkdtemp(dir=self.workdir))
-                local_file = temp_archives / art_name
+                local_file = temp_archives / (art_name + ".gz")
                 try:
                     if art_type == "junit":
                         junit_files = []
                         for art_path in arti.get("paths", []):
                             junit_files.extend(list(workspace.rglob(art_path)))
-                        if len(junit_files):
-                            merged_file = temp_archives / "junit.xml"
-                            merge_junit_files(merged_file, junit_files)
 
-                            with gzip.GzipFile(local_file, "wb") as gz:
-                                gz.write(merged_file.read_bytes())
-                            self.post_artifact(session, local_file, art_format, art_name, art_type, art_url, job_token)
+                        with local_file.open("wb") as outfile:
+                            for report in junit_files:
+                                report_file = temp_archives / report.name
+                                with gzip.GzipFile(report_file, "wb") as gz:
+                                    gz.write(report.read_bytes())
+                                outfile.write(report_file.read_bytes())
+
+                        if len(junit_files):
+                            self.post_artifact(session, local_file, art_format, local_file.name, art_type, art_url, job_token)
 
                     elif art_type == "archive":
                         with zipfile.ZipFile(local_file, mode="w") as zf:
