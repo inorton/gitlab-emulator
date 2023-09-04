@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+mkdir -p ~/.gle/venv
 venv_folder=$(readlink -f ~/.gle/venv)
 python3 -m venv --clear --copies ${venv_folder}
 . ${venv_folder}/bin/activate
