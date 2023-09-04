@@ -327,7 +327,12 @@ def test_docker_runner_exec(top_dir, capfd, temp_folder: Path):
 
     run(["-c", "test-ci.yml", "--exec", "alpine-test"])
     stdout, stderr = capfd.readouterr()
-    assert "running: exec docker --cicd-config-file" in stdout
+    for required in ["--cicd-config-file",
+                     "--docker-volumes",
+                     "--custom_build_dir-enabled",
+                     "--builds-dir /builds",
+                     "GIT_STRATEGY=none"]:
+        assert required in stdout
 
 
 @pytest.mark.usefixtures("has_docker")
