@@ -187,7 +187,20 @@ def gitlab_runner_exec(jobobj: Job):
             cmdline.append("docker")
         else:
             cmdline.append("shell")
-        cmdline.extend(["--cicd-config-file", temp_pipeline_file, jobobj.name])
+
+        # gitlab-runner exec docker
+        # --env GIT_DEPTH=1
+        # --env GIT_STRATEGY=none
+        # --cicd-config-file cicd/config/foo.yml
+        # --custom_build_dir-enabled
+        # --builds-dir $(dirname $(pwd))
+        # --env GIT_CLONE_PATH=$(pwd) job
+        cmdline.extend(["--cicd-config-file", temp_pipeline_file,
+                        "--env", "GIT_STRATEGY=none",
+                        "--env", "GIT_CLONE_PATH", os.getcwd(),
+                        "--custom_build_dir-enabled",
+                        "--builds-dir", os.path.dirname(os.getcwd()),
+                        jobobj.name])
 
         subprocess.check_call(cmdline)
 
