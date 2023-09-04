@@ -492,6 +492,7 @@ class DockerJob(Job):
                         capture=True,
                         stderr=subprocess.STDOUT)
                     self._has_bash = True
+                    info("bash found")
                 except subprocess.CalledProcessError as cpe:
                     assert cpe
         return self._has_bash

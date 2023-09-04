@@ -19,7 +19,7 @@ from .helpers import communicate as comm, is_windows, is_apple, is_linux, parse_
 from .ansi import ANSI_GREEN, ANSI_RESET
 from .ruleparser import evaluate_rule
 from .userconfig import get_user_config_context
-from .userconfigdata import GleRunnerConfig
+from .userconfigdata import GleRunnerConfig, SHELL_BASH
 from .variables import expand_variable
 from .gitlab.constraints import JOB_PERSISTED_VARIABLES, PIPELINE_PERSISTED_VARIABLES
 
@@ -449,6 +449,10 @@ class Job(object):
                 prog = ["powershell"]
             else:
                 prog = ["cmd.exe"]
+        else:
+            if self.runner.shell == SHELL_BASH:
+                if self.has_bash():
+                    prog = [SHELL_BASH]
         return prog
 
     def shell_on_error(self):
