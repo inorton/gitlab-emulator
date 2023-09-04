@@ -183,16 +183,24 @@ def gitlab_runner_exec(jobobj: Job):
         with open(temp_pipeline_file, "w") as tempcfg:
             tempcfg.write(ordered_dump(result))
         cmdline = ["gitlab-runner", "exec"]
+        repo_dir = os.getcwd()
+        repo_parent = os.path.dirname(repo_dir)
+
         if isinstance(jobobj, DockerJob):
             cmdline.append("docker")
+            # volume trickery, as our repo will be mounted r/o
+            repo_dir = os.path.join(repo_parent, os.path.basename(repo_dir))
+            rebind_volume = f"{repo_parent}:/builds:rw"
+            repo_parent = "/builds"
+            cmdline.extend(["--docker-volumes", rebind_volume])
         else:
             cmdline.append("shell")
 
         cmdline.extend(["--cicd-config-file", temp_pipeline_file,
                         "--env", "GIT_STRATEGY=none",
-                        "--env", "GIT_CLONE_PATH", os.getcwd(),
+                        "--env", "GIT_CLONE_PATH", repo_dir,
                         "--custom_build_dir-enabled",
-                        "--builds-dir", os.path.dirname(os.getcwd()),
+                        "--builds-dir", repo_parent,
                         jobobj.name])
 
         subprocess.check_call(cmdline)
