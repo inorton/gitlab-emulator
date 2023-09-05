@@ -13,7 +13,7 @@ from .jobs import Job
 from .jobtypes import JobFactory, ScriptJobFactory
 from .localfiles import restore_path_ownership
 from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note, has_docker
-from .logmsg import debugrule, enable_rule_debug
+from .logmsg import debugrule, enable_rule_debug, info
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
 from .userconfig import USER_CFG_ENV, get_user_config_context
 from .userconfigdata import UserContext
@@ -189,20 +189,21 @@ def gitlab_runner_exec(jobobj: Job):
         if isinstance(jobobj, DockerJob):
             cmdline.append("docker")
             # volume trickery, as our repo will be mounted r/o
-            repo_dir = os.path.join(repo_parent, os.path.basename(repo_dir))
             rebind_volume = f"{repo_parent}:/builds:rw"
             repo_parent = "/builds"
+            repo_dir = os.path.join(repo_parent, os.path.basename(repo_dir))
             cmdline.extend(["--docker-volumes", rebind_volume])
+            cmdline.extend(["--pre-build-script", f"git config --global --add safe.directory {repo_dir}"])
         else:
             cmdline.append("shell")
 
         cmdline.extend(["--cicd-config-file", temp_pipeline_file,
                         "--env", "GIT_STRATEGY=none",
-                        "--env", "GIT_CLONE_PATH", repo_dir,
+                        "--env", f"GIT_CLONE_PATH={repo_dir}",
                         "--custom_build_dir-enabled",
                         "--builds-dir", repo_parent,
                         jobobj.name])
-
+        info(f"Running {' '.join(cmdline)}")
         subprocess.check_call(cmdline)
 
     finally:
