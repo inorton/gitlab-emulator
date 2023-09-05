@@ -47,7 +47,7 @@ parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="
                     )
 parser.add_argument("--exec", default=False, action="store_true",
                     help="Execute the job using 'gitlab-runner exec' if possible. Note, this "
-                         "will not test uncommitted changes and will not produce any output files")
+                         "feature is experimental")
 parser.add_argument("--before-script", "-b", dest="only_before_script", default=False,
                     action="store_true",
                     help="Run only the 'before_script' commands"
