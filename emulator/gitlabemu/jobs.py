@@ -2,6 +2,7 @@
 Represent a gitlab job
 """
 import os
+import re
 import shutil
 import signal
 
@@ -15,7 +16,8 @@ from typing import Optional, Dict, List, Any
 from .artifacts import GitlabArtifacts
 from .logmsg import info, fatal, debugrule, warning, debug
 from .errors import GitlabEmulatorError
-from .helpers import communicate as comm, is_windows, is_apple, is_linux, parse_timeout, powershell_escape
+from .helpers import communicate as comm, is_windows, is_apple, is_linux, parse_timeout, powershell_escape, \
+    git_current_branch, git_commit_sha
 from .ansi import ANSI_GREEN, ANSI_RESET
 from .ruleparser import evaluate_rule
 from .userconfig import get_user_config_context
@@ -296,6 +298,20 @@ class Job(object):
         self.configure_job_variable("CI_JOB_STAGE", self.stage, force=True)
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
         self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
+
+
+        try:
+            branch = git_current_branch(self.workspace)
+            commit = git_commit_sha(self.workspace)
+            self.configure_job_variable("CI_COMMIT_REF_NAME", branch, force=True)
+            self.configure_job_variable("CI_COMMIT_SHA", commit, force=True)
+            slug = branch.lower()[:63]
+            slug = re.sub(r"[^a-z0-9\-]", "-", slug)
+            self.configure_job_variable("CI_COMMIT_REF_SLUG", slug, force=True)
+        except subprocess.CalledProcessError:
+            pass
+
+
 
     def configure_job_variable(self, name, value, force=False):
         """
