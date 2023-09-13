@@ -299,7 +299,6 @@ class Job(object):
         self.configure_job_variable("CI_JOB_TOKEN", "00" * 32)
         self.configure_job_variable("CI_JOB_URL", "file://gitlab-emulator/none")
 
-
         try:
             branch = git_current_branch(self.workspace)
             commit = git_commit_sha(self.workspace)
@@ -310,7 +309,9 @@ class Job(object):
             self.configure_job_variable("CI_COMMIT_REF_SLUG", slug, force=True)
         except subprocess.CalledProcessError:
             pass
-
+        except OSError:
+            # system doesn't have git installed
+            pass
 
 
     def configure_job_variable(self, name, value, force=False):
