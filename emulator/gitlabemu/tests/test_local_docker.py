@@ -313,7 +313,6 @@ def test_docker_fail_shell(top_dir, capfd):
     assert f"{magic}" in stdout
 
 
-@pytest.mark.usefixtures("has_docker")
 @pytest.mark.usefixtures("posix_only")
 def test_docker_runner_exec(top_dir, capfd, temp_folder: Path):
     """Test running gitlab-runner exec"""
@@ -321,12 +320,13 @@ def test_docker_runner_exec(top_dir, capfd, temp_folder: Path):
     fake_gitlab_runner = temp_folder / "gitlab-runner"
     with open(fake_gitlab_runner, "w") as fd:
         print("#!/bin/sh", file=fd)
-        print("echo running: \"$@\"", file=fd)
+        print("echo fake runner running: \"$@\"", file=fd)
     os.chmod(str(fake_gitlab_runner), 0o755)
     os.environ["PATH"] = str(temp_folder.absolute()) + os.pathsep + os.environ["PATH"]
 
     run(["-c", "test-ci.yml", "--exec", "alpine-test"])
     stdout, stderr = capfd.readouterr()
+    assert "fake runner running" in stdout
     for required in ["--cicd-config-file",
                      "--docker-volumes",
                      "--custom_build_dir-enabled",

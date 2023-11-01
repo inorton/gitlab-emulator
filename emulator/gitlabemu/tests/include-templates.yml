@@ -1,0 +1,10 @@
+include:
+  - template: Bash
+  - project: 'gitlab-org/quality/pipeline-common'
+    file: '/ci/danger-review.yml'
+
+
+job1:
+  image: alpine:latest
+  script:
+    - env

@@ -14,6 +14,7 @@ RESERVED_TOP_KEYS = ["stages",
                      "variables",
                      "include",
                      "workflow",
+                     "secret_detection",
                      "default",
                      ".gitlab-emulator-workspace"
                      ]

@@ -1,6 +1,8 @@
 """
 Various useful common funcs
 """
+from __future__ import print_function
+
 import os.path
 from select import select
 from threading import Thread
@@ -452,16 +454,10 @@ def notice(text: str) -> None:
     print(f"notice: {text}", file=sys.stderr, flush=True)
 
 
-def truth_string(text: str) -> bool:
-    if text:
-        text = text.lower()
-        if text in ["y", "yes", "true", "on", "1"]:
-            return True
-    return False
-
-
 def setenv_string(text: str) -> Tuple[str, str]:
     parts = text.split("=", 1)
     if len(parts) == 2:
         return parts[0], parts[1]
     raise ValueError(f"{text} is not in the form NAME=VALUE")
+
+

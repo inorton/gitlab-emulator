@@ -22,8 +22,8 @@ from ..helpers import (
     remote_servers,
     sensitive_varname,
     setenv_string,
-    trim_quotes, truth_string,
-)
+    trim_quotes, )
+from ..variables import truth_string
 from ..logmsg import debug_enabled
 
 

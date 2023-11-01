@@ -3,7 +3,8 @@ from argparse import Namespace
 
 import yaml
 
-from .helpers import note, die, truth_string, setenv_string
+from .helpers import note, die, setenv_string
+from .variables import truth_string
 from .userconfig import get_user_config
 from .userconfigdata import GleRunnerConfig, DockerExecutorConfig, RUNNER_SHELL_SHELLS, RUNNER_EXECUTOR_TYPES, \
     EXECUTOR_DOCKER, DEFAULT_DOCKER_CLI

@@ -26,3 +26,11 @@ def expand_variable(variables: Dict[str, str], haystack: Union[str, Dict[str, An
         else:
             break
     return haystack
+
+
+def truth_string(text: Union[str, int]) -> bool:
+    if text:
+        text = str(text).lower()
+        if text in ["y", "yes", "true", "on", "1"]:
+            return True
+    return False

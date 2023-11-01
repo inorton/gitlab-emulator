@@ -219,6 +219,7 @@ def execute_job(config: Dict[str, Any],
                 options: Optional[Dict[str, Any]] = None,
                 overrides: Optional[Dict[str, Any]] = None,
                 jobfactory: Optional[JobFactory] = None,
+                chown=True,
                 ):
     """
     Run a job, optionally run required dependencies
@@ -231,6 +232,7 @@ def execute_job(config: Dict[str, Any],
     :param noop: if True, print instead of execute commands
     :param options: If given, set attributes on the job before use.
     :param overrides: If given, replace properties in the top level of a job dictionary.
+    :param chown: If True and if using docker, attempt to restore the folder ownership.
     :return:
     """
     if seen is None:
@@ -243,7 +245,7 @@ def execute_job(config: Dict[str, Any],
 
         if recurse:
             for need in jobobj.dependencies:
-                execute_job(config, need, seen=seen, recurse=True, noop=noop, jobfactory=jobfactory)
+                execute_job(config, need, seen=seen, recurse=True, noop=noop, jobfactory=jobfactory, chown=chown)
         print(f">>> execute {jobobj.name}:", file=sys.stderr)
         if noop:
             if isinstance(jobobj, DockerJob):
@@ -255,7 +257,10 @@ def execute_job(config: Dict[str, Any],
                 print(f"script {line}")
         else:
             if use_runner:
-                gitlab_runner_exec(jobobj)
+                try:
+                    gitlab_runner_exec(jobobj)
+                finally:
+                    restore_path_ownership(os.getcwd())
             else:
                 jobobj.run()
         seen.add(jobname)
@@ -543,28 +548,22 @@ def run(args=None):
         if options.error_shell:  # pragma: no cover
             job_options["error_shell"] = [options.error_shell]
             overrides["timeout"] = None
-        try:
-            jobfactory = JobFactory()
-            if options.gen_script:
-                jobfactory = ScriptJobFactory()
 
-            executed_jobs = set()
-            execute_job(loader.config, jobname,
-                        seen=executed_jobs,
-                        use_runner=options.exec,
-                        recurse=options.FULL,
-                        noop=options.noop,
-                        options=job_options,
-                        overrides=overrides,
-                        jobfactory=jobfactory
-                        )
-        finally:
-            if not options.noop:
-                if has_docker() and fix_ownership:
-                    if is_linux() or is_apple():  # pragma: cover if posix
-                        if os.getuid() > 0:
-                            note("Fixing up local file ownerships..")
-                            restore_path_ownership(os.getcwd())
-                            note("finished")
+        jobfactory = JobFactory()
+        if options.gen_script:
+            jobfactory = ScriptJobFactory()
+
+        executed_jobs = set()
+        execute_job(loader.config, jobname,
+                    seen=executed_jobs,
+                    use_runner=options.exec,
+                    recurse=options.FULL,
+                    noop=options.noop,
+                    options=job_options,
+                    overrides=overrides,
+                    jobfactory=jobfactory,
+                    chown=fix_ownership
+                    )
+
         if not options.gen_script:
             print("Build complete!")

@@ -18,6 +18,10 @@ def test_include_processing(top_dir: str, capfd: CaptureFixture):
     assert "BOOK=exforce" in stdout
 
 
+def test_include_template(in_tests: str, capfd: CaptureFixture):
+    run(["-c", "include-templates.yml", "-l"])
+
+
 def test_include_unknown(in_tests: str, capfd: CaptureFixture):
     with pytest.raises(SystemExit):
         run(["-c", str(Path("invalid") / "include-unknown-type.yaml"), "-l" ])

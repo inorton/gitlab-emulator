@@ -471,7 +471,10 @@ def find_gitlab_project_config(servers: Dict[str, str]) -> Optional[GitlabIdent]
     return ident
 
 
-def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab], Optional[Project], Optional[str]]:
+def get_gitlab_project_client(repo: str,
+                              secure=True,
+                              need_project=True,
+                              ) -> Tuple[Optional[Gitlab], Optional[Project], Optional[str]]:
     """Get the gitlab client, project and git remote name for the given git repo"""
     override_server = os.getenv(GITLAB_SERVER_ENV)
     override_project = os.getenv(GITLAB_PROJECT_ENV)
@@ -505,12 +508,15 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
         # we have an ident, try to find the gitlab config
         api = gitlab_api(ident.server, secure=secure)
         api.auth()
-        for proj in api.projects.list(membership=True, all=True):
-            if ident.project:
-                if proj.path_with_namespace == ident.project:
-                    project = proj
-                    client = api
-                    break
+        if need_project:
+            for proj in api.projects.list(membership=True, all=True):
+                if ident.project:
+                    if proj.path_with_namespace == ident.project:
+                        project = proj
+                        client = api
+                        break
+        else:
+            client = api
 
         if remotes and project:
             project_remotes = [project.ssh_url_to_repo, project.http_url_to_repo]
@@ -523,12 +529,14 @@ def get_gitlab_project_client(repo: str, secure=True) -> Tuple[Optional[Gitlab],
 
 
 def get_current_project_client(tls_verify: Optional[bool] = True,
-                               need_remote: Optional[bool] = True) -> Tuple[Gitlab, Project, str]:
+                               need_remote: Optional[bool] = True,
+                               need_project: Optional[bool] = True,
+                               ) -> Tuple[Gitlab, Optional[Project], str]:
     """Get the requested/current gitlab client, gitlab project and optional git remote"""
     cwd = os.getcwd()
-    client, project, remotename = get_gitlab_project_client(cwd, tls_verify)
+    client, project, remotename = get_gitlab_project_client(cwd, tls_verify, need_project=need_project)
 
-    if not (client and project):
+    if not client:
         die("Could not find a gitlab server configuration, please add one with 'gle-config gitlab'")
 
     if need_remote:

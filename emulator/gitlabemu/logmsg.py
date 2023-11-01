@@ -6,6 +6,7 @@ import sys
 import os
 import logging
 from .errors import GitlabEmulatorError
+from .variables import truth_string
 
 FORMAT = '%(asctime)-15s %(name)s  %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -15,14 +16,10 @@ LOGGER.setLevel(logging.INFO)
 
 FATAL_EXIT = True
 
-AFIRMATIVE = ["y", "yes", "1", "enabled", "on"]
-
-def is_afirmative(txt: str) -> bool:
-    return str(txt).lower() in AFIRMATIVE
-
 
 def enable_rule_debug():
     os.environ["GLE_DEBUG_RULES"] = "y"
+
 
 def enable_debug():
     os.environ["GLE_DEBUG"] = "y"
@@ -31,12 +28,13 @@ def enable_debug():
 def info(msg):
     LOGGER.info(msg)
 
+
 def debug_enabled() -> bool:
-    return is_afirmative(os.environ.get("GLE_DEBUG", "n"))
+    return truth_string(os.environ.get("GLE_DEBUG", "n"))
 
 
 def debugrule_enabled() -> bool:
-    return is_afirmative(os.environ.get("GLE_DEBUG_RULES", "n"))
+    return truth_string(os.environ.get("GLE_DEBUG_RULES", "n"))
 
 
 def debugrule(msg):

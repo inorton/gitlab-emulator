@@ -14,7 +14,7 @@ from .helpers import communicate as comm, is_windows
 from .userconfig import get_user_config_context
 from .errors import DockerExecError, GitlabEmulatorError
 from .userconfigdata import GleRunnerConfig
-from .variables import expand_variable
+from .variables import expand_variable, truth_string
 
 PULL_POLICY_ALWAYS = "always"
 PULL_POLICY_IF_NOT_PRESENT = "if-not-present"
@@ -219,8 +219,9 @@ class DockerTool(object):
                 "-d",
                 "--name", self.name,
             ]
-            if self.entrypoint is not None:
-                cmdline.extend(["--entrypoint", str(self.entrypoint)])
+            if not is_windows():
+                if self.entrypoint is not None:
+                    cmdline.extend(["--entrypoint", str(self.entrypoint)])
             if self.network is not None:
                 cmdline.extend(["--network", self.network])
             if priv:
@@ -233,8 +234,13 @@ class DockerTool(object):
                 cmdline.extend(["-e", f"{name}={value}"])
             cmdline.extend(["-i", self.image])
 
+            if not is_windows():
+                if self.entrypoint == "":
+                    cmdline.append("/bin/sh")
+
             proc = self.docker_call(*cmdline)
             self.container = proc.stdout.strip()
+            info(f"started container {self.container}")
         except DockerToolFailed:  # pragma: no cover
             if not self.image_present:
                 fatal(f"Docker image {self.image} does not exist, (pull_policy={self.pull_policy})")
@@ -312,10 +318,13 @@ class DockerJob(Job):
 
     @property
     def docker_entrypoint(self) -> Optional[List[str]]:
-        custom_entryppoint = None
+        entrypoint = [""]
+        envs = self.get_envs()
+        if truth_string(envs.get("DOCKER_DISABLE_ENTRYPOINT_OVERRIDE", "y")):
+            entrypoint = None
         if isinstance(self._image, dict):
-            custom_entryppoint = self._image.get("entrypoint", None)
-        return custom_entryppoint
+            entrypoint = self._image.get("entrypoint", None)
+        return entrypoint
 
     @property
     def docker_pull_policy(self) -> Optional[str]:
@@ -551,15 +560,12 @@ class DockerJob(Job):
                     self.docker.add_env(envname, environ[envname])
 
                 if self.docker_entrypoint is not None:
-                    if is_windows():  # pragma: cover if windows
-                        # windows can't have multiple args
-                        args = self.docker_entrypoint
-                        if len(args) > 0:
-                            if len(args) > 1:
-                                warning("windows docker entrypoint override may fail with several args")
-                            self.docker.entrypoint = args[0]
-                    else:
-                        self.docker.entrypoint = self.docker_entrypoint
+                    # can't have multiple args
+                    args = self.docker_entrypoint
+                    if len(args) > 0:
+                        if len(args) > 1:
+                            warning("windows docker entrypoint override may fail with several args")
+                        self.docker.entrypoint = args[0]
                 volumes = self.runner.docker.runtime_volumes()
                 if volumes:
                     info("Extra docker volumes registered:")

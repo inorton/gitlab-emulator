@@ -5,13 +5,17 @@ import os
 import copy
 import sys
 import tempfile
+import urllib.parse
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Union, Optional, List
+
 import requests
+from gitlab import Gitlab
 
 from .errors import ConfigLoaderError, BadSyntaxError, FeatureNotSupportedError
 from .gitlab.types import RESERVED_TOP_KEYS, DEFAULT_JOB_KEYS
-from .gitlab.urls import GITLAB_ORG_TEMPLATE_BASEURL
+from .gitlab.urls import GITLAB_SERVER_TEMPLATE_PATH
+from .gitlab_client_api import get_current_project_client
 from .helpers import stringlist_if_string
 from .jobtypes import JobFactory, Job, DockerJob
 from .jobs import NoSuchJob
@@ -36,10 +40,10 @@ def do_single_include(baseobj: Dict[str, Any],
                       handle_read=None,
                       variables: Optional[Dict[str, str]] = None,
                       filename: Optional[str] = None,
-                      handle_fetch_project=None) -> Dict[str, Any]:
+                      handle_fetch=None) -> Dict[str, Any]:
     """
     Load a single included file and return it's object graph
-    :param handle_fetch_project: called to fetch an included file from another project
+    :param handle_fetch: called to fetch an included file
     :param filename: the name of the parent file wanting to include this one
     :param handle_read:
     :param baseobj: previously loaded and included objects
@@ -56,7 +60,6 @@ def do_single_include(baseobj: Dict[str, Any],
         handle_read = read
     location = None
     inc_type = None
-    temp_content = None
 
     if isinstance(inc, str):
         location = inc.lstrip("/\\")
@@ -69,21 +72,6 @@ def do_single_include(baseobj: Dict[str, Any],
                 break
         if not supported:
             raise FeatureNotSupportedError(f"Do not understand how to include {inc}")
-
-        if "local" in inc:
-            location = inc["local"]
-            inc_type = "local"
-        elif "remote" in inc:
-            location = inc["remote"]
-            inc_type = "remote"
-        elif "template" in inc:  # pragma: no cover
-            location = inc["template"]
-            inc_type = "template"
-        elif "project" in inc:  # pragma: no cover
-            ref = inc.get("ref", "HEAD")
-            location = f"{inc['project']}/{inc['file']}#{ref}".replace("//", "/")
-            inc_type = "project"
-            fatal(f"Not Yet Implemented, {inc}")
 
         rules = inc.get("rules", [])
         if not rules:
@@ -103,35 +91,22 @@ def do_single_include(baseobj: Dict[str, Any],
                 debugrule(f"{filename} not including: {inc}")
                 return {}
 
-    assert location, f"cannot work out include source location: {inc}"
-    included = baseobj.get("include", [])
-    if location in included:
-        raise BadSyntaxError(f"{filename}: {location} has already been included")
-    baseobj["include"].append(location)
-
     if inc_type == "local":
+        if location is None:
+            location = inc[inc_type]
         if os.sep != "/":  # pragma: cover if windows
             location = location.replace("/", os.sep)
-        return handle_read(location, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
-    elif inc_type == "template":  # pragma: no cover
-        # get the template from gitlab.com
-        warning(f"Including gitlab.com template: {location}")
-        inc_type = "remote"
-        location = f"{GITLAB_ORG_TEMPLATE_BASEURL}/{location}"
-    elif inc_type == "project":  # pragma: no cover
-        warning(f"Including CI yaml from another project: {location}")
-        if not handle_fetch_project:
-            warning("no project handler added")
-        else:
-            temp_content = handle_fetch_project(inc)
+    included = baseobj.get("include", [])
+    if location:
+        if location in included:
+            raise BadSyntaxError(f"{filename}: {location} has already been included")
+        baseobj["include"].append(location)
 
-    if inc_type == "remote":
-        # fetch the file, no authentication needed
-        warning(f"Including remote CI yaml file: {location}")
-        resp = requests.get(location, allow_redirects=True)
-        if not resp.status_code == 200:  # pragma: no cover
-            raise ConfigLoaderError(f"HTTP error getting {location}: status {resp.status_code}")
-        temp_content = resp.text
+    if inc_type == "local":
+        return handle_read(location, variables=False, validate_jobs=False, topdir=yamldir, baseobj=baseobj)
+    else:
+        warning(f"Including remote CI yaml file: {inc}")
+        temp_content = handle_fetch(inc)
 
     if temp_content is not None:
         with tempfile.TemporaryDirectory() as temp_folder:
@@ -139,6 +114,7 @@ def do_single_include(baseobj: Dict[str, Any],
             with open(path, "w") as fd:
                 fd.write(temp_content)
             return handle_read(path, variables=False, validate_jobs=False, topdir=str(temp_folder), baseobj=baseobj)
+    return {}
 
 
 def do_includes(baseobj: Dict[str, Any],
@@ -691,6 +667,14 @@ class Loader(BaseLoader, JobLoaderMixin, ValidatorMixin, ExtendsMixin):
     def __init__(self, emulator_variables: Optional[bool] = True):
         super().__init__()
         self.create_emulator_variables = emulator_variables
+        self.gitlab_api: Optional[Gitlab] = None
+        self.tls_verify = True
+
+    def get_gitlab_client(self) -> Gitlab:
+        if self.gitlab_api is None:
+            gitlab, _, _ = get_current_project_client(tls_verify=self.tls_verify, need_remote=False, need_project=False)
+            self.gitlab_api = gitlab
+        return self.gitlab_api
 
     def load_job(self,
                  name: str,
@@ -714,7 +698,46 @@ class Loader(BaseLoader, JobLoaderMixin, ValidatorMixin, ExtendsMixin):
         :param incs:
         :return:
         """
-        return do_includes(baseobj, yamldir, incs, handle_include=self.do_single_include, filename=self.filename)
+        return do_includes(baseobj, yamldir, incs,
+                           handle_include=self.do_single_include,
+                           filename=self.filename)
+
+    def fetch_include(self, inc) -> str:
+        """Download a ci yml file from a remote server/project"""
+        get_template = inc.get("template", None)
+        get_remote = inc.get("remote", None)
+        get_project = inc.get("project", None)
+        resp = None
+        if get_template or get_project:
+            gitlab = self.get_gitlab_client()
+            if get_template:
+                url = gitlab.api_url + GITLAB_SERVER_TEMPLATE_PATH + get_template
+                resp = gitlab.session.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+                return data.get("content", "")
+            elif get_project:
+                get_file = inc.get("file", None)
+                get_ref = inc.get("ref", "HEAD")
+                get_params = None
+                if not get_file:
+                    raise BadSyntaxError(f"project include has no file: {inc}")
+                get_file = get_file.lstrip("/")
+                encoded_file = urllib.parse.quote_plus(get_file)
+                encoded_project = urllib.parse.quote_plus(get_project)
+                url = gitlab.api_url + f"/projects/{encoded_project}/repository/files/{encoded_file}/raw"
+                if get_ref:
+                    get_params = {"ref": get_ref}
+                resp = gitlab.session.get(url, params=get_params)
+                # have to decode the content
+                resp.raise_for_status()
+                return resp.text
+
+        elif get_remote:
+            resp = requests.get(get_remote)
+            resp.raise_for_status()
+            return resp.text
+        return ""
 
     def do_single_include(self,
                           baseobj: Dict[str, Any],
@@ -725,7 +748,11 @@ class Loader(BaseLoader, JobLoaderMixin, ValidatorMixin, ExtendsMixin):
         """
         Include a single file and process it
         """
-        return do_single_include(baseobj, yamldir, inc, handle_read=self._read, variables=self.variables, filename=filename)
+        return do_single_include(baseobj, yamldir, inc,
+                                 handle_read=self._read,
+                                 handle_fetch=self.fetch_include,
+                                 variables=self.variables,
+                                 filename=filename)
 
     def do_validate(self, baseobj: Dict[str, Any]) -> None:
         """

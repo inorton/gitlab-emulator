@@ -97,7 +97,6 @@ def generate_partial_pipeline(loader, *goals, variables: Optional[Dict[str, str]
         die("Cannot generate a pipeline with zero jobs")
 
 
-
 def generate_pipeline(loader, *goals,
                       variables: Optional[Dict[str, str]] = None,
                       use_from: Optional[str] = None,
@@ -107,13 +106,21 @@ def generate_pipeline(loader, *goals,
     pipeline = None
     download_jobs = {}
     deps = {}
-    client, project, remotename = get_current_project_client(tls_verify=tls_verify)
+    client = None
+    project = None
+    remotename = None
+
+    if dump_only:
+        client = loader.get_gitlab_client()
+
     cwd = os.getcwd()
     if not goals:
         die("Cannot generate a pipeline with zero jobs")
 
     note(f"Generate subset pipeline to build '{goals}'..")
     recurse = True
+    if use_from or not dump_only:
+        client, project, remotename = get_current_project_client(tls_verify=tls_verify)
     if use_from:
         recurse = False
         ident = parse_gitlab_from_arg(use_from, prefer_gitref=True)
@@ -185,28 +192,28 @@ def generate_pipeline(loader, *goals,
 
     if dump_only:
         return generated
-
-    branch_name = generate_subset_branch_name(client, cwd)
-    note(f"Creating temporary pipeline branch '{branch_name}'..")
-    commit = create_pipeline_branch(cwd,
-                                    remotename,
-                                    branch_name,
-                                    f"subset pipeline for {goals}",
-                                    {
-                                        ".gitlab-ci.yml": ordered_dump(generated)
-                                    })
-    if commit:
-        note(f"Custom build commit is {commit}")
-        note(f"Waiting for new pipeline to start..")
-        pipeline = wait_for_project_commit_pipeline(project, commit)
-        if not pipeline:
-            die("Could not find the pipeline for our change")
-        else:
-            note(f"Building: {pipeline.web_url}")
-
     else:
-        die("Could not make a custom pipeline branch, "
-            "please make sure your local changes are committed first")
+        branch_name = generate_subset_branch_name(client, cwd)
+        note(f"Creating temporary pipeline branch '{branch_name}'..")
+        commit = create_pipeline_branch(cwd,
+                                        remotename,
+                                        branch_name,
+                                        f"subset pipeline for {goals}",
+                                        {
+                                            ".gitlab-ci.yml": ordered_dump(generated)
+                                        })
+        if commit:
+            note(f"Custom build commit is {commit}")
+            note(f"Waiting for new pipeline to start..")
+            pipeline = wait_for_project_commit_pipeline(project, commit)
+            if not pipeline:
+                die("Could not find the pipeline for our change")
+            else:
+                note(f"Building: {pipeline.web_url}")
+
+        else:
+            die("Could not make a custom pipeline branch, "
+                "please make sure your local changes are committed first")
 
 
 def get_subset_prefix() -> str:
