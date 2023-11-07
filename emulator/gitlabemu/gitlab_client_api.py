@@ -12,7 +12,7 @@ import certifi
 import multiprocessing
 from functools import lru_cache
 from threading import RLock
-from typing import Optional, Tuple, Iterable, List, Any, Dict
+from typing import Optional, Tuple, Iterable, List, Any, Dict, Union
 from urllib.parse import urlparse
 from gitlab import Gitlab, GitlabGetError
 from gitlab.v4.objects import Project
@@ -20,6 +20,7 @@ from urllib3.exceptions import InsecureRequestWarning
 
 from .helpers import die, note, get_git_remote_urls, remote_servers
 from .userconfig import get_user_config_context
+from .userconfigdata import GitlabServer
 
 GITLAB_SERVER_ENV = "GLE_GITLAB_SERVER"
 GITLAB_PROJECT_ENV = "GLE_GITLAB_PROJECT"
@@ -79,16 +80,20 @@ class PipelineNotFound(PipelineError):
 def gitlab_api(alias: str, secure=True) -> Gitlab:
     """Create a Gitlab API client"""
     ctx = get_user_config_context()
+    cfg: Optional[GitlabServer] = None
     server = None
     token = None
+    secure: Union[bool, str] = True
     for item in ctx.gitlab.servers:
         if item.name == alias:
+            cfg = item
             server = item.server
             token = item.token
             break
 
         parsed = urlparse(item.server)
         if parsed.hostname == alias:
+            cfg = item
             server = item.server
             token = item.token
             break
@@ -106,10 +111,15 @@ def gitlab_api(alias: str, secure=True) -> Gitlab:
 
     if not token:
         die(f"Could not find a configured token for {alias} or GITLAB_PRIVATE_TOKEN not set")
-
+    if cfg is not None:
+        note(f"Using stored configuration for {server}")
+        if cfg.ca_cert:
+            secure = str(cfg.ca_cert)
+        else:
+            secure = cfg.tls_verify
     client = Gitlab(url=server, private_token=token, ssl_verify=secure)
-    if secure:
-        gitlab_session_head(client.session, server)
+    client.session.verify = secure
+    client.session.head(server)
     return client
 
 
@@ -240,12 +250,6 @@ def posix_cert_fixup():
                     del os.environ["REQUESTS_CA_BUNDLE"]
         else:
             yield
-
-
-def gitlab_session_head(session, geturl, **kwargs):
-    """HEAD using requests to try different CA options"""
-    with posix_cert_fixup():
-        return session.head(geturl, **kwargs)
 
 
 def get_one_file(session: requests.Session,

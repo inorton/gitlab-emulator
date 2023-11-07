@@ -54,7 +54,10 @@ parser.set_defaults(func=top_level_usage)
 def run(args: Optional[List[str]] = None) -> None:
     opts = parser.parse_args(args)
     try:
-        with posix_cert_fixup():
-            opts.func(opts)
+        opts.func(opts)
     except ConfigLoaderError as err:
         die(str(err))
+
+
+if __name__ == "__main__":
+    run()

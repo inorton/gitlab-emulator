@@ -46,7 +46,7 @@ def test_no_token_or_config(capfd):
     assert "Could not find a configured token for nosuch.gitlab" in stderr
     cfg = get_user_config()
     ctx = cfg.contexts[cfg.current_context]
-    ctx.gitlab.add("nosuch.gitlab", "https://myserver.nosuch", "token", True)
+    ctx.gitlab.add("nosuch.gitlab", "https://myserver.nosuch", "token", True, None)
     cfg.save()
 
     # should fail to connect

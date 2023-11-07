@@ -1,5 +1,6 @@
 import abc
 import os.path
+from pathlib import Path
 from typing import Optional, Dict, List, cast
 from yaml import safe_dump, safe_load
 
@@ -88,10 +89,11 @@ class GitlabServer(ToYaml):
         self.server = None
         self.token = None
         self.tls_verify = True
+        self.ca_cert: Optional[str] = None
 
     @property
     def yaml_keys(self) -> List[str]:
-        return ["name", "server", "token", "tls_verify"]
+        return ["name", "server", "token", "tls_verify", "ca_cert"]
 
     def populate(self, data):
         self.setattrs_from_dict(data, *self.yaml_keys)
@@ -103,12 +105,14 @@ class GitlabConfiguration(ToYaml):
         self.version = DEFAULT_GITLAB_VERSION
         self.servers = []
 
-    def add(self, name: str, url: str, token: str, tls_verify: bool):
+    def add(self, name: str, url: str, token: str, tls_verify: bool, ca_cert: Optional[Path]):
         server = GitlabServer()
         server.tls_verify = tls_verify
         server.token = token
         server.server = url
         server.name = name
+        if ca_cert is not None:
+            server.ca_cert = str(ca_cert)
         self.servers.append(server)
         return server
 
