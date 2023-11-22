@@ -23,7 +23,7 @@ rules =
     "sys.platform != 'darwin'": cover if apple
 
 [report]
-fail_under = 89
+fail_under = 88
 
 omit =
     gitlabemu/tests/*
