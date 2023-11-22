@@ -732,8 +732,8 @@ def docker_services(job: DockerJob, variables: Dict[str, str]):
                 ]
                 if priv:  # pragma: cover if not windows
                     service_cmdline.append("--privileged")
-                for name, value in variables.items():
-                    service_cmdline.extend(["-e", f"{name}={value}"])
+                for envname, value in variables.items():
+                    service_cmdline.extend(["-e", f"{envname}={value}"])
                 service_cmdline.append(image)
 
                 container = job.docker.docker_call(
