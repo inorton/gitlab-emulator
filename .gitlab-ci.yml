@@ -240,3 +240,18 @@ needs-artifacts:
     - echo hello
 
 
+pypi-test:
+  stage: last
+  needs:
+    - emulator-linux-test_py3.10
+  image: python:3.11
+  rules:
+    - when: manual
+  variables:
+    TWINE_PASSWORD: ${PYPI_TEST_TOKEN}
+    TWINE_REPO: testpypi
+  script:
+    - cd emulator
+    - pip install build wheel twine
+    - python3 -m build -n -w
+    - TWINE_USERNAME=__token__ python3 -m twine upload -r ${TWINE_REPO} dist/*.whl
