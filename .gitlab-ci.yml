@@ -37,13 +37,14 @@ stages:
 emulator-linux-ubuntu1804-install:
   extends: .docker-linux-job
   image: ubuntu:18.04
+  needs:
+    - build-dev-wheel
   before_script:
     - apt-get update
     - apt-get install -y python3 python3-pip
-    - python3 -m pip install --upgrade pip==23.3.1
   script:
     - cd emulator
-    - pip3 install .
+    - pip3 install dist/gitlab_emulator-16.1.2-py3-none-any.whl
     - cd ..
     - gle -l
     - glp --help
