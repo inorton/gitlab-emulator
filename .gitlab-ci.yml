@@ -44,7 +44,7 @@ emulator-linux-ubuntu1804-install:
     - apt-get install -y python3 python3-pip
   script:
     - cd emulator
-    - pip3 install dist/gitlab_emulator-16.1.2-py3-none-any.whl
+    - pip3 install dist/gitlab_emulator-16.1.999-py3-none-any.whl
     - cd ..
     - gle -l
     - glp --help
