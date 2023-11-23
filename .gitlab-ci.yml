@@ -247,16 +247,32 @@ needs-artifacts:
     - echo hello
 
 
+build-wheel:
+  extends: .docker-linux-job
+  stage: build
+  image: python:3.11
+  before_script:
+    - pip install build wheel
+  script:
+    - cd emulator
+    - python3 -m build -n -w
+  artifacts:
+    paths:
+      - emulator/dist/*.whl
+
 pypi-test:
+  extends: .docker-linux-job
   stage: build
   image: python:3.11
   rules:
     - when: manual
+      allow_failure: true
+  needs:
+    - build-wheel
   variables:
     TWINE_PASSWORD: ${PYPI_TEST_TOKEN}
     TWINE_REPO: testpypi
   script:
     - cd emulator
-    - pip install build wheel twine
-    - python3 -m build -n -w
+    - pip install wheel twine
     - TWINE_USERNAME=__token__ python3 -m twine upload -r ${TWINE_REPO} dist/*.whl
