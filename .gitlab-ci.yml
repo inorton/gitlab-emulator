@@ -10,5 +10,7 @@ emulator-windows-test:
     - windows
     - windows-1809
   script:
+    - echo $PSScriptRoot
+    - Get-Content $PSScriptRoot
     - cmd /C 'dsfdsfdsfdsfs || exit /b 1'
     - exit $LASTEXITCODE
