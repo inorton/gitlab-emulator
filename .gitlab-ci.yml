@@ -10,5 +10,5 @@ emulator-windows-test:
     - windows
     - windows-1809
   script:
-    - cmd /C 'echo hello || exit /b 1'
+    - cmd /C 'dsfdsfdsfdsfs || exit /b 1'
     - exit $LASTEXITCODE
