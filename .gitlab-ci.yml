@@ -11,5 +11,4 @@ emulator-windows-test:
     - windows-1809
   script:
     - echo foo
-    - (Get-Command exit).Definition
     - exit 1
