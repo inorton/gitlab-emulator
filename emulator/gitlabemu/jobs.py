@@ -583,7 +583,7 @@ def make_script(lines, powershell=False):
             content += os.linesep.join(line_wrap_before)
             if powershell:  # pragma: cover if windows
                 content += f"echo {powershell_escape(ANSI_GREEN + line + ANSI_RESET, variables=True)}" + os.linesep
-                content += "& " + line + os.linesep
+                content += line + os.linesep
                 content += "if(!$?) { Exit $LASTEXITCODE }" + os.linesep
             else:
                 content += line + os.linesep
