@@ -10,5 +10,8 @@ emulator-windows-test:
     - windows
     - windows-1809
   script:
+    - Get-Content $MyInvocation.ScriptName
     - echo foo
-    - exit 1
+    - dir
+    - mkdir zzzz
+    - exit $LastExitCode
