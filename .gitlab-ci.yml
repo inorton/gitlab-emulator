@@ -10,7 +10,7 @@ emulator-windows-test:
     - windows
     - windows-1809
   script:
-    - Get-Content $MyInvocation.ScriptName
+    - $MyInvocation
     - echo foo
     - dir
     - mkdir zzzz
