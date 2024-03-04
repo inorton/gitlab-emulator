@@ -3,13 +3,17 @@ Various useful common funcs
 """
 from __future__ import print_function
 
+import dataclasses
 import os.path
+import time
 from select import select
-from threading import Thread
+from threading import Thread, Lock
 import sys
 import re
 import platform
 import subprocess
+from prompt_toolkit import print_formatted_text, HTML
+
 from typing import Optional, List, Dict, Union, Tuple
 from urllib.parse import urlparse
 
@@ -28,6 +32,7 @@ class ProcessLineProxyThread(Thread):
         self.daemon = True
 
     def writeout(self, data):
+        retval = None
         if self.stdout and data:
             encoding = "ascii"
             if hasattr(self.stdout, "encoding"):
@@ -35,6 +40,7 @@ class ProcessLineProxyThread(Thread):
             try:
                 decoded = data.decode(encoding, "namereplace")
                 self.stdout.write(decoded)
+                retval = decoded
             except (TypeError, UnicodeError):
                 # codec cant handle namereplace or the codec cant represent this.
                 # decode it to utf-8 and replace non-printable ascii with
@@ -42,12 +48,14 @@ class ProcessLineProxyThread(Thread):
                 decoded = data.decode("utf-8", "replace")
                 text = re.sub(r'[^\x00-\x7F]', "?", decoded)
                 self.stdout.write(text)
+                retval = text
 
             if self.linehandler:
                 try:
                     self.linehandler(data)
                 except DockerExecError as err:
                     self.errors.append(err)
+        return retval
 
     def run(self):
         """Pump stdout Wait for a job to end """
@@ -73,7 +81,57 @@ class ProcessLineProxyThread(Thread):
             self.stdout.flush()
 
 
-def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandler=None):
+class PrettyProcessLineProxyThread(ProcessLineProxyThread):
+    """format job output and logs using color outputs"""
+
+    def __init__(self, process, stdout, linehandler=None):
+        super().__init__(process, stdout, linehandler=None)
+        self.line_count = 0
+        self.spinner_state = 0
+        self.spinner_chars = ["|", "/", "-", "\\"]
+        self.lock = Lock()
+        self.last_msg = None
+        self.frontend = Thread(target=self.frontend_thread, daemon=True)
+
+    def run(self):
+        self.frontend.start()
+        super().run()
+        self.frontend.join()
+
+    def print_last_frontend(self):
+        if self.last_msg is not None:
+            print("\r" + len(self.last_msg) * " " + " \r", end="")
+            print_formatted_text(HTML(self.last_msg), end="")
+
+    def frontend_thread(self):
+        while self.process.returncode is None:
+            time.sleep(1)
+            msg = (f"<b bg='ansiblue'>GLE {GLE_RUNTIME_GLOBALS.current_job.name} "
+                   + f"{self.spinner()} {self.line_count} </b>  ")
+            with self.lock:
+                print("\r" + len(msg) * " " + " \r", end="")
+                self.last_msg = msg
+                self.print_last_frontend()
+
+    def spinner(self) -> str:
+        text = self.spinner_chars[self.spinner_state]
+        self.spinner_state = (1 + self.spinner_state) % len(self.spinner_chars)
+        return text
+
+    def writeout(self, data):
+        with self.lock:
+            if self.last_msg:
+                print("\r" + len(self.last_msg) * " " + " \r", end="")
+            super(PrettyProcessLineProxyThread, self).writeout(data)
+            self.line_count += 1
+            self.print_last_frontend()
+
+
+def communicate(process,
+                stdout=sys.stdout,
+                script=None,
+                throw=False,
+                linehandler=None):
     """
     Write output incrementally to stdout, waits for process to end
     :param process: a Popened child process
@@ -83,6 +141,8 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
     :param linehandler: if set, pass the line to this callable
     :return:
     """
+    linethread_factory = GLE_RUNTIME_GLOBALS.output_thread_type
+
     if process.stdout is None:  # pragma: no cover
         # interactive job, just wait
         process.wait()
@@ -94,7 +154,7 @@ def communicate(process, stdout=sys.stdout, script=None, throw=False, linehandle
         process.stdin.flush()
         process.stdin.close()
 
-    comm_thread = ProcessLineProxyThread(process, stdout, linehandler=linehandler)
+    comm_thread = linethread_factory(process, stdout, linehandler=linehandler)
     thread_started = False
     try:
         comm_thread.start()
@@ -188,7 +248,7 @@ def parse_timeout(text):
         except ValueError:
             pass
 
-    pattern = re.compile(r"([\d\.]+)\s*([hm])")
+    pattern = re.compile(r"([\d.]+)\s*([hm])")
 
     for word in words:
         m = pattern.search(word)
@@ -461,3 +521,10 @@ def setenv_string(text: str) -> Tuple[str, str]:
     raise ValueError(f"{text} is not in the form NAME=VALUE")
 
 
+@dataclasses.dataclass
+class RuntimeGlobals:
+    output_thread_type: Optional[ProcessLineProxyThread] = ProcessLineProxyThread
+    current_job = None
+
+
+GLE_RUNTIME_GLOBALS = RuntimeGlobals()

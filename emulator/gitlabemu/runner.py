@@ -12,7 +12,10 @@ from .gitlab_client_api import PipelineError, PipelineInvalid, PipelineNotFound,
 from .jobs import Job
 from .jobtypes import JobFactory, ScriptJobFactory
 from .localfiles import restore_path_ownership
-from .helpers import is_apple, is_linux, is_windows, git_worktree, clean_leftovers, die, note, has_docker
+from .helpers import (is_linux, is_windows,
+                      git_worktree, clean_leftovers,
+                      die, note, has_docker,
+                      GLE_RUNTIME_GLOBALS, PrettyProcessLineProxyThread)
 from .logmsg import debugrule, enable_rule_debug, info
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
 from .userconfig import USER_CFG_ENV, get_user_config_context
@@ -42,12 +45,17 @@ parser.add_argument("--settings", "-s", dest="USER_SETTINGS", type=str, default=
                     help="Load gitlab emulator settings from a file")
 parser.add_argument("--chdir", "-C", dest="chdir", default=None, type=str, metavar="DIR",
                     help="Change to this directory before running")
-parser.add_argument("--enter", "-i", dest="enter_shell", default=False, action="store_true",
+
+run_mutex = parser.add_mutually_exclusive_group()
+run_mutex.add_argument("--enter", "-i", dest="enter_shell", default=False, action="store_true",
                     help="Run an interactive shell but do not run the build"
                     )
-parser.add_argument("--exec", default=False, action="store_true",
+run_mutex.add_argument("--exec", default=False, action="store_true",
                     help="Execute the job using 'gitlab-runner exec' if possible. Note, this "
                          "feature is experimental")
+parser.add_argument("--pretty", "-t", default=False, action="store_true",
+                    help="Run with a more pretty output and status display - for non-script use only")
+
 parser.add_argument("--before-script", "-b", dest="only_before_script", default=False,
                     action="store_true",
                     help="Run only the 'before_script' commands"
@@ -220,6 +228,7 @@ def execute_job(config: Dict[str, Any],
                 overrides: Optional[Dict[str, Any]] = None,
                 jobfactory: Optional[JobFactory] = None,
                 chown=True,
+                pretty=False,
                 ):
     """
     Run a job, optionally run required dependencies
@@ -233,6 +242,7 @@ def execute_job(config: Dict[str, Any],
     :param options: If given, set attributes on the job before use.
     :param overrides: If given, replace properties in the top level of a job dictionary.
     :param chown: If True and if using docker, attempt to restore the folder ownership.
+    :param pretty: If True, print output in a more visually friendly way
     :return:
     """
     if seen is None:
@@ -242,6 +252,10 @@ def execute_job(config: Dict[str, Any],
         if options:
             for name in options:
                 setattr(jobobj, name, options[name])
+
+        if pretty and not use_runner:
+            GLE_RUNTIME_GLOBALS.output_thread_type = PrettyProcessLineProxyThread
+            GLE_RUNTIME_GLOBALS.current_job = jobobj
 
         if recurse:
             for need in jobobj.dependencies:
@@ -562,7 +576,8 @@ def run(args=None):
                     options=job_options,
                     overrides=overrides,
                     jobfactory=jobfactory,
-                    chown=fix_ownership
+                    chown=fix_ownership,
+                    pretty=options.pretty,
                     )
 
         if not options.gen_script:
