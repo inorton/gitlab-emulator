@@ -127,12 +127,13 @@ class PrettyProcessLineProxyThread(ProcessLineProxyThread):
 
     def frontend_thread(self):
         while self.process.returncode is None:
-            time.sleep(1)
+            time.sleep(0.5)
             progress = ""
             total = self.get_estimated_job_duration()
-            remaining = max(total - self.get_current_job_elapsed(), 0)
+            elapsed = self.get_current_job_elapsed()
+            remaining = max(total - elapsed, 0)
             if total > 10:
-                fraction = max(self.get_current_job_elapsed() / total, 1)
+                fraction = min(elapsed / total, 1)
                 progress = f"({fraction:4.0%}) "
                 if remaining > 0:
                     if remaining > 100:
@@ -557,13 +558,14 @@ def setenv_string(text: str) -> Tuple[str, str]:
     raise ValueError(f"{text} is not in the form NAME=VALUE")
 
 
-@dataclasses.dataclass
 class RuntimeGlobals:
-    output_thread_type: Optional[ProcessLineProxyThread] = ProcessLineProxyThread
-    current_job = None
-    requested_jobs = []
-    session_start_time = time.monotonic()
-    job_start_time = time.monotonic()
+
+    def __init__(self):
+        self.output_thread_type: Optional[type] = ProcessLineProxyThread
+        self.current_job = None
+        self.requested_jobs = []
+        self.session_start_time = time.monotonic()
+        self.job_start_time = time.monotonic()
 
     def get_estimated_job_time_remaining(self) -> int:
         """Return an estimate for how many more seconds are left in the current job"""
