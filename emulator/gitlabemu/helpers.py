@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 from .errors import DockerExecError
 from .resnamer import resource_owner_alive, is_gle_resource
 from .logmsg import info, debug
+from .localstats import get_duration
 
 
 class ProcessLineProxyThread(Thread):
@@ -86,12 +87,33 @@ class PrettyProcessLineProxyThread(ProcessLineProxyThread):
 
     def __init__(self, process, stdout, linehandler=None):
         super().__init__(process, stdout, linehandler=None)
-        self.line_count = 0
         self.spinner_state = 0
         self.spinner_chars = ["|", "/", "-", "\\"]
         self.lock = Lock()
         self.last_msg = None
         self.frontend = Thread(target=self.frontend_thread, daemon=True)
+        self.timings = {}
+
+    @staticmethod
+    def get_current_job() -> str:
+        """Get the name of the current job"""
+        return GLE_RUNTIME_GLOBALS.current_job.name
+
+    @staticmethod
+    def get_current_job_elapsed() -> int:
+        """Get how long the current job was startede"""
+        return GLE_RUNTIME_GLOBALS.get_elasped_job_time()
+
+    def get_estimated_job_duration(self) -> int:
+        """Get how long this job should probably take based on history"""
+        name = self.get_current_job()
+        if name:
+            timing = self.timings.get(name, None)
+            if timing is None:
+                timing = get_duration(self.get_current_job())
+                self.timings[name] = timing
+            return timing
+        return 0
 
     def run(self):
         self.frontend.start()
@@ -106,8 +128,23 @@ class PrettyProcessLineProxyThread(ProcessLineProxyThread):
     def frontend_thread(self):
         while self.process.returncode is None:
             time.sleep(1)
+            progress = ""
+            total = self.get_estimated_job_duration()
+            remaining = max(total - self.get_current_job_elapsed(), 0)
+            if total > 10:
+                fraction = max(self.get_current_job_elapsed() / total, 1)
+                progress = f"({fraction:4.0%}) "
+                if remaining > 0:
+                    if remaining > 100:
+                        # report mins
+                        progress += f"{int(remaining / 60)} mins"
+                    else:
+                        # report in seconds
+                        progress += f"{int(remaining)} sec"
+                    progress += " remaining"
+
             msg = (f"<b bg='ansiblue'>GLE {GLE_RUNTIME_GLOBALS.current_job.name} "
-                   + f"{self.spinner()} {self.line_count} </b>  ")
+                   + f"{self.spinner()} {progress} </b>  ")
             with self.lock:
                 print("\r" + len(msg) * " " + " \r", end="")
                 self.last_msg = msg
@@ -123,7 +160,6 @@ class PrettyProcessLineProxyThread(ProcessLineProxyThread):
             if self.last_msg:
                 print("\r" + len(self.last_msg) * " " + " \r", end="")
             super(PrettyProcessLineProxyThread, self).writeout(data)
-            self.line_count += 1
             self.print_last_frontend()
 
 
@@ -525,6 +561,29 @@ def setenv_string(text: str) -> Tuple[str, str]:
 class RuntimeGlobals:
     output_thread_type: Optional[ProcessLineProxyThread] = ProcessLineProxyThread
     current_job = None
+    requested_jobs = []
+    session_start_time = time.monotonic()
+    job_start_time = time.monotonic()
+
+    def get_estimated_job_time_remaining(self) -> int:
+        """Return an estimate for how many more seconds are left in the current job"""
+        if self.current_job:
+            job_time = get_duration(self.current_job)
+            remaining = int(job_time - self.get_elasped_job_time())
+            if remaining > 0:
+                return remaining
+
+        return 0
+
+    def get_elapsed_session_time(self) -> int:
+        """Return the number of seconds gle has been running this build session"""
+        now = time.monotonic()
+        return int(now - self.session_start_time)
+
+    def get_elasped_job_time(self) -> int:
+        """Return the number of seconds gle has been running this job"""
+        now = time.monotonic()
+        return int(now - self.job_start_time)
 
 
 GLE_RUNTIME_GLOBALS = RuntimeGlobals()

@@ -3,6 +3,7 @@ import subprocess
 import sys
 import os
 import argparse
+import time
 from typing import Dict, Any, Optional
 
 import gitlabemu.errors
@@ -16,6 +17,7 @@ from .helpers import (is_linux, is_windows,
                       git_worktree, clean_leftovers,
                       die, note, has_docker,
                       GLE_RUNTIME_GLOBALS, PrettyProcessLineProxyThread)
+from .localstats import put_duration
 from .logmsg import debugrule, enable_rule_debug, info
 from .pipelines import pipelines_cmd, generate_pipeline, print_pipeline_jobs, export_cmd
 from .userconfig import USER_CFG_ENV, get_user_config_context
@@ -245,6 +247,7 @@ def execute_job(config: Dict[str, Any],
     :param pretty: If True, print output in a more visually friendly way
     :return:
     """
+
     if seen is None:
         seen = set()
     if jobname not in seen:
@@ -255,7 +258,6 @@ def execute_job(config: Dict[str, Any],
 
         if pretty and not use_runner:
             GLE_RUNTIME_GLOBALS.output_thread_type = PrettyProcessLineProxyThread
-            GLE_RUNTIME_GLOBALS.current_job = jobobj
 
         if recurse:
             for need in jobobj.dependencies:
@@ -270,6 +272,10 @@ def execute_job(config: Dict[str, Any],
             for line in jobobj.before_script + jobobj.script:
                 print(f"script {line}")
         else:
+            started_time = time.monotonic()
+            GLE_RUNTIME_GLOBALS.current_job = jobobj
+            GLE_RUNTIME_GLOBALS.job_start_time = started_time
+
             if use_runner:
                 try:
                     gitlab_runner_exec(jobobj)
@@ -277,6 +283,8 @@ def execute_job(config: Dict[str, Any],
                     restore_path_ownership(os.getcwd())
             else:
                 jobobj.run()
+
+            put_duration(jobname, int(time.monotonic() - started_time))
         seen.add(jobname)
 
 
