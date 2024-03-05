@@ -473,6 +473,13 @@ class ValidatorMixin:
 
             job = get_job(config, name)
 
+            # check allowed value for "when"
+            when = job.get("when", None)
+            if when is not None:
+                allowed_job_when = ["on_success", "on_failure", "always", "manual", "delayed"]
+                if when not in allowed_job_when:
+                    raise BadSyntaxError(f"Job '{name}' 'when' value must be one of: {allowed_job_when}")
+
             # check that script is set
             if "trigger" not in job:
                 if "script" not in job:

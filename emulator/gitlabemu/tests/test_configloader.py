@@ -83,8 +83,16 @@ def test_missing_stage():
         loader.load(os.path.join(HERE, "invalid", "stage-missing.yaml"))
     assert "job job1 has stage fish which does not exist" in str(err.value)
 
+
 def test_bad_default_job():
     loader = configloader.Loader()
     with pytest.raises(BadSyntaxError) as err:
         loader.load(os.path.join(HERE, "invalid", "bad_default_job.yaml"))
     assert "default config contains unknown keys:" in str(err.value)
+
+
+def test_bad_when():
+    loader = configloader.Loader()
+    with pytest.raises(BadSyntaxError) as err:
+        loader.load(os.path.join(HERE, "invalid", "bad-when.yml"))
+    assert "'when' value must be one of: ['on_success', 'on_failure', 'always', 'manual', 'delayed']" in str(err.value)
