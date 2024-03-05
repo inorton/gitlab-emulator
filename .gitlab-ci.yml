@@ -252,7 +252,8 @@ needs-artifacts:
 
 run-variable:
   stage: test
-  when: never
+  rules:
+    - when: never
   script:
     - echo RUN_VARIABLE="${RUN_VARIABLE:-/bin/true}"
     - ${RUN_VARIABLE:-/bin/true}
