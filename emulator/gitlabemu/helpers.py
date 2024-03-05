@@ -3,7 +3,6 @@ Various useful common funcs
 """
 from __future__ import print_function
 
-import dataclasses
 import os.path
 import time
 from select import select
