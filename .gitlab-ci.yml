@@ -250,6 +250,12 @@ needs-artifacts:
   script:
     - echo hello
 
+run-variable:
+  stage: test
+  when: never
+  script:
+    - echo RUN_VARIABLE="${RUN_VARIABLE:-/bin/true}"
+    - ${RUN_VARIABLE:-/bin/true}
 
 build-dev-wheel:
   extends: .docker-linux-job

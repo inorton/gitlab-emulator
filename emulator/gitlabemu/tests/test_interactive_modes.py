@@ -71,3 +71,18 @@ def test_noconfig(posix_only, capsys):
     assert ".gitlab-ci.yml not found" in stderr
     assert "Found config:"
     assert "Please re-run from " in stderr
+
+
+def test_pretty_mode(posix_only, capfd, tmp_path):
+    os.chdir(TOPDIR)
+    os.environ["TASKSTATS_DIR"] = str(tmp_path.absolute())
+    runner.run(["run-variable", "-t", "--var", 'RUN_VARIABLE=sleep 15'])
+    stdout, stderr = capfd.readouterr()
+    assert "GLE run-variable /" in stdout
+    assert "GLE run-variable -" in stdout
+
+    # run again, we should see the ETA and %
+    runner.run(["run-variable", "-t", "--var", 'RUN_VARIABLE=sleep 5'])
+    stdout, stderr = capfd.readouterr()
+    assert "%)" in stdout
+    assert "sec remaining" in stdout
