@@ -562,6 +562,14 @@ class RuntimeGlobals:
 
     def __init__(self):
         self.output_thread_type: Optional[type] = ProcessLineProxyThread
+        self.current_job: Optional[str] = None
+        self.requested_jobs: List[str] = []
+        self.session_start_time = 0
+        self.job_start_time = 0
+        self.reset()
+
+    def reset(self):
+        self.output_thread_type = ProcessLineProxyThread
         self.current_job = None
         self.requested_jobs = []
         self.session_start_time = time.monotonic()

@@ -15,6 +15,7 @@ from typing import Optional, Dict
 
 from .. import runner, logmsg, ansi
 from ..jobs import Job
+from ..helpers import GLE_RUNTIME_GLOBALS
 
 
 HEADER_JOB_TOKEN = "Job-Token"
@@ -159,6 +160,7 @@ class JobRunner:
         return request
 
     def poll(self):
+        GLE_RUNTIME_GLOBALS.reset()
         session = get_session()
         request = self.make_job_request()
 

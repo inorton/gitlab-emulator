@@ -575,6 +575,8 @@ def run(args=None):
         if options.gen_script:
             jobfactory = ScriptJobFactory()
 
+        GLE_RUNTIME_GLOBALS.reset()
+
         executed_jobs = set()
         execute_job(loader.config, jobname,
                     seen=executed_jobs,
