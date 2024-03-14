@@ -263,6 +263,7 @@ def execute_job(config: Dict[str, Any],
             for need in jobobj.dependencies:
                 execute_job(config, need, seen=seen, recurse=True, noop=noop, jobfactory=jobfactory, chown=chown)
         print(f">>> execute {jobobj.name}:", file=sys.stderr)
+
         if noop:
             if isinstance(jobobj, DockerJob):
                 print(f"image: {jobobj.docker_image}")
@@ -276,13 +277,14 @@ def execute_job(config: Dict[str, Any],
             GLE_RUNTIME_GLOBALS.current_job = jobobj
             GLE_RUNTIME_GLOBALS.job_start_time = started_time
 
-            if use_runner:
-                try:
+            try:
+                if use_runner:
                     gitlab_runner_exec(jobobj)
-                finally:
+                else:
+                    jobobj.run()
+            finally:
+                if chown:
                     restore_path_ownership(os.getcwd())
-            else:
-                jobobj.run()
 
             put_duration(jobname, int(time.monotonic() - started_time))
         seen.add(jobname)
