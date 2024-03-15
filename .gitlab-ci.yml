@@ -304,6 +304,7 @@ pypi-test:
 pypi-release:
   stage: publish
   extends: pypi-test
+  needs: null
   dependencies:
     - build-release-wheel
   rules:
