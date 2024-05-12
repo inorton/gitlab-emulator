@@ -223,14 +223,15 @@ class Job(object):
         # prefer needs over dependencies
         needed = job.get("needs", job.get("dependencies", []))
         self.dependencies = []
-        for item in needed:
-            if isinstance(item, dict):
-                self.dependencies.append(item.get("job"))
-                if item.get("artifacts", False):
-                    self.needed_artifacts.append(item.get("job"))
-            else:
-                self.dependencies.append(item)
-                self.needed_artifacts.append(item)
+        if needed:
+            for item in needed:
+                if isinstance(item, dict):
+                    self.dependencies.append(item.get("job"))
+                    if item.get("artifacts", False):
+                        self.needed_artifacts.append(item.get("job"))
+                else:
+                    self.dependencies.append(item)
+                    self.needed_artifacts.append(item)
         self.dependencies = list(set(self.dependencies))
 
         if "timeout" in config[self.name]:
