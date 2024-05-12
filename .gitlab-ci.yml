@@ -1,312 +1,299 @@
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/pipeline/#customization
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 include:
-  - local: ci-includes/default_runners.yml
-  - local: ci-includes/gitlab_runners.yml
-    rules:
-      - if: ($CI_SERVER_HOST == "gitlab.com") && ($CI_PROJECT_NAMESPACE == "cunity")
-  - local: ci-includes/alpine-image.yml
-  - local: ci-includes/subdir/jobs.yml
-  - local: ci-includes/optional.yml
-    rules:
-      - if: $INCLUDE_OPTIONAL == "true"
-
-workflow:
-  # only do merge request builds, tags, or main branch builds
+- local: ci-includes/default_runners.yml
+- local: ci-includes/gitlab_runners.yml
   rules:
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-
+  - if: ($CI_SERVER_HOST == "gitlab.com") && ($CI_PROJECT_NAMESPACE == "cunity")
+- local: ci-includes/alpine-image.yml
+- local: ci-includes/subdir/jobs.yml
+- local: ci-includes/optional.yml
+  rules:
+  - if: $INCLUDE_OPTIONAL == "true"
+- template: Security/SAST.gitlab-ci.yml
+workflow:
+  rules:
+  - if: "$CI_MERGE_REQUEST_IID"
+  - if: "$CI_COMMIT_TAG"
+  - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
 variables:
-  DOCKER_TLS_CERTDIR: ""
+  DOCKER_TLS_CERTDIR: ''
   DOCKER_DRIVER: overlay2
-
 stages:
 - build
 - test
 - last
-
-
-.fail-job:
+".fail-job":
   stage: build
   image: busybox:latest
   script:
-    - df -h
-    - /bin/false
-
+  - df -h
+  - "/bin/false"
 emulator-linux-ubuntu1804-install:
-  extends: .docker-linux-job
+  extends: ".docker-linux-job"
   image: ubuntu:18.04
   needs:
-    - build-dev-wheel
+  - build-dev-wheel
   before_script:
-    - apt-get update
-    - apt-get install -y python3 python3-pip
+  - apt-get update
+  - apt-get install -y python3 python3-pip
   script:
-    - cd emulator
-    - pip3 install dist/gitlab_emulator-16.1.999-py3-none-any.whl
-    - cd ..
-    - gle -l
-    - glp --help
-
+  - cd emulator
+  - pip3 install dist/gitlab_emulator-16.1.999-py3-none-any.whl
+  - cd ..
+  - gle -l
+  - glp --help
 emulator-linux-ubuntu2004-install:
   extends:
-    - emulator-linux-ubuntu1804-install
+  - emulator-linux-ubuntu1804-install
   image: ubuntu:20.04
-
 emulator-linux-ubuntu2204-install:
   extends:
-    - emulator-linux-ubuntu1804-install
+  - emulator-linux-ubuntu1804-install
   image:
     name: ubuntu:22.04
-    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
-    
-
-
+    entrypoint:
+    - "/bin/bash"
+    - "-c"
+    - ln -snf /bin/bash /bin/sh && /bin/bash -c $0
 emulator-linux-test_py3.8:
-  extends: .docker-linux-job
+  extends: ".docker-linux-job"
   image:
     name: docker:19.03.12-dind
-    entrypoint: [""]
+    entrypoint:
+    - ''
   stage: build
-  coverage: '/Total coverage: \d+\.\d+%/'
+  coverage: "/Total coverage: \\d+\\.\\d+%/"
   before_script:
-    - nohup dockerd-entrypoint.sh 2>&1 &
+  - nohup dockerd-entrypoint.sh 2>&1 &
   script:
-    - apk add py3-pip py3-yaml git
-    - python3 -m venv /tmp/venv
-    - . /tmp/venv/bin/activate
-    - ps -ef
-    - sleep 5
-    - docker info
-    - pip install -r test_requirements.txt
-    - cd emulator
-    - pip install -e .
-    - sh coverage.sh
-    - python -m build
+  - apk add py3-pip py3-yaml git
+  - python3 -m venv /tmp/venv
+  - ". /tmp/venv/bin/activate"
+  - ps -ef
+  - sleep 5
+  - docker info
+  - pip install -r test_requirements.txt
+  - cd emulator
+  - pip install -e .
+  - sh coverage.sh
+  - python -m build
   artifacts:
     when: always
     paths:
-      - emulator/coverage_html/**
+    - emulator/coverage_html/**
     reports:
       junit:
-        - emulator/test-results.xml
+      - emulator/test-results.xml
       coverage_report:
         coverage_format: cobertura
         path: emulator/pytest-coverage.xml
-
 emulator-linux-test_py3.10:
   extends: emulator-linux-test_py3.8
   image:
     name: docker:20.10.18-dind-alpine3.16
-    entrypoint: [ "" ]
-
-
+    entrypoint:
+    - ''
 emulator-apple-test:
-  extends: .macos-job
+  extends: ".macos-job"
   stage: build
   script:
-    - pip install -r test_requirements.txt
-    - cd emulator
-    - pip install -e .
-    - python3 -m pytest  --junitxml=test-results.xml -vv . --cov-config .coveragerc.apple  --cov-report=xml:pytest-coverage.xml
+  - pip install -r test_requirements.txt
+  - cd emulator
+  - pip install -e .
+  - python3 -m pytest  --junitxml=test-results.xml -vv . --cov-config .coveragerc.apple  --cov-report=xml:pytest-coverage.xml
   artifacts:
     paths:
-      - emulator/coverage_html/**
+    - emulator/coverage_html/**
     reports:
       junit:
-        - emulator/test-results.xml
+      - emulator/test-results.xml
       coverage_report:
         coverage_format: cobertura
         path: emulator/pytest-coverage.xml
-
 emulator-linux-run:
-  extends: .docker-linux-job
+  extends: ".docker-linux-job"
   variables:
     DOCKER_HOST: tcp://docker:2375/
   services:
-    - docker:dind
+  - docker:dind
   stage: build
   timeout: 15m
   image: docker:stable-git
   before_script:
-    - cd emulator
-    - apk add python3
-    - apk add py3-pip py3-yaml
-    - python3 -m venv /tmp/venv
-    - . /tmp/venv/bin/activate
-    - pip install -e .
-    - sh ../wait-for-dockerd.sh
+  - cd emulator
+  - apk add python3
+  - apk add py3-pip py3-yaml
+  - python3 -m venv /tmp/venv
+  - ". /tmp/venv/bin/activate"
+  - pip install -e .
+  - sh ../wait-for-dockerd.sh
   script:
-    - gle-config runner | grep default-docker
-    - gle -c ../test-ci.yml --full linux-build-later
-    - gle -c ../test-ci.yml linux-docker-job
-    - HERE=$(pwd)
-    - cd /tmp && gle -c ${HERE}/../test-ci.yml linux-shell-job
-
+  - gle-config runner | grep default-docker
+  - gle -c ../test-ci.yml --full linux-build-later
+  - gle -c ../test-ci.yml linux-docker-job
+  - HERE=$(pwd)
+  - cd /tmp && gle -c ${HERE}/../test-ci.yml linux-shell-job
 emulator-windows-run:
   stage: build
   rules:
-    - when: manual
-      allow_failure: true
+  - when: manual
+    allow_failure: true
   tags:
-    - cunity-windows-2019-docker-shell
+  - cunity-windows-2019-docker-shell
   script:
-    - cd emulator
-    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job
-    - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-shell-job
-
+  - cd emulator
+  - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-docker-job
+  - c:\python37\python.exe locallab.py -c ..\test-ci.yml windows-shell-job
 emulator-windows-test:
   stage: build
   tags:
-    - shared-windows
-    - windows
-    - windows-1809
+  - shared-windows
+  - windows
+  - windows-1809
   script:
-    - choco install -y python --version=3.8.0
-    - c:\python38\python -m pip install --upgrade pip==23.3.1
-    - c:\python38\python -m pip install -r test_requirements.txt
-    - cd emulator
-    - c:\python38\python -m pip install -e .
-    - c:\python38\python -m pytest -vv . --cov gitlabemu --cov-config .coveragerc.windows
-
+  - choco install -y python --version=3.8.0
+  - c:\python38\python -m pip install --upgrade pip==23.3.1
+  - c:\python38\python -m pip install -r test_requirements.txt
+  - cd emulator
+  - c:\python38\python -m pip install -e .
+  - c:\python38\python -m pytest -vv . --cov gitlabemu --cov-config .coveragerc.windows
 envs:
   extends:
-    - .docker-linux-job
+  - ".docker-linux-job"
   stage: build
   image: alpine:3.14
   script:
-    - env|grep ^CI_|sort
-    - env|grep DOCKER
-
+  - env|grep ^CI_|sort
+  - env|grep DOCKER
 from-gitlab-list:
   extends:
-    - .docker-linux-job
+  - ".docker-linux-job"
   stage: last
   image: python:3.7
   needs:
-    - job: emulator-linux-test_py3.10
-      artifacts: false
+  - job: emulator-linux-test_py3.10
+    artifacts: false
   before_script:
-    - python3 -m venv /tmp/venv
-    - . /tmp/venv/bin/activate
-    - pip install -e emulator
+  - python3 -m venv /tmp/venv
+  - ". /tmp/venv/bin/activate"
+  - pip install -e emulator
   script:
-    - echo " == listing all jobs in current pipeline ${CI_PROJECT_PATH}/${CI_PIPELINE_ID} .. "
-    - gle --list --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
-
+  - echo " == listing all jobs in current pipeline ${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
+    .. "
+  - gle --list --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
 from-gitlab-export:
   extends:
-    - .docker-linux-job
+  - ".docker-linux-job"
   stage: last
   image: python:3.7
   needs:
-    - job: emulator-linux-test_py3.10
-      artifacts: false
+  - job: emulator-linux-test_py3.10
+    artifacts: false
   before_script:
-    - python3 -m venv /tmp/venv
-    - . /tmp/venv/bin/activate
-    - pip install -e emulator
+  - python3 -m venv /tmp/venv
+  - ". /tmp/venv/bin/activate"
+  - pip install -e emulator
   script:
-    - echo " == listing complted jobs in current pipeline ${CI_PROJECT_PATH}/${CI_PIPELINE_ID} .. "
-    - gle --list --completed --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
-    - echo " == exporting  emulator-linux-test completed job .. "
-    - gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export archive  emulator-linux-test
-    - find archive -type f
-
+  - echo " == listing complted jobs in current pipeline ${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
+    .. "
+  - gle --list --completed --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}
+  - echo " == exporting  emulator-linux-test completed job .. "
+  - gle --from ${CI_SERVER_HOST}/${CI_PROJECT_PATH}/${CI_PIPELINE_ID} --export archive  emulator-linux-test
+  - find archive -type f
 quick:
   extends:
-    - .docker-linux-job
+  - ".docker-linux-job"
   image: alpine:3.14
   stage: build
   script:
-    - date > date.txt
+  - date > date.txt
   artifacts:
     paths:
-      - date.txt
-
+    - date.txt
 needs-no-artifacts:
   extends:
-    - .docker-linux-job
+  - ".docker-linux-job"
   image: alpine:3.14
   stage: test
   needs:
-    - job: quick
-      artifacts: false
+  - job: quick
+    artifacts: false
   script:
-    - mkdir date.txt # will fail if date.txt was fetched from the quick job
-
+  - mkdir date.txt
 needs-artifacts:
   extends:
-    - .docker-linux-job
+  - ".docker-linux-job"
   image: alpine:3.14
   stage: test
-  needs: [ quick ]
+  needs:
+  - quick
   script:
-    - ls -l date.txt
-
-.echo:
+  - ls -l date.txt
+".echo":
   stage: test
   script:
-    - echo hello
-
+  - echo hello
 run-variable:
   stage: test
   rules:
-    - when: never
+  - when: never
   script:
-    - echo RUN_VARIABLE="${RUN_VARIABLE:-/bin/true}"
-    - ${RUN_VARIABLE:-/bin/true}
-
+  - echo RUN_VARIABLE="${RUN_VARIABLE:-/bin/true}"
+  - "${RUN_VARIABLE:-/bin/true}"
 build-dev-wheel:
-  extends: .docker-linux-job
+  extends: ".docker-linux-job"
   stage: build
   image: python:3.11
   before_script:
-    - pip install build wheel
+  - pip install build wheel
   script:
-    - cd emulator
-    - python3 -m build -n -w
+  - cd emulator
+  - python3 -m build -n -w
   artifacts:
     paths:
-      - emulator/dist/*.whl
-
+    - emulator/dist/*.whl
 build-release-wheel:
   extends: build-dev-wheel
   rules:
-    - if: $CI_COMMIT_TAG
-    - when: never
+  - if: "$CI_COMMIT_TAG"
+  - when: never
   script:
-    - cd emulator
-    - sed -i "s/version = 16.1.999/version = $CI_COMMIT_TAG/g" setup.cfg
-    - python3 -m build -n -w
-
+  - cd emulator
+  - sed -i "s/version = 16.1.999/version = $CI_COMMIT_TAG/g" setup.cfg
+  - python3 -m build -n -w
 pypi-test:
-  extends: .docker-linux-job
+  extends: ".docker-linux-job"
   stage: build
   image: python:3.11
   rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - when: manual
-      allow_failure: true
+  - if: "$CI_COMMIT_TAG"
+    when: never
+  - when: manual
+    allow_failure: true
   needs:
-    - build-dev-wheel
+  - build-dev-wheel
   variables:
-    TWINE_PASSWORD: ${PYPI_TEST_TOKEN}
-    TWINE_ARGS: -r testpypi
+    TWINE_PASSWORD: "${PYPI_TEST_TOKEN}"
+    TWINE_ARGS: "-r testpypi"
   script:
-    - cd emulator
-    - pip install wheel twine
-    - TWINE_USERNAME=__token__ python3 -m twine upload ${TWINE_ARGS} dist/*.whl
-
+  - cd emulator
+  - pip install wheel twine
+  - TWINE_USERNAME=__token__ python3 -m twine upload ${TWINE_ARGS} dist/*.whl
 pypi-release:
   extends: pypi-test
   needs:
-    - build-release-wheel
+  - build-release-wheel
   rules:
-    - if: $CI_COMMIT_TAG
-    - when: never
+  - if: "$CI_COMMIT_TAG"
+  - when: never
   variables:
-    TWINE_PASSWORD: ${PYPI_UPLOAD_TOKEN}
-    TWINE_ARGS: ""
+    TWINE_PASSWORD: "${PYPI_UPLOAD_TOKEN}"
+    TWINE_ARGS: ''
+sast:
+  stage: test
