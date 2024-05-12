@@ -196,7 +196,7 @@ class DockerTool(object):
                 cmdline.extend(["-e", name])
         return cmdline
 
-    def run(self):
+    def run(self, detached=True, args: Optional[List[str]] = None):
         priv = self.privileged and not is_windows()
         if self.is_windows_hyperv():  # pragma: cover if windows
             warning("windows hyperv container support is very experimental, YMMV")
@@ -214,11 +214,12 @@ class DockerTool(object):
                 else:
                     self.entrypoint = None
             info(f"launching image {self.image} as container {self.name} ..")
-            cmdline = [
-                "run",
-                "-d",
-                "--name", self.name,
-            ]
+
+            cmdline = ["run"]
+            if detached:
+                cmdline.append("-d")
+            cmdline.extend(["--name", self.name])
+
             if not is_windows():
                 if self.entrypoint is not None:
                     cmdline.extend(["--entrypoint", str(self.entrypoint)])
@@ -237,6 +238,9 @@ class DockerTool(object):
             if not is_windows():
                 if self.entrypoint == "":
                     cmdline.append("/bin/sh")
+
+            if args:
+                cmdline.extend(args)
 
             proc = self.docker_call(*cmdline)
             self.container = proc.stdout.strip()

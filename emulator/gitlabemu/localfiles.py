@@ -18,12 +18,8 @@ def restore_path_ownership(path):
                 dt.image = "python:3.9-alpine3.14"
                 dt.privileged = False
                 dt.add_volume(path, path)
-                dt.entrypoint = "/bin/sh"
+                dt.add_volume(chowner, "/chown.py")
+
                 if not dt.image_present:
                     dt.pull()
-                dt.run()
-                try:
-                    dt.add_file(chowner, "/tmp")
-                    dt.check_call(path, ["python", "/tmp/chown.py", str(os.getuid()), str(os.getgid())])
-                finally:
-                    dt.kill()
+                dt.run(detached=False, args=["python3", "/chown.py", str(os.getuid()), str(os.getgid()), path])
