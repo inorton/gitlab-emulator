@@ -151,9 +151,7 @@ emulator-windows-run:
 emulator-windows-test:
   stage: build
   tags:
-    - shared-windows
-    - windows
-    - windows-1809
+    - saas-windows-medium-amd64
   script:
     - choco install -y python --version=3.8.0
     - c:\python38\python -m pip install --upgrade pip==23.3.1
