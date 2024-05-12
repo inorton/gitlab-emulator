@@ -22,4 +22,4 @@ def restore_path_ownership(path):
 
                 if not dt.image_present:
                     dt.pull()
-                dt.run(detached=False, args=["python3", "/chown.py", str(os.getuid()), str(os.getgid()), path])
+                dt.run(detached=False, args=["python3", "/chown.py", str(os.getuid()), str(os.getgid()), str(path)])
