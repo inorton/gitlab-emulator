@@ -226,9 +226,10 @@ class Job(object):
         if needed:
             for item in needed:
                 if isinstance(item, dict):
-                    self.dependencies.append(item.get("job"))
-                    if item.get("artifacts", False):
-                        self.needed_artifacts.append(item.get("job"))
+                    if not item.get("optional", False):
+                        self.dependencies.append(item.get("job"))
+                        if item.get("artifacts", False):
+                            self.needed_artifacts.append(item.get("job"))
                 else:
                     self.dependencies.append(item)
                     self.needed_artifacts.append(item)

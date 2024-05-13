@@ -495,7 +495,11 @@ class ValidatorMixin:
                 for need in needs:
                     # check the needed job exists
                     if isinstance(need, dict):
+                        # map form, skip optionals
+                        if need.get("optional", True):
+                            continue
                         need = need["job"]
+
                     if need not in jobs:
                         raise ConfigLoaderError("job {} needs job {} which does not exist".format(name, need))
 
