@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 import json
+import getpass
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Optional, List, Any
@@ -593,13 +594,25 @@ class DockerJob(Job):
                     if not is_windows():  # pragma: cover if not windows
                         # try to make a more functional user account inside the container, this may not always
                         # work due to missing tools, but it's worth a try
+                        username = "gle"
+                        groupname = username
+                        if not is_windows():
+                            # try to get the running user's name
+                            try:
+                                username = getpass.getuser()
+                            except:
+                                pass
+
                         _homedir = "/gle-tmp-home"
-                        _passwd = f"gle:x:{self._shell_uid}:{self._shell_gid}:gitlab-emulator:{_homedir}:/bin/sh"
-                        _shadow = f"gle:!:{self._shell_uid}::::::"
+                        _passwd = f"{username}:x:{self._shell_uid}:{self._shell_gid}:gitlab-emulator:{_homedir}:/bin/sh"
+                        _group = f"{groupname}:x:{self._shell_gid}:"
+                        _shadow = f"{username}:!:{self._shell_uid}::::::"
                         try:
                             info(f"setting up interactive user with uid={self._shell_uid}..")
                             self.docker.check_call("/",
                                                    ["sh", "-c", f"echo {_passwd} >> /etc/passwd"], capture=True)
+                            self.docker.check_call("/",
+                                                   ["sh", "-c", f"echo {_group} >> /etc/group"], capture=True)
                             self.docker.check_call("/",
                                                    ["sh", "-c", f"echo {_shadow} >> /etc/shadow"], capture=True)
                             self.docker.check_call("/",
