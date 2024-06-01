@@ -624,7 +624,9 @@ class DockerJob(Job):
                             # append this user to the sudoers file
                             info(f"granting sudo inside container..")
                             self.docker.check_call("/",
-                                                   ["sh", "-c", f"echo 'gle ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers"])
+                                                   [
+                                                       "sh", "-c",
+                                                       f"echo '{username} ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers"])
                             info("interactive user setup completed.")
                         except subprocess.CalledProcessError:
                             warning("interactive user setup failed, some features may not work fully.")
